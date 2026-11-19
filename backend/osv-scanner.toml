@@ -9,15 +9,6 @@
 # directly above its entry. `deployment_tests::an_advisory_is_ignored_only_while_its_crate_is_locked`
 # enforces this. Mirror every entry in /backend/.cargo/audit.toml.
 
-# GHSA-qwgh-2vcv-g2f7 (crate block-buffer): a caught panic inside a hash update can leave
-# block-buffer 0.10's cursor out of bounds. It reaches us only through sqlx 0.9 -> sha2 0.10,
-# where sha2 hashes PostgreSQL SCRAM credentials and migration checksums and nothing catches
-# a panic mid-hash; the app has no such catch either. The fix is block-buffer 0.12.1 on the
-# sha2 0.11 line, which no sqlx release uses yet. Drop this once sqlx moves to sha2 0.11.
-[[IgnoredVulns]]
-id = "GHSA-qwgh-2vcv-g2f7"
-reason = "Only reachable by catching a panic mid-hash, which neither sqlx nor the app does; waiting on sqlx to adopt sha2 0.11"
-
 # RUSTSEC-2026-0459 (crate libsqlite3-sys): the bundled SQLite before 3.54.0 can return
 # uninitialized page-cache memory when a database file is opened together with a crafted
 # sibling `-wal` file. The crate reaches Cargo.lock only through sqlx 0.9's optional
@@ -28,3 +19,22 @@ reason = "Only reachable by catching a panic mid-hash, which neither sqlx nor th
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0459"
 reason = "libsqlite3-sys is an optional sqlx-sqlite dependency this build never compiles (PostgreSQL only); sqlx 0.9.0 pins it below the fixed 0.39"
+
+# RUSTSEC-2026-0543 (crate chrono): an "unmaintained" notice, not a vulnerability: no flaw
+# is reported in any version and there is no fixed version to move to. Moving this code to
+# another date library would not take chrono out of Cargo.lock, because rmcp and arrow
+# (through duckdb) depend on it unconditionally. Drop this, and plan the move off chrono,
+# once rmcp and arrow no longer require it; reassess at once if a vulnerability is filed
+# against chrono (it gets its own ID, which this entry does not cover).
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0543"
+reason = "Unmaintained notice with no known vulnerability; rmcp and arrow (via duckdb) hard-depend on chrono, so it cannot leave the lockfile yet"
+
+# RUSTSEC-2026-0555 (crate chrono-tz): an "unmaintained" notice, not a vulnerability: no
+# flaw is reported in any version and there is no fixed version. The app uses it only to
+# resolve `TZ` into the clock's zone, from the zone database compiled into the binary.
+# It leaves together with chrono (see RUSTSEC-2026-0543); reassess at once if a
+# vulnerability is filed against chrono-tz.
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0555"
+reason = "Unmaintained notice with no known vulnerability; resolves TZ for the app clock and leaves together with chrono"
