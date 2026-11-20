@@ -160,55 +160,24 @@ fn retention_keeps_latest_and_five_tagged_versions_weekly() {
 
 // @spec DEPLOY-CI-007
 #[test]
-fn renovate_pins_groups_soaks_and_labels_as_agreed() {
+fn renovate_takes_its_policy_from_the_shared_preset() {
     let config = json_without_comments(RENOVATE);
     assert!(
         RENOVATE.contains("@spec DEPLOY-CI-007"),
         "the config carries its spec"
     );
-    let rules = config["packageRules"].as_array().unwrap();
-    let rule = |pred: &dyn Fn(&serde_json::Value) -> bool| {
-        rules
-            .iter()
-            .find(|r| pred(r))
-            .unwrap_or_else(|| panic!("no matching rule"))
-    };
-    let types = |r: &serde_json::Value| -> Vec<String> {
-        serde_json::from_value(r["matchUpdateTypes"].clone()).unwrap_or_default()
-    };
-    let minor_patch = |r: &serde_json::Value| types(r) == ["minor", "patch"];
-
-    assert_eq!(
-        rule(&|r| r["pinDigests"] == true)["matchCategories"][0],
-        "docker"
-    );
-    let group = rule(&|r| minor_patch(r) && r.get("groupName").is_some());
-    assert_eq!(group["automerge"], true);
-    assert_eq!(
-        rule(&|r| minor_patch(r) && r.get("minimumReleaseAge").is_some())["minimumReleaseAge"],
-        "3 days"
-    );
-    let common = rule(&|r| {
-        r["matchPackageNames"]
-            .as_array()
-            .is_some_and(|n| n.contains(&"postgres".into()))
-    });
-    assert_eq!(common["minimumReleaseAge"], "1 day");
-    let digest = rule(&|r| types(r) == ["digest"]);
-    assert_eq!(
-        (digest["automerge"].clone(), digest["schedule"][0].clone()),
-        (true.into(), "at any time".into())
-    );
-    let major = rule(&|r| types(r) == ["major"]);
-    assert_eq!(major["automerge"], false);
-    assert_eq!(major["labels"][0], "major-update");
-    assert_eq!(config["prConcurrentLimit"], 3);
-    assert_eq!(config["lockFileMaintenance"]["enabled"], true);
-    assert_eq!(
-        config["lockFileMaintenance"]["schedule"][0],
-        "before 4am on monday"
-    );
-    assert_eq!(config["vulnerabilityAlerts"]["labels"][0], "security");
+    let extends: Vec<String> = serde_json::from_value(config["extends"].clone()).unwrap();
+    assert_eq!(extends, ["github>tgrecojr/renovate-config"]);
+    // Pinning, grouping, the 7-day age and the labels are the preset's. A key
+    // added here could loosen them, so the config holds nothing else.
+    let mut keys: Vec<&str> = config
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort_unstable();
+    assert_eq!(keys, ["$schema", "extends"]);
 }
 
 // @spec DEPLOY-CI-008
