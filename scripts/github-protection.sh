@@ -14,13 +14,20 @@ REPO="tgrecojr/turfops"
 # The whole protection on main. A PUT replaces it, so every field is stated:
 # - a PR is required, with no approvals (the owner is the only reviewer);
 # - GitGuardian stays a required, up-to-date check (a leaked secret cannot be undone);
-# - the owner keeps an emergency path (enforce_admins off) and CI jobs are not required
-#   checks: policy carries what enforcement does not (deployment design, Decisions);
+# - the Backend, Frontend, Supply-chain and image-build jobs are required too, because
+#   Renovate auto-merges dependency updates and nothing else would stop a red one;
+# - the owner keeps an emergency path (enforce_admins off): deployment design, Decisions;
 # - force-pushes and deleting main stay off.
 PROTECTION='{
   "required_status_checks": {
     "strict": true,
-    "checks": [{ "context": "GitGuardian Security Checks", "app_id": 46505 }]
+    "checks": [
+      { "context": "GitGuardian Security Checks", "app_id": 46505 },
+      { "context": "Backend (Rust)", "app_id": 15368 },
+      { "context": "Frontend (React/TypeScript)", "app_id": 15368 },
+      { "context": "Supply chain / Scan", "app_id": 15368 },
+      { "context": "build-and-push", "app_id": 15368 }
+    ]
   },
   "enforce_admins": false,
   "required_pull_request_reviews": {
@@ -48,7 +55,7 @@ live() {
   protection=$(gh api "repos/$REPO/branches/main/protection" --jq '{
     required_status_checks: {
       strict: .required_status_checks.strict,
-      checks: [.required_status_checks.checks[] | {context, app_id}]
+      checks: ([.required_status_checks.checks[] | {context, app_id}] | sort_by(.context))
     },
     enforce_admins: .enforce_admins.enabled,
     required_pull_request_reviews: (.required_pull_request_reviews | {
@@ -69,7 +76,8 @@ live() {
 }
 
 desired() {
-  jq -S -n --argjson p "$PROTECTION" --argjson r "$REPO_SETTINGS" '$p + $r'
+  jq -S -n --argjson p "$PROTECTION" --argjson r "$REPO_SETTINGS" \
+    '($p | .required_status_checks.checks |= sort_by(.context)) + $r'
 }
 
 check() {
