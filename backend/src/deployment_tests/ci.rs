@@ -44,11 +44,18 @@ fn ci_gates_the_backend_with_postgres_and_the_frontend_on_node_26() {
         "run: cargo fmt --check",
         "run: cargo clippy -- -D warnings",
         "run: cargo test --features db-tests",
-        "image: postgres:18\n",
         "DATABASE_URL: postgres://",
     ] {
         assert!(backend.contains(step), "backend: {step}");
     }
+    // The tag may carry a digest: Renovate pins `postgres:18@sha256:...`.
+    assert!(
+        backend
+            .lines()
+            .map(str::trim)
+            .any(|l| { l == "image: postgres:18" || l.starts_with("image: postgres:18@sha256:") }),
+        "backend: postgres:18 service"
+    );
     let frontend = job(CI, "frontend");
     for step in ["node-version: 26", "run: npm ci\n", "run: npm run lint"] {
         assert!(frontend.contains(step), "frontend: {step}");
