@@ -29,7 +29,7 @@ Three stages, every base image pinned by digest (Renovate maintains the digests)
 | `backend-build` | `rust:1.99-slim-trixie` | `cargo build --release` → `/app/target/release/turfops-backend` |
 | runtime | `cgr.dev/chainguard/glibc-dynamic:latest@sha256:…` | `/app/turfops-backend`, `/app/static`, `/usr/share/zoneinfo` |
 
-**No install scripts.** The frontend stage installs with `--ignore-scripts`, the same policy as the supply-chain scan, so no package's lifecycle script runs in the image build. No dependency in the lockfile declares an install script; one that genuinely needs it would be named in the Dockerfile with the reason.
+**No install scripts.** The frontend stage installs with `--ignore-scripts`, the same policy as the supply-chain scan, so no package's lifecycle script runs in the image build. `frontend/.npmrc` sets the same policy (`ignore-scripts=true`) for every other npm install, with `min-release-age=7` so npm resolves no version published in the last seven days; the stage copies it in before `npm ci`. No dependency in the lockfile declares an install script; one that genuinely needs it would be named in the Dockerfile with the reason.
 
 **Native toolchain.** The build stage installs `g++` because the `duckdb` crate is built with `bundled` (its C++ amalgamation compiles into the binary) and `tzdata` only so its files can be copied forward.
 

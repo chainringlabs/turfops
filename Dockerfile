@@ -2,7 +2,7 @@
 # Stage 1: Build frontend
 FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS frontend-build
 WORKDIR /app/frontend
-COPY frontend/package*.json ./
+COPY frontend/package*.json frontend/.npmrc ./
 # @spec DEPLOY-IMAGE-010
 # No package lifecycle scripts, as in the supply-chain scan: nothing in the build needs one.
 RUN npm ci --ignore-scripts
