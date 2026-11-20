@@ -189,6 +189,11 @@ fn the_branch_protection_script_states_the_agreed_settings() {
         // GitGuardian stays a required, up-to-date check.
         r#""context": "GitGuardian Security Checks", "app_id": 46505"#,
         r#""strict": true"#,
+        // So do the CI jobs: nothing else stops a red auto-merged dependency update.
+        r#""context": "Backend (Rust)", "app_id": 15368"#,
+        r#""context": "Frontend (React/TypeScript)", "app_id": 15368"#,
+        r#""context": "Supply chain / Scan", "app_id": 15368"#,
+        r#""context": "build-and-push", "app_id": 15368"#,
         // The owner keeps an emergency path; force-pushes and deleting main stay off.
         r#""enforce_admins": false"#,
         r#""allow_force_pushes": false"#,
