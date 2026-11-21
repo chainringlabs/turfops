@@ -96,7 +96,7 @@ jobs:
         run: npm test
 
   # The organization's shared scan, pointed at this repository's two lockfiles.
-  # @spec DEPLOY-CI-002, DEPLOY-CI-003, DEPLOY-CI-011
+  # @spec DEPLOY-CI-002, DEPLOY-CI-003, DEPLOY-CI-011, DEPLOY-CI-012
   supply-chain:
     name: Supply chain
     permissions:
@@ -107,4 +107,5 @@ jobs:
       cargo-dir: backend
       socket-dir: frontend
       node-version: "26"
+      cargo-deny: true
     secrets: inherit
