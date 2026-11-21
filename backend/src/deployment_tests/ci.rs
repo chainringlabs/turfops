@@ -193,10 +193,8 @@ fn the_branch_protection_script_states_the_agreed_settings() {
     for setting in [
         // A PR is required, with no approvals (the owner is the only reviewer).
         r#""required_approving_review_count": 0"#,
-        // GitGuardian stays a required, up-to-date check.
-        r#""context": "GitGuardian Security Checks", "app_id": 46505"#,
         r#""strict": true"#,
-        // So do the CI jobs: nothing else stops a red auto-merged dependency update.
+        // The CI jobs are required: nothing else stops a red auto-merged dependency update.
         r#""context": "Backend (Rust)", "app_id": 15368"#,
         r#""context": "Frontend (React/TypeScript)", "app_id": 15368"#,
         r#""context": "Supply chain / Scan", "app_id": 15368"#,
@@ -213,6 +211,14 @@ fn the_branch_protection_script_states_the_agreed_settings() {
     assert!(PROTECTION.contains("check)") && PROTECTION.contains("apply)"));
     assert!(PROTECTION.contains(r#"REPO="chainringlabs/turfops""#));
     assert!(PROTECTION.contains("repos/$REPO/branches/main/protection"));
+    // GitGuardian is the organization's rule: the script checks it is in force and
+    // does not repeat it in the repository's own protection.
+    assert!(PROTECTION.contains("repos/$REPO/rules/branches/main"));
+    assert!(PROTECTION.contains(r#""gitguardian_required": true"#));
+    assert!(
+        !PROTECTION.contains(r#""context": "GitGuardian Security Checks""#),
+        "GitGuardian is not repeated in the repository's protection"
+    );
     assert!(
         !PROTECTION.contains("GITHUB_TOKEN="),
         "no token in the script"
