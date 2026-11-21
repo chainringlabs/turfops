@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # @spec DEPLOY-CI-008
-# GitHub settings that keep every change to main going through a pull request.
+# GitHub settings that keep every change to main going through a pull request: the
+# repository's own protection, plus a check that the organization's ruleset is in force.
 #
 #   scripts/github-protection.sh [check|apply]     (default: check)
 #
@@ -11,18 +12,17 @@ set -euo pipefail
 
 REPO="chainringlabs/turfops"
 
-# The whole protection on main. A PUT replaces it, so every field is stated:
+# The repository's own protection on main. A PUT replaces it, so every field is stated:
 # - a PR is required, with no approvals (the owner is the only reviewer);
-# - GitGuardian stays a required, up-to-date check (a leaked secret cannot be undone);
-# - the Backend, Frontend, Supply-chain and image-build jobs are required too, because
-#   Renovate auto-merges dependency updates and nothing else would stop a red one;
+# - the Backend, Frontend, Supply-chain and image-build jobs are required, up-to-date
+#   checks, because Renovate auto-merges dependency updates and nothing else would stop
+#   a red one;
 # - the owner keeps an emergency path (enforce_admins off): deployment design, Decisions;
 # - force-pushes and deleting main stay off.
 PROTECTION='{
   "required_status_checks": {
     "strict": true,
     "checks": [
-      { "context": "GitGuardian Security Checks", "app_id": 46505 },
       { "context": "Backend (Rust)", "app_id": 15368 },
       { "context": "Frontend (React/TypeScript)", "app_id": 15368 },
       { "context": "Supply chain / Scan", "app_id": 15368 },
@@ -49,9 +49,22 @@ PROTECTION='{
 # Repository settings: merged PR branches are deleted.
 REPO_SETTINGS='{ "delete_branch_on_merge": true }'
 
+# What the organization's ruleset must contribute on main. It is set once for every
+# repository in the organization, so this script only checks it:
+# - a PR is required, and force-pushes and deleting main are forbidden;
+# - GitGuardian is a required check (a leaked secret cannot be undone).
+ORG_BASELINE='{
+  "org_baseline": {
+    "pull_request": true,
+    "gitguardian_required": true,
+    "non_fast_forward": true,
+    "deletion": true
+  }
+}'
+
 # The live settings in the same shape as the desired ones, keys sorted.
 live() {
-  local protection repo
+  local protection repo org
   protection=$(gh api "repos/$REPO/branches/main/protection" --jq '{
     required_status_checks: {
       strict: .required_status_checks.strict,
@@ -72,17 +85,26 @@ live() {
     allow_fork_syncing: .allow_fork_syncing.enabled
   }')
   repo=$(gh api "repos/$REPO" --jq '{delete_branch_on_merge}')
-  jq -S -n --argjson p "$protection" --argjson r "$repo" '$p + $r'
+  org=$(gh api "repos/$REPO/rules/branches/main" --jq '
+    [.[] | select(.ruleset_source_type == "Organization")] as $rules
+    | {org_baseline: {
+        pull_request: any($rules[]; .type == "pull_request"),
+        gitguardian_required: any($rules[]; .type == "required_status_checks" and
+          any(.parameters.required_status_checks[]; .context == "GitGuardian Security Checks")),
+        non_fast_forward: any($rules[]; .type == "non_fast_forward"),
+        deletion: any($rules[]; .type == "deletion")
+      }}')
+  jq -S -n --argjson p "$protection" --argjson r "$repo" --argjson o "$org" '$p + $r + $o'
 }
 
 desired() {
-  jq -S -n --argjson p "$PROTECTION" --argjson r "$REPO_SETTINGS" \
-    '($p | .required_status_checks.checks |= sort_by(.context)) + $r'
+  jq -S -n --argjson p "$PROTECTION" --argjson r "$REPO_SETTINGS" --argjson o "$ORG_BASELINE" \
+    '($p | .required_status_checks.checks |= sort_by(.context)) + $r + $o'
 }
 
 check() {
   if diff <(desired) <(live) >/dev/null; then
-    echo "main protection and repo settings match."
+    echo "main protection, repo settings and the organization baseline match."
   else
     echo "Differences (< wanted, > live):"
     diff <(desired) <(live) || true
