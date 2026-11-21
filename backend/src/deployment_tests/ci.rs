@@ -104,14 +104,33 @@ fn without_the_socket_secret_only_the_socket_step_is_skipped() {
     assert!(socket < condition && condition < next_step);
 }
 
+/// The `image` job: a call of the organization's shared publish workflow,
+/// which holds the build, push, signing and attestation steps for every repo.
+fn shared_publish_call() -> String {
+    let image = job(PUBLISH, "image");
+    let reference = image
+        .lines()
+        .find_map(|l| {
+            l.trim()
+                .strip_prefix("uses: chainringlabs/ci/.github/workflows/docker-publish.yml@")
+        })
+        .expect("the image job calls the shared publish workflow");
+    let sha = reference.split_whitespace().next().unwrap_or_default();
+    assert!(
+        sha.len() == 40 && sha.chars().all(|c| c.is_ascii_hexdigit()),
+        "the shared workflow is pinned to a full commit sha"
+    );
+    image
+}
+
 // @spec DEPLOY-CI-004
 #[test]
 fn a_pr_builds_the_image_after_the_scan_without_pushing() {
     assert!(PUBLISH.contains("  pull_request:\n    branches: [main]"));
-    let build = job(PUBLISH, "build-and-push");
-    assert!(build.contains("needs: supply-chain"));
+    // The shared workflow builds without pushing on pull requests.
+    let image = shared_publish_call();
+    assert!(image.contains("needs: supply-chain"));
     assert!(job(PUBLISH, "supply-chain").contains("uses: ./.github/workflows/supply-chain.yml"));
-    assert!(build.contains("push: ${{ github.event_name != 'pull_request' }}"));
     assert!(
         super::DOCKERFILE.contains("RUN npm run build"),
         "the image build includes the frontend build"
@@ -122,32 +141,25 @@ fn a_pr_builds_the_image_after_the_scan_without_pushing() {
 #[test]
 fn main_and_tags_push_a_signed_attested_image_to_ghcr() {
     assert!(PUBLISH.contains("    branches: [main]\n    tags: [\"v*\"]"));
-    assert!(
-        PUBLISH.contains("REGISTRY: ghcr.io")
-            && PUBLISH.contains("IMAGE_NAME: ${{ github.repository }}")
-    );
-    let build = job(PUBLISH, "build-and-push");
+    // Tagging, pushing, cosign signing and the two attestations are the shared
+    // workflow's; this repository grants what they need and nothing wider.
+    let image = shared_publish_call();
     for expected in [
-        "type=raw,value=latest,enable={{is_default_branch}}",
-        "type=semver,pattern={{version}}",
-        "type=sha",
+        "contents: read",
+        "packages: write",
         "id-token: write",
-        "run: cosign sign --yes \"${IMAGE}@${DIGEST}\"",
-        "format: spdx-json",
-        "uses: actions/attest@",
-        "sbom-path: sbom.spdx.json",
-        "uses: actions/attest-build-provenance@",
+        "attestations: write",
+        "artifact-metadata: write",
     ] {
-        assert!(build.contains(expected), "{expected}");
+        assert!(image.contains(expected), "{expected}");
     }
-    let pushed_only = build
-        .split("- name:")
-        .skip(1)
-        .filter(|step| step.contains("cosign") || step.contains("attest") || step.contains("SBOM"))
-        .all(|step| step.contains("if: github.event_name != 'pull_request'"));
     assert!(
-        pushed_only,
-        "signing and attestations only for pushed images"
+        PUBLISH.contains("\npermissions: {}\n"),
+        "no permission is granted workflow-wide"
+    );
+    assert!(
+        !PUBLISH.contains("cosign sign") && !PUBLISH.contains("runs-on:"),
+        "this repository carries no signing steps of its own"
     );
 }
 
@@ -201,7 +213,7 @@ fn the_branch_protection_script_states_the_agreed_settings() {
         r#""context": "Backend (Rust)", "app_id": 15368"#,
         r#""context": "Frontend (React/TypeScript)", "app_id": 15368"#,
         r#""context": "Supply chain / Scan", "app_id": 15368"#,
-        r#""context": "build-and-push", "app_id": 15368"#,
+        r#""context": "image / Build", "app_id": 15368"#,
         // The owner keeps an emergency path; force-pushes and deleting main stay off.
         r#""enforce_admins": false"#,
         r#""allow_force_pushes": false"#,

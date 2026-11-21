@@ -26,7 +26,7 @@ PROTECTION='{
       { "context": "Backend (Rust)", "app_id": 15368 },
       { "context": "Frontend (React/TypeScript)", "app_id": 15368 },
       { "context": "Supply chain / Scan", "app_id": 15368 },
-      { "context": "build-and-push", "app_id": 15368 }
+      { "context": "image / Build", "app_id": 15368 }
     ]
   },
   "enforce_admins": false,
