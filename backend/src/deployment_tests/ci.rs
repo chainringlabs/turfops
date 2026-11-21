@@ -174,7 +174,7 @@ fn renovate_takes_its_policy_from_the_shared_preset() {
         "the config carries its spec"
     );
     let extends: Vec<String> = serde_json::from_value(config["extends"].clone()).unwrap();
-    assert_eq!(extends, ["github>tgrecojr/renovate-config"]);
+    assert_eq!(extends, ["github>chainringlabs/renovate-config"]);
     // Pinning, grouping, the 7-day age and the labels are the preset's. A key
     // added here could loosen them, so the config holds nothing else.
     let mut keys: Vec<&str> = config
