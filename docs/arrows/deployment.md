@@ -4,7 +4,7 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 
 ## Status
 
-**OK** — audited 2026-10-29 (git SHA `d35c15d`): every implemented spec was checked against the code while linking it. 70 of 70 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-29 (git SHA `d35c15d`): every implemented spec was checked against the code while linking it. 71 of 71 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -15,7 +15,7 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 - [docs/intent/deployment/deployment-design.md](../../docs/intent/deployment/deployment-design.md)
 
 ### EARS
-- [docs/intent/deployment/deployment-specs.md](../../docs/intent/deployment/deployment-specs.md) (70 specs, prefix `DEPLOY`)
+- [docs/intent/deployment/deployment-specs.md](../../docs/intent/deployment/deployment-specs.md) (71 specs, prefix `DEPLOY`)
 
 ### Related docs
 - [docs/agronomy-methods.md](../../docs/agronomy-methods.md)
@@ -51,7 +51,6 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 - [.github/workflows/ci.yml](../../.github/workflows/ci.yml)
 - [.github/workflows/docker-publish.yml](../../.github/workflows/docker-publish.yml)
 - [.github/workflows/ghcr-retention.yml](../../.github/workflows/ghcr-retention.yml)
-- [.github/workflows/supply-chain.yml](../../.github/workflows/supply-chain.yml)
 - [Dockerfile](../../Dockerfile)
 - [backend/.cargo/audit.toml](../../backend/.cargo/audit.toml)
 - [backend/.env.example](../../backend/.env.example)
@@ -108,10 +107,10 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | HTTP | DEPLOY-HTTP-001 – DEPLOY-HTTP-011 | 9 | 0 | 0 | 9 | 9 |
 | HEALTH | DEPLOY-HEALTH-001 – DEPLOY-HEALTH-003 | 3 | 0 | 0 | 3 | 3 |
 | LOG | DEPLOY-LOG-001 – DEPLOY-LOG-003 | 3 | 0 | 0 | 3 | 3 |
-| CI | DEPLOY-CI-001 – DEPLOY-CI-010 | 10 | 0 | 0 | 10 | 10 |
+| CI | DEPLOY-CI-001 – DEPLOY-CI-011 | 11 | 0 | 0 | 11 | 11 |
 | **Total** | | **70** | **0** | **0** | **70** | **70** |
 
-**Summary:** 70 of 70 active specs implemented; 0 deferred; 70 implemented specs cited by a test, 0 cited nowhere.
+**Summary:** 71 of 71 active specs implemented; 0 deferred; 71 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 

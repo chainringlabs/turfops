@@ -1,7 +1,6 @@
 //! The CI workflows, Renovate and the PostgreSQL test gate, checked as text.
 
 const CI: &str = include_str!("../../../.github/workflows/ci.yml");
-const SUPPLY_CHAIN: &str = include_str!("../../../.github/workflows/supply-chain.yml");
 const PUBLISH: &str = include_str!("../../../.github/workflows/docker-publish.yml");
 const RETENTION: &str = include_str!("../../../.github/workflows/ghcr-retention.yml");
 const RENOVATE: &str = include_str!("../../../renovate.json5");
@@ -62,65 +61,78 @@ fn ci_gates_the_backend_with_postgres_and_the_frontend_on_node_26() {
     }
 }
 
-// @spec DEPLOY-CI-002
-#[test]
-fn every_push_and_pr_runs_the_supply_chain_scan() {
-    assert!(on_main(CI));
-    assert!(job(CI, "supply-chain").contains("uses: ./.github/workflows/supply-chain.yml"));
-    for step in [
-        "run: npm ci --ignore-scripts",
-        "run: npm audit signatures",
-        "--org grecolabs",
-        "./frontend\n",
-        "uses: google/osv-scanner-action/",
-        "--recursive",
-        "run: cargo audit",
-    ] {
-        assert!(SUPPLY_CHAIN.contains(step), "{step}");
-    }
-}
-
-// @spec DEPLOY-CI-003
-#[test]
-fn without_the_socket_secret_only_the_socket_step_is_skipped() {
-    assert!(SUPPLY_CHAIN.contains("SOCKET_SECURITY_API_KEY:\n"));
-    assert!(
-        SUPPLY_CHAIN.contains("required: false"),
-        "bot PRs have no secrets"
-    );
-    let conditions: Vec<&str> = SUPPLY_CHAIN
+/// Job `name` of `workflow`, which must be a call of the organization's shared
+/// workflow `file` pinned to a full commit sha.
+fn shared_call(workflow: &str, name: &str, file: &str) -> String {
+    let text = job(workflow, name);
+    let prefix = format!("uses: chainringlabs/ci/.github/workflows/{file}@");
+    let reference = text
         .lines()
-        .map(str::trim)
-        .filter(|l| l.starts_with("if:"))
-        .collect();
-    assert_eq!(
-        conditions,
-        ["if: ${{ env.SOCKET_SECURITY_API_KEY != '' }}"],
-        "the one conditional step"
-    );
-    let socket = SUPPLY_CHAIN.find("Socket Security scan").unwrap();
-    let condition = SUPPLY_CHAIN.find("if: ${{ env.SOCKET").unwrap();
-    let next_step = SUPPLY_CHAIN[socket..].find("- name:").unwrap() + socket;
-    assert!(socket < condition && condition < next_step);
-}
-
-/// The `image` job: a call of the organization's shared publish workflow,
-/// which holds the build, push, signing and attestation steps for every repo.
-fn shared_publish_call() -> String {
-    let image = job(PUBLISH, "image");
-    let reference = image
-        .lines()
-        .find_map(|l| {
-            l.trim()
-                .strip_prefix("uses: chainringlabs/ci/.github/workflows/docker-publish.yml@")
-        })
-        .expect("the image job calls the shared publish workflow");
+        .find_map(|l| l.trim().strip_prefix(prefix.as_str()))
+        .unwrap_or_else(|| panic!("job {name} calls the shared {file}"));
     let sha = reference.split_whitespace().next().unwrap_or_default();
     assert!(
         sha.len() == 40 && sha.chars().all(|c| c.is_ascii_hexdigit()),
         "the shared workflow is pinned to a full commit sha"
     );
-    image
+    text
+}
+
+/// The two places the supply-chain scan is called from.
+fn scan_calls() -> [String; 2] {
+    [
+        shared_call(CI, "supply-chain", "supply-chain.yml"),
+        shared_call(PUBLISH, "supply-chain", "supply-chain.yml"),
+    ]
+}
+
+// @spec DEPLOY-CI-002
+#[test]
+fn every_push_and_pr_runs_the_supply_chain_scan() {
+    assert!(on_main(CI));
+    // What the scan does lives in the shared workflow; this repository says
+    // where its lockfiles are and which Node installs the frontend.
+    for call in scan_calls() {
+        for input in [
+            "npm-dir: frontend",
+            "cargo-dir: backend",
+            "socket-dir: frontend",
+            "node-version: \"26\"",
+            "contents: read",
+        ] {
+            assert!(call.contains(input), "{input}");
+        }
+    }
+}
+
+// @spec DEPLOY-CI-003
+#[test]
+fn the_socket_secret_reaches_the_scan_without_being_required() {
+    // The shared workflow declares the secret optional and skips only its
+    // Socket step without it; the callers pass whatever secrets exist.
+    for call in scan_calls() {
+        assert!(call.contains("secrets: inherit"));
+    }
+}
+
+// @spec DEPLOY-CI-011
+#[test]
+fn main_is_scanned_in_full_every_week() {
+    assert!(CI.contains("  schedule:\n    - cron: \"0 13 * * 1\""));
+    // Only the scan runs on the schedule; the build and test jobs sit it out.
+    for name in ["backend", "frontend"] {
+        assert!(
+            job(CI, name).contains("if: ${{ github.event_name != 'schedule' }}"),
+            "{name} is skipped on the schedule"
+        );
+    }
+    assert!(!job(CI, "supply-chain").contains("if:"));
+}
+
+/// The `image` job: a call of the organization's shared publish workflow,
+/// which holds the build, push, signing and attestation steps for every repo.
+fn shared_publish_call() -> String {
+    shared_call(PUBLISH, "image", "docker-publish.yml")
 }
 
 // @spec DEPLOY-CI-004
@@ -130,7 +142,7 @@ fn a_pr_builds_the_image_after_the_scan_without_pushing() {
     // The shared workflow builds without pushing on pull requests.
     let image = shared_publish_call();
     assert!(image.contains("needs: supply-chain"));
-    assert!(job(PUBLISH, "supply-chain").contains("uses: ./.github/workflows/supply-chain.yml"));
+    shared_call(PUBLISH, "supply-chain", "supply-chain.yml");
     assert!(
         super::DOCKERFILE.contains("RUN npm run build"),
         "the image build includes the frontend build"
