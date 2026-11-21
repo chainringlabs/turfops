@@ -35,7 +35,7 @@ async fn every_completion_carries_the_key_and_the_apps_attribution() {
     assert_eq!(sent.header("authorization"), Some("Bearer test_key"));
     assert_eq!(
         sent.header("http-referer"),
-        Some("https://github.com/tgrecojr/turfops")
+        Some("https://github.com/chainringlabs/turfops")
     );
     assert_eq!(sent.header("x-title"), Some("TurfOps"));
 }

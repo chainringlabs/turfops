@@ -9,7 +9,7 @@
 #        so it runs by hand, not in CI.
 set -euo pipefail
 
-REPO="tgrecojr/turfops"
+REPO="chainringlabs/turfops"
 
 # The whole protection on main. A PUT replaces it, so every field is stated:
 # - a PR is required, with no approvals (the owner is the only reviewer);

@@ -104,7 +104,7 @@ On read, an unknown `plant_type` string falls back to `Other` with a warning log
 
 1. If the client is disabled, it returns `TurfOpsError::disabled(Source::PlanAssistant)` without calling out: a 503 saying the plan assistant is turned off and that `OPENROUTER_ENABLED=true` turns it on.
 2. It POSTs `/chat/completions` with the system prompt marked `cache_control: ephemeral` (prompt caching), the user prompt, `response_format: json_schema` with `strict: true`, and the temperature.
-3. Every request carries a bearer key, **`HTTP-Referer: https://github.com/tgrecojr/turfops`** and **`X-Title: TurfOps`**, so OpenRouter's console attributes the traffic to this app.
+3. Every request carries a bearer key, **`HTTP-Referer: https://github.com/chainringlabs/turfops`** and **`X-Title: TurfOps`**, so OpenRouter's console attributes the traffic to this app.
 4. A transport error (formatted without the URL), a non-2xx status, an unparseable body, missing `choices[0].message.content`, or content that does not deserialize into `T` all map to `TurfOpsError::unavailable(Source::PlanAssistant, detail)`, which the API returns as **503** "The plan assistant couldn't answer just now. Try again in a few minutes." The detail (upstream status and body, or the raw model content) is logged at WARN and never reaches the response. Product endpoints re-word the same errors for products (`for_products()`, owned by Product inventory).
 
 The `Debug` impl for `OpenRouterConfig` redacts the key. Startup logs the configured model at INFO.

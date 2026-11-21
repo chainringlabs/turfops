@@ -6,7 +6,7 @@ use serde::Serialize;
 use serde_json::json;
 use std::time::Duration;
 
-const APP_URL: &str = "https://github.com/tgrecojr/turfops";
+const APP_URL: &str = "https://github.com/chainringlabs/turfops";
 const APP_TITLE: &str = "TurfOps";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);

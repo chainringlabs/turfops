@@ -73,7 +73,7 @@ Both services `restart: unless-stopped`. Host port 5433 exposes Postgres for a l
 
 **Env passthrough.** Every optional key is passed as `${KEY:-}` or `${KEY:-default}`, so an unset host variable reaches the app as an **empty string**. Values come from the shell environment or from a `.env` file beside the Compose file, which Compose reads on its own and `.gitignore` keeps out of the repo. The app's "empty = not configured" rule exists for exactly this. `SERVER_HOST`, `SERVER_PORT` and `STATIC_DIR` are fixed in the file; `TZ` defaults to `America/New_York` and should be set to the lawn's timezone; `RUST_LOG` defaults to `info`.
 
-**Pre-built image.** CI publishes the image to `ghcr.io/tgrecojr/turfops`; the README shows replacing `build:` with `image:` to run it without building.
+**Pre-built image.** CI publishes the image to `ghcr.io/chainringlabs/turfops`; the README shows replacing `build:` with `image:` to run it without building.
 
 ## Configuration (`backend/src/config.rs`)
 
