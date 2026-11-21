@@ -197,7 +197,7 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 | `ci.yml` | push / PR to `main` | Backend: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test --features db-tests` against a `postgres:18` service container (trust auth, job-local). Frontend (Node 26): `npm ci`, `npx tsc -b`, `npm run lint`, `npm test` (Vitest). Calls `supply-chain.yml`. |
 | `supply-chain.yml` | reusable | `npm ci --ignore-scripts`; `npm audit signatures`; Socket scan of `./frontend` with `--org grecolabs` (skipped when `SOCKET_SECURITY_API_KEY` is absent, as on bot PRs); OSV scan of all lockfiles; `cargo audit`. |
 | `docker-publish.yml` | push / PR to `main`, `v*` tags | Runs the supply-chain scan, then builds the image (GHA cache). PRs build without pushing, which is what exercises `npm run build`. Otherwise pushes to GHCR (`latest` on main, semver, `sha`), signs keylessly with cosign, attaches an SPDX SBOM and build-provenance attestations. |
-| `ghcr-retention.yml` | Mondays 06:00 UTC / manual | Keeps `latest` plus the 5 newest tagged versions; deletes untagged manifests. |
+| `ghcr-retention.yml` | Mondays 06:00 UTC / manual | Calls the organization's shared retention workflow (`chainringlabs/ci`, pinned by commit). Keeps `latest` plus the 5 newest tagged versions; deletes untagged manifests. |
 
 **Advisory ignores.** `backend/.cargo/audit.toml` (cargo audit) and `backend/osv-scanner.toml` (OSV) name an advisory only while its crate is in `Cargo.lock`, each with a written justification; an ignore whose crate has left the lockfile is deleted, so it cannot silently hide a future advisory of the same ID.
 

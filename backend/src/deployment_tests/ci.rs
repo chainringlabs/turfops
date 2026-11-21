@@ -156,10 +156,13 @@ fn main_and_tags_push_a_signed_attested_image_to_ghcr() {
 fn retention_keeps_latest_and_five_tagged_versions_weekly() {
     assert!(RETENTION.contains("workflow_dispatch:"));
     assert!(RETENTION.contains("- cron: '0 6 * * 1'"));
+    // The pruning itself lives in the organization's shared workflow, which
+    // always deletes untagged manifests; this repository states what to keep.
     for expected in [
+        "uses: chainringlabs/ci/.github/workflows/ghcr-retention.yml@",
         "keep-n-tagged: 5",
         "exclude-tags: latest",
-        "delete-untagged: true",
+        "packages: write",
     ] {
         assert!(RETENTION.contains(expected), "{expected}");
     }
