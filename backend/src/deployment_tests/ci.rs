@@ -211,7 +211,7 @@ fn the_branch_protection_script_states_the_agreed_settings() {
         assert!(PROTECTION.contains(setting), "missing {setting}");
     }
     assert!(PROTECTION.contains("check)") && PROTECTION.contains("apply)"));
-    assert!(PROTECTION.contains(r#"REPO="tgrecojr/turfops""#));
+    assert!(PROTECTION.contains(r#"REPO="chainringlabs/turfops""#));
     assert!(PROTECTION.contains("repos/$REPO/branches/main/protection"));
     assert!(
         !PROTECTION.contains("GITHUB_TOKEN="),

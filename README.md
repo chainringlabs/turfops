@@ -70,10 +70,10 @@ A containerized web application for tracking lawn care activities and providing 
 Pre-built Docker images are published to GitHub Container Registry on every push to `main`.
 
 ```bash
-docker pull ghcr.io/tgrecojr/turfops:latest
+docker pull ghcr.io/chainringlabs/turfops:latest
 ```
 
-Tagged releases are also available by version (e.g., `ghcr.io/tgrecojr/turfops:1.0.0`).
+Tagged releases are also available by version (e.g., `ghcr.io/chainringlabs/turfops:1.0.0`).
 
 ## Quick Start
 
@@ -93,21 +93,21 @@ You can either use the pre-built image from GHCR or build from source.
 
 ```bash
 # Download docker-compose.yml and .env.example
-curl -O https://raw.githubusercontent.com/tgrecojr/turfops/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/tgrecojr/turfops/main/.env.example
+curl -O https://raw.githubusercontent.com/chainringlabs/turfops/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/chainringlabs/turfops/main/.env.example
 cp .env.example .env
 ```
 
 Update `docker-compose.yml` to use the pre-built image instead of building locally — replace the `build:` block under the `app` service with:
 
 ```yaml
-image: ghcr.io/tgrecojr/turfops:latest
+image: ghcr.io/chainringlabs/turfops:latest
 ```
 
 **Option B: Build from source**
 
 ```bash
-git clone git@github.com:tgrecojr/turfops.git
+git clone git@github.com:chainringlabs/turfops.git
 cd turfops
 cp .env.example .env
 ```
