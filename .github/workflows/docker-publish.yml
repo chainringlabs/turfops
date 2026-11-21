@@ -21,6 +21,7 @@ jobs:
       cargo-dir: backend
       socket-dir: frontend
       node-version: "26"
+      cargo-deny: true
     secrets: inherit
 
   # The organization's shared publish workflow: builds on pull requests

@@ -2,7 +2,7 @@
 
 const DOCKERFILE: &str = include_str!("../../Dockerfile");
 const COMPOSE: &str = include_str!("../../docker-compose.yml");
-const AUDIT: &str = include_str!("../.cargo/audit.toml");
+const DENY: &str = include_str!("../deny.toml");
 const OSV: &str = include_str!("../osv-scanner.toml");
 const LOCK: &str = include_str!("../Cargo.lock");
 
@@ -95,7 +95,7 @@ fn ignored(list: &str) -> Vec<(String, Option<String>)> {
 // @spec DEPLOY-CI-009
 #[test]
 fn an_advisory_is_ignored_only_while_its_crate_is_locked() {
-    for (list, name) in [(AUDIT, "audit.toml"), (OSV, "osv-scanner.toml")] {
+    for (list, name) in [(DENY, "deny.toml"), (OSV, "osv-scanner.toml")] {
         for (id, krate) in ignored(list) {
             let krate = krate.unwrap_or_else(|| panic!("{name}: {id} names no crate"));
             assert!(

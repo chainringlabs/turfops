@@ -1,0 +1,61 @@
+# cargo-deny policy, read by the organization's shared supply-chain scan
+# (chainringlabs/ci). Run locally with `cargo deny check`.
+#
+# Licences, bans and sources are checked on every pull request. Advisories are
+# checked on pushes to main and weekly; on pull requests the OSV comparison
+# judges only what the pull request introduces.
+
+[advisories]
+# Vulnerable and unsound crates are always denied. Unmaintained crates anywhere
+# in the graph and yanked releases are denied too.
+unmaintained = "all"
+yanked = "deny"
+# An advisory may be ignored only while its crate is in Cargo.lock, with a comment line
+#   # <ID> (crate <name>): <why it does not apply>
+# directly above the list. `deployment_tests::an_advisory_is_ignored_only_while_its_crate_is_locked`
+# enforces this. Every id here is also in osv-scanner.toml; that file can hold more, because
+# OSV reads the whole lockfile and cargo-deny only the crates this build compiles.
+# @spec DEPLOY-CI-009, DEPLOY-CI-012
+#
+# RUSTSEC-2026-0543 (crate chrono): an "unmaintained" notice, not a vulnerability: no flaw
+# is reported and there is no fixed version. rmcp and arrow (through duckdb) depend on
+# chrono unconditionally, so moving this code to another date library would not take it out
+# of Cargo.lock. Drop this, and plan the move off chrono, once rmcp and arrow no longer
+# require it; reassess at once if a vulnerability is filed against chrono.
+#
+# RUSTSEC-2026-0555 (crate chrono-tz): an "unmaintained" notice, not a vulnerability. Used
+# only to resolve `TZ` into the clock's zone; it leaves together with chrono. Reassess at
+# once if a vulnerability is filed against chrono-tz.
+ignore = ["RUSTSEC-2026-0543", "RUSTSEC-2026-0555"]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[licenses]
+# Permissive licences, plus MPL-2.0 (file-level copyleft; nothing here modifies
+# MPL-licensed files).
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0", # Mozilla root-certificate data (webpki-roots, webpki-root-certs)
+    "CC0-1.0", # public-domain dedication (tiny-keccak)
+]
+confidence-threshold = 0.9
+# One list is shared across repositories; an entry no crate here uses is fine.
+unused-allowed-license = "allow"
+
+[licenses.private]
+# This crate is not published to a registry.
+ignore = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
