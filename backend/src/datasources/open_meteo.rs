@@ -1,7 +1,9 @@
 //! Open-Meteo (WX-SRC-OM): the hourly analysis of past air temperature, humidity and
-//! precipitation at a point, the point's elevation, and the place search used in setup.
+//! precipitation at a point, the point's elevation, the forecast, and the place search
+//! used in setup.
 //! Soil variables are never asked for.
 
+mod forecast;
 mod places;
 #[cfg(test)]
 mod tests;
@@ -22,9 +24,9 @@ const SEARCH_URL: &str = "https://geocoding-api.open-meteo.com/v1/search";
 const MAX_DAYS_BACK: u32 = 92;
 const FEET_PER_METRE: f64 = 3.28084;
 const MM_PER_INCH: f64 = 25.4;
-const TEMPERATURE_F: (f64, f64) = (-80.0, 150.0);
-const HUMIDITY_PCT: (f64, f64) = (0.0, 100.0);
-const HOURLY_PRECIP_MM: (f64, f64) = (0.0, 300.0);
+pub(super) const TEMPERATURE_F: (f64, f64) = (-80.0, 150.0);
+pub(super) const HUMIDITY_PCT: (f64, f64) = (0.0, 100.0);
+pub(super) const HOURLY_PRECIP_MM: (f64, f64) = (0.0, 300.0);
 
 /// A point's past hours, and the elevation of the model grid they are for.
 #[derive(Debug, Clone, PartialEq)]
@@ -100,7 +102,7 @@ impl OpenMeteoClient {
     }
 
     /// The body of a GET that must return one.
-    async fn body(&self, url: &str) -> std::result::Result<String, String> {
+    pub(super) async fn body(&self, url: &str) -> std::result::Result<String, String> {
         match self.outside.get(url, None).await? {
             Fetched::Body { text, .. } => Ok(text),
             Fetched::NotModified | Fetched::Missing => Err(format!("{url} returned no body")),
@@ -112,7 +114,7 @@ fn analysis_down(detail: String) -> TurfOpsError {
     TurfOpsError::unavailable(Source::HourlyAnalysis, detail)
 }
 
-fn within(value: f64, (low, high): (f64, f64)) -> Option<f64> {
+pub(super) fn within(value: f64, (low, high): (f64, f64)) -> Option<f64> {
     (value >= low && value <= high).then_some(value)
 }
 
@@ -171,15 +173,15 @@ pub fn parse(json: &str, now: DateTime<Utc>) -> std::result::Result<Analysis, St
     })
 }
 
-fn temperature_scale(unit: &str) -> std::result::Result<fn(f64) -> f64, String> {
+pub(super) fn temperature_scale(unit: &str) -> std::result::Result<fn(f64) -> f64, String> {
     match unit {
         "°F" => Ok(|f| f),
         "°C" => Ok(|c| c * 9.0 / 5.0 + 32.0),
-        other => Err(format!("analysis temperature unit {other:?} is not known")),
+        other => Err(format!("temperature unit {other:?} is not known")),
     }
 }
 
-fn precipitation_scale(unit: &str) -> std::result::Result<f64, String> {
+pub(super) fn precipitation_scale(unit: &str) -> std::result::Result<f64, String> {
     match unit {
         "mm" => Ok(1.0),
         "inch" => Ok(MM_PER_INCH),

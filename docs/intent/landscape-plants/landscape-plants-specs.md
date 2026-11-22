@@ -78,7 +78,7 @@ A **care plan** is the LLM-written list of maintenance **tasks** cached on a pla
 
 ## Watering hold-back
 
-- [ ] **PLANT-WATER-001**: While forecast rain over the forecast points timed within the next 48 hours (the first point being the current slot) totals at least 2.5 mm, the landscape-plant source shall not emit Watering task recommendations.
+- [ ] **PLANT-WATER-001**: While the rain amounts carried by the forecast points timed within the next 48 hours (the first point being the current slot; a point with no amount adding nothing) total at least 2.5 mm, the landscape-plant source shall not emit Watering task recommendations.
 - [ ] **PLANT-WATER-002**: While the environmental summary's 7-day precipitation total is at least 25 mm, the landscape-plant source shall not emit Watering task recommendations.
 - [ ] **PLANT-WATER-003**: While the lawn's current soil moisture (10 cm, else 5 cm, else 20 cm) is present and at least 0.20, the landscape-plant source shall not emit Watering task recommendations; where the lawn has no soil moisture, only the two rain signals shall be judged.
 - [x] **PLANT-WATER-004**: The watering hold-back shall use the same rain and soil-moisture threshold constants as the lawn irrigation rule (owned by Agronomic rules), not a separate plant set.

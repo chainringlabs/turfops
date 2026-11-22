@@ -36,12 +36,7 @@ export function summary(
 		last_updated: "2026-10-11T12:00:00Z",
 		forecast: {
 			fetched_at: "2026-10-11T12:00:00Z",
-			location: {
-				city: "Avondale",
-				country: "US",
-				latitude: 39.8,
-				longitude: -75.8,
-			},
+			provider: "OpenWeatherMap",
 			hourly: [],
 			daily_summary: [
 				{

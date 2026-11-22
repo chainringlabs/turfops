@@ -2,7 +2,7 @@ use super::probes::*;
 use super::sync_state::*;
 use crate::error::TurfOpsError;
 use crate::models::{
-    DataSource, EnvironmentalReading, EnvironmentalSummary, ForecastLocation, Trend,
+    DataSource, EnvironmentalReading, EnvironmentalSummary, ForecastProvider, Trend,
     WeatherForecast,
 };
 use chrono::{DateTime, Duration, Utc};
@@ -58,13 +58,7 @@ fn reads(
 fn forecast(fetched_at: DateTime<Utc>) -> WeatherForecast {
     WeatherForecast {
         fetched_at,
-        location: ForecastLocation {
-            city: "Avondale".into(),
-            country: "US".into(),
-            latitude: 39.8,
-            longitude: -75.8,
-            utc_offset_seconds: -14_400,
-        },
+        provider: ForecastProvider::OpenWeatherMap,
         hourly: vec![],
         daily_summary: vec![],
     }

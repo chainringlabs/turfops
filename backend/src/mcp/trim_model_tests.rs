@@ -10,8 +10,8 @@ use crate::models::gdd::{CrabgrassModel, CrabgrassStatus, DailyGdd, GddSummary};
 use crate::models::nitrogen_budget::{GrassTypeNTarget, NitrogenApplication, NitrogenBudget};
 use crate::models::timing::{FreezeDates, SoilNow, TimingResponse};
 use crate::models::{
-    Application, ApplicationType, DailyForecast, EnvironmentalSummary, ForecastLocation,
-    ForecastPoint, GrassType, WeatherCondition, WeatherForecast,
+    Application, ApplicationType, DailyForecast, EnvironmentalSummary, ForecastPoint,
+    ForecastProvider, GrassType, WeatherCondition, WeatherForecast,
 };
 use chrono::{NaiveDate, Utc};
 use serde_json::Value;
@@ -29,14 +29,15 @@ fn has(value: &Value, key: &str) -> bool {
 fn the_hourly_forecast_trim_matches_the_environmental_summary() {
     let point = ForecastPoint {
         timestamp: Utc::now(),
+        slot_hours: 3,
         temp_f: 80.0,
-        feels_like_f: 82.0,
+        feels_like_f: Some(82.0),
         humidity_percent: 70.0,
-        precipitation_mm: 0.0,
-        precipitation_prob: 0.1,
+        precipitation_mm: Some(0.0),
+        precipitation_prob: Some(0.1),
         wind_speed_mph: 5.0,
         wind_gust_mph: None,
-        cloud_cover_percent: 20.0,
+        cloud_cover_percent: Some(20.0),
         weather_condition: WeatherCondition::Clear,
     };
     let daily = DailyForecast {
@@ -44,8 +45,8 @@ fn the_hourly_forecast_trim_matches_the_environmental_summary() {
         high_temp_f: 85.0,
         low_temp_f: 65.0,
         avg_humidity: 70.0,
-        total_precipitation_mm: 0.0,
-        max_precipitation_prob: 0.1,
+        total_precipitation_mm: Some(0.0),
+        max_precipitation_prob: Some(0.1),
         dominant_condition: WeatherCondition::Clear,
         avg_wind_speed_mph: 5.0,
         max_wind_gust_mph: None,
@@ -54,13 +55,7 @@ fn the_hourly_forecast_trim_matches_the_environmental_summary() {
     let summary = EnvironmentalSummary {
         forecast: Some(WeatherForecast {
             fetched_at: Utc::now(),
-            location: ForecastLocation {
-                city: "Avondale".into(),
-                country: "US".into(),
-                latitude: 39.8,
-                longitude: -75.8,
-                utc_offset_seconds: -14_400,
-            },
+            provider: ForecastProvider::OpenWeatherMap,
             hourly: vec![point],
             daily_summary: vec![daily],
         }),

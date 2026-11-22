@@ -221,3 +221,60 @@ pub const SPRING_HERBICIDE_GDD_LOW: f64 = 50.0;
 
 /// Broadleaf herbicide spring — upper bound, weeds less susceptible (GDD base 50).
 pub const SPRING_HERBICIDE_GDD_HIGH: f64 = 150.0;
+
+/// Whether a forecast day is dry: under a trace where the provider forecasts an amount,
+/// and under "likely" where it forecasts a probability. A day with neither is not dry.
+// @spec RULE-WX-012
+pub fn is_dry(day: &crate::models::DailyForecast) -> bool {
+    let known = day.total_precipitation_mm.is_some() || day.max_precipitation_prob.is_some();
+    known
+        && day
+            .total_precipitation_mm
+            .is_none_or(|mm| mm < PRECIP_TRACE_MM)
+        && day
+            .max_precipitation_prob
+            .is_none_or(|prob| prob < PRECIP_PROB_LIKELY)
+}
+
+#[cfg(test)]
+mod dry_day_tests {
+    use super::*;
+    use crate::models::{DailyForecast, WeatherCondition};
+
+    fn day(mm: Option<f64>, probability: Option<f64>) -> DailyForecast {
+        DailyForecast {
+            date: chrono::NaiveDate::from_ymd_opt(2026, 7, 15).unwrap(),
+            high_temp_f: 80.0,
+            low_temp_f: 60.0,
+            avg_humidity: 50.0,
+            total_precipitation_mm: mm,
+            max_precipitation_prob: probability,
+            dominant_condition: WeatherCondition::Clear,
+            avg_wind_speed_mph: 5.0,
+            max_wind_gust_mph: None,
+            hours_covered: 24,
+        }
+    }
+
+    // @spec RULE-WX-012
+    #[test]
+    fn a_day_is_dry_under_a_trace_and_under_likely() {
+        assert!(is_dry(&day(Some(2.4), Some(0.49))));
+        assert!(!is_dry(&day(Some(2.5), Some(0.1))));
+        assert!(!is_dry(&day(Some(0.0), Some(0.5))));
+    }
+
+    // @spec RULE-WX-012
+    #[test]
+    fn a_day_with_no_amount_is_judged_on_probability_alone() {
+        assert!(is_dry(&day(None, Some(0.2))));
+        assert!(!is_dry(&day(None, Some(0.6))));
+        assert!(is_dry(&day(Some(0.0), None)));
+    }
+
+    // @spec RULE-WX-012
+    #[test]
+    fn a_day_with_neither_is_not_dry() {
+        assert!(!is_dry(&day(None, None)));
+    }
+}

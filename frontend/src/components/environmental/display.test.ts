@@ -7,6 +7,7 @@ import type {
 } from "../../types";
 import {
 	crossingWhen,
+	forecastPrecip,
 	isPartialDay,
 	lastDays,
 	soilObservedLine,
@@ -119,5 +120,35 @@ describe("gauges", () => {
 			level: "ok",
 			label: null,
 		});
+	});
+});
+
+describe("a forecast card's rain line", () => {
+	const day = (mm: number | null, prob: number | null): DailyForecast => ({
+		date: "2026-10-12",
+		high_temp_f: 68,
+		low_temp_f: 48,
+		avg_humidity: 60,
+		total_precipitation_mm: mm,
+		max_precipitation_prob: prob,
+		dominant_condition: "Rain",
+		avg_wind_speed_mph: 5,
+		max_wind_gust_mph: null,
+		hours_covered: 24,
+	});
+
+	// @spec WX-VIEW-PAGE-003
+	it("gives the amount in inches and the highest probability", () => {
+		expect(forecastPrecip(day(25.4, 0.4))).toBe("Precip: 1.00 in (40%)");
+	});
+
+	// @spec WX-VIEW-PAGE-003
+	it('says "not forecast" where the provider gives no amount', () => {
+		expect(forecastPrecip(day(null, 0.6))).toBe("Precip: not forecast (60%)");
+	});
+
+	// @spec WX-VIEW-PAGE-003
+	it("leaves the probability out where there is none", () => {
+		expect(forecastPrecip(day(2.54, null))).toBe("Precip: 0.10 in");
 	});
 });

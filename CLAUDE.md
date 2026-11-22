@@ -17,10 +17,10 @@ Containerized web application for tracking lawn care activities with data-driven
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (1,066 tests; no database needed)
-- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,248 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
+- `cd backend && cargo test` — Run tests (1,096 tests; no database needed)
+- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,278 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
 - `cd backend && cargo run --release --features scoring -- score-estimate --cache <dir> --out src/logic/soil_estimate/scores.json` — Re-score the soil estimate against USCRN (downloads about 1,900 public files into `<dir>` on first run; re-run when the model, the calibration rule or a consumer's crossing rule changes)
-- `cd backend && cargo test live_ -- --ignored --test-threads=1` — One real request to each outside weather source (NOAA, RCC-ACIS, USDA, Open-Meteo), to confirm the parsers still match what the services send; not part of the suite
+- `cd backend && cargo test live_ -- --ignored --test-threads=1` — One real request to each outside weather source (NOAA, RCC-ACIS, USDA, Open-Meteo, National Weather Service), to confirm the parsers still match what the services send; not part of the suite
 - `cd backend && cargo fmt` — Format code
 - `cd backend && cargo clippy` — Run linter
 - `cd backend && cargo run` — Run API server (needs PostgreSQL)
@@ -108,7 +108,7 @@ turfops/
 - **Ambient (temp/humidity)**: Home Assistant API → patio sensor
 - **Soil (temp/moisture)**: Weather data lake silver hourly parquet → NOAA USCRN PA Avondale (WBANNO 3761). The live reading (`datasources/weather/latest.rs`) is each sensor's newest non-null value within 24 h, not the newest row — the probes drop individual (mostly daytime) hours, so the newest row is often there with empty soil columns
 - **Precipitation**: Weather data lake silver hourly parquet → NOAA measured values
-- **Forecast**: OpenWeatherMap API (5-day / 3-hourly). Daily summaries are bucketed by the **location's local date** (`city.timezone`) and carry `hours_covered`; anything that needs a daily mean or judges a whole day (`WeatherForecast::full_days()`: soil outlooks, application window, hot-day streak) skips the partial first/last day
+- **Forecast**: OpenWeatherMap API (5-day / 3-hourly) is the provider in use; clients for Open-Meteo (hourly, 16 days) and the National Weather Service (hourly, about a week, rain amounts for about 3 days) exist in `datasources/` and are not wired in yet. Every `ForecastPoint` carries `slot_hours`, and a quantity a provider does not forecast is `None`, never zero: a day's `total_precipitation_mm` is `None` unless every slot has an amount, and the rules judge such a day on probability alone (`rules::thresholds::is_dry`). Daily summaries are bucketed by the **location's local date** (`city.timezone`) and carry `hours_covered`; anything that needs a daily mean or judges a whole day (`WeatherForecast::full_days()`: soil outlooks, application window, hot-day streak) skips the partial first/last day
 - Lake layers: **silver** (`silver_weather.parquet`, hourly cleaned/deduped, °C/mm/% native units) backs the live reading, 7-day summary, trend, and `/historical`; **gold** (`daily_weather.parquet`, daily means already in °F + precomputed `gdd50`) backs the seasonal plan, soil-temp regression, and GDD. The timing windows read both: daily **5 cm** soil means aggregated from silver (gold only has 10 cm) plus gold's daily air min/mean + `gdd50` (`datasources/weather/climatology.rs`). Read in-process via embedded DuckDB (`datasources/weather.rs`).
 
 ## Key Patterns

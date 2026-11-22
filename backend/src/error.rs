@@ -96,8 +96,8 @@ fn outage_message(source: Source, outage: &Outage) -> String {
              Set OWM_API_KEY and restart TurfOps."
         }
         (Forecast, _) => {
-            "The weather forecast (OpenWeatherMap) is unavailable right now, so \
-             forecast-based advice is limited. Try again later."
+            "The weather forecast is unavailable right now, so forecast-based advice is \
+             limited. Try again later."
         }
         (PatioSensor, NotConfigured | Disabled) => {
             "The patio sensor (Home Assistant) isn't configured, so live air temperature and \
@@ -173,7 +173,7 @@ fn outage_message(source: Source, outage: &Outage) -> String {
 pub enum Source {
     /// The NOAA weather data lake (station soil, history, timing and disease inputs).
     WeatherLake,
-    /// The OpenWeatherMap forecast.
+    /// The weather forecast, from whichever provider is in use.
     Forecast,
     /// The Home Assistant patio sensor.
     PatioSensor,

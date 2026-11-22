@@ -8,6 +8,7 @@ import type {
 	TimeSeriesPoint,
 } from "../../types";
 import { formatMonthDay } from "../../utils/dates";
+import { mmToInches } from "../../utils/units";
 
 export interface ReferenceLine {
 	value: number;
@@ -27,6 +28,17 @@ export const TREND_REFERENCES: Record<string, ReferenceLine | undefined> = {
 // @spec WX-VIEW-PAGE-009
 export function isPartialDay(day: DailyForecast): boolean {
 	return day.hours_covered !== undefined && day.hours_covered < 24;
+}
+
+/** A forecast card's rain line: the amount, or "not forecast" where the provider gives none. */
+// @spec WX-VIEW-PAGE-003
+export function forecastPrecip(day: DailyForecast): string {
+	const amount =
+		day.total_precipitation_mm === null
+			? "not forecast"
+			: `${mmToInches(day.total_precipitation_mm).toFixed(2)} in`;
+	if (day.max_precipitation_prob === null) return `Precip: ${amount}`;
+	return `Precip: ${amount} (${(day.max_precipitation_prob * 100).toFixed(0)}%)`;
 }
 
 /** "Station soil observed Oct 10, 2:00 PM", or null with no observation. */

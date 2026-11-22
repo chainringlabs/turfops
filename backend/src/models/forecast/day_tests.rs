@@ -9,8 +9,8 @@ fn day(date: NaiveDate, hours_covered: u32, high: f64) -> DailyForecast {
         high_temp_f: high,
         low_temp_f: high - 20.0,
         avg_humidity: 50.0,
-        total_precipitation_mm: 0.0,
-        max_precipitation_prob: 0.0,
+        total_precipitation_mm: Some(0.0),
+        max_precipitation_prob: Some(0.0),
         dominant_condition: WeatherCondition::Clear,
         avg_wind_speed_mph: 0.0,
         max_wind_gust_mph: None,
@@ -21,14 +21,15 @@ fn day(date: NaiveDate, hours_covered: u32, high: f64) -> DailyForecast {
 fn slot(hours_from_now: i64, precip_mm: f64, pop: f64) -> ForecastPoint {
     ForecastPoint {
         timestamp: Utc::now() + Duration::hours(hours_from_now),
+        slot_hours: 3,
         temp_f: 70.0,
-        feels_like_f: 70.0,
+        feels_like_f: Some(70.0),
         humidity_percent: 50.0,
-        precipitation_mm: precip_mm,
-        precipitation_prob: pop,
+        precipitation_mm: Some(precip_mm),
+        precipitation_prob: Some(pop),
         wind_speed_mph: 0.0,
         wind_gust_mph: None,
-        cloud_cover_percent: 0.0,
+        cloud_cover_percent: Some(0.0),
         weather_condition: WeatherCondition::Clear,
     }
 }
@@ -36,13 +37,7 @@ fn slot(hours_from_now: i64, precip_mm: f64, pop: f64) -> ForecastPoint {
 fn forecast(hourly: Vec<ForecastPoint>, daily: Vec<DailyForecast>) -> WeatherForecast {
     WeatherForecast {
         fetched_at: Utc::now(),
-        location: ForecastLocation {
-            city: "Avondale".into(),
-            country: "US".into(),
-            latitude: 0.0,
-            longitude: 0.0,
-            utc_offset_seconds: 0,
-        },
+        provider: ForecastProvider::OpenWeatherMap,
         hourly,
         daily_summary: daily,
     }

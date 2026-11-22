@@ -75,16 +75,21 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 ## Forecast providers
 
 - [ ] **WX-SRC-FC-001**: The system shall fetch the forecast from the provider the owner has chosen: Open-Meteo by default, the National Weather Service, or OpenWeatherMap.
-- [ ] **WX-SRC-FC-002**: Every forecast point shall carry its slot's length in hours: 1 for Open-Meteo and the National Weather Service, 3 for OpenWeatherMap.
-- [ ] **WX-SRC-FC-003**: Where a provider gives no forecast of a quantity for a slot, the forecast point shall hold that quantity as empty, not zero.
+- [x] **WX-SRC-FC-002**: Every forecast point shall carry its slot's length in hours: 1 for Open-Meteo and the National Weather Service, 3 for OpenWeatherMap.
+- [x] **WX-SRC-FC-003**: Where a provider gives no forecast of precipitation amount, precipitation probability, gust, feels-like temperature or cloud cover for a slot, the forecast point shall hold that quantity as empty, not zero; a slot for which the provider gives no temperature, relative humidity or wind speed shall not be returned.
 - [ ] **WX-SRC-FC-004**: If the chosen provider cannot be used because it needs a key and none is set, then the system shall fetch no forecast, shall not fetch one from another provider, and shall report the reason as that provider's status.
+- [x] **WX-SRC-FC-005**: The Open-Meteo forecast shall return one point for each hour from the hour in progress to the end of the 16-day span, taking temperature, relative humidity, feels-like temperature, wind speed, cloud cover and condition from the values stamped at the hour's start and precipitation amount, precipitation probability and gust from the values stamped at its end.
+- [x] **WX-SRC-FC-006**: The National Weather Service forecast shall return one point for each hour from the hour in progress, giving every hour of a span the value the grid forecast states for that span, except a precipitation amount, which it shall divide evenly across the hours of its span.
+- [x] **WX-SRC-FC-007**: The National Weather Service forecast shall ask the service which forecast grid cell holds the point, sending the coordinates to four decimal places, and shall reuse the answer for later fetches for the same point.
+- [x] **WX-SRC-FC-008**: A fetched forecast shall name the provider it came from.
+- [x] **WX-SRC-FC-009**: A forecast point's condition shall be the provider's weather for the slot mapped to the shared conditions; for the National Weather Service, a slot with no weather forecast, or only a chance or slight chance of it, shall be Clouds when sky cover is at least 50%, Clear when it is lower, and Other when no sky cover is given.
 
 ## The forecast model and its day helpers
 
-- [ ] **WX-SRC-OWM-001**: When fetching the forecast, the system shall return every point the provider gives (temperature, RH, precipitation as rain plus snow in mm, probability, wind, gust, condition) and daily summaries with high, low, mean RH, total precipitation, maximum probability, the most frequent condition, mean wind, maximum gust, and hours covered (the sum of the day's slot lengths).
+- [x] **WX-SRC-OWM-001**: The forecast shall carry every point its provider gives and daily summaries with high, low, mean RH, total precipitation (empty unless every slot of the day carries an amount), maximum probability over the slots that carry one (empty when none does), the condition covering the most hours, mean wind, maximum gust, and hours covered (the sum of the day's slot lengths); an OpenWeatherMap point's precipitation shall be its rain plus snow in mm.
 - [x] **WX-SRC-OWM-002**: When grouping forecast points into daily summaries, the system shall use each point's lawn-local date, never a UTC date or the forecast location's offset.
 - [x] **WX-SRC-OWM-003**: The forecast shall treat a daily summary as a full day when it covers at least 18 hours, and `full_days()` shall return only full days, for every consumer that needs a daily mean or judges a whole day.
-- [x] **WX-SRC-OWM-004**: `next_hours(n)` shall include every point up to now + n hours, including the current slot; `next_days(n)` every summary up to today + n, partial days included; `rain_expected_within(h, mm)` shall report rain when the total in the next h hours is at least mm or any slot in them has probability ≥ 0.5; `max_temp_next_days(n)` the highest daily high over `next_days(n)`.
+- [x] **WX-SRC-OWM-004**: `next_hours(n)` shall include every point up to now + n hours, including the current slot; `next_days(n)` every summary up to today + n, partial days included; `rain_expected_within(h, mm)` shall report rain when the amounts the points in the next h hours carry total at least mm or any of those points has probability ≥ 0.5; `max_temp_next_days(n)` the highest daily high over `next_days(n)`.
 - [x] **WX-SRC-OWM-005**: No error, log line or response produced by the forecast reader shall contain the OpenWeatherMap API key.
 - [x] **WX-SRC-OWM-006**: If the forecast request fails, then the reader's error message shall be plain language naming the forecast as unavailable, keeping upstream response bodies for the log only.
 

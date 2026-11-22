@@ -33,7 +33,7 @@ impl WaterSignals {
             forecast_rain_mm: env.forecast.as_ref().map(|f| {
                 f.next_hours(now, RAIN_FORECAST_HOURS)
                     .iter()
-                    .map(|p| p.precipitation_mm)
+                    .filter_map(|p| p.precipitation_mm)
                     .sum()
             }),
             soil_moisture: env.current.as_ref().and_then(|c| c.primary_soil_moisture()),
@@ -92,33 +92,28 @@ impl WaterSignals {
 mod tests {
     use super::*;
     use crate::models::{
-        EnvironmentalReading, ForecastLocation, ForecastPoint, WeatherCondition, WeatherForecast,
+        EnvironmentalReading, ForecastPoint, ForecastProvider, WeatherCondition, WeatherForecast,
     };
     use chrono::{Duration, Utc};
 
     fn forecast(points_mm: &[f64]) -> WeatherForecast {
         WeatherForecast {
             fetched_at: Utc::now(),
-            location: ForecastLocation {
-                city: "Test".into(),
-                country: "US".into(),
-                latitude: 0.0,
-                longitude: 0.0,
-                utc_offset_seconds: 0,
-            },
+            provider: ForecastProvider::OpenWeatherMap,
             hourly: points_mm
                 .iter()
                 .enumerate()
                 .map(|(i, mm)| ForecastPoint {
                     timestamp: Utc::now() + Duration::hours(3 * i as i64),
+                    slot_hours: 3,
                     temp_f: 70.0,
-                    feels_like_f: 70.0,
+                    feels_like_f: Some(70.0),
                     humidity_percent: 60.0,
-                    precipitation_mm: *mm,
-                    precipitation_prob: 0.0,
+                    precipitation_mm: Some(*mm),
+                    precipitation_prob: Some(0.0),
                     wind_speed_mph: 5.0,
                     wind_gust_mph: None,
-                    cloud_cover_percent: 20.0,
+                    cloud_cover_percent: Some(20.0),
                     weather_condition: WeatherCondition::default(),
                 })
                 .collect(),

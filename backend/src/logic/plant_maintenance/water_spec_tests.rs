@@ -6,7 +6,7 @@ use crate::logic::rules::thresholds::{
     PRECIP_HEAVY_7DAY_MM, PRECIP_TRACE_MM, SOIL_MOISTURE_ADEQUATE,
 };
 use crate::models::{
-    EnvironmentalReading, ForecastLocation, ForecastPoint, Severity, WeatherCondition,
+    EnvironmentalReading, ForecastPoint, ForecastProvider, Severity, WeatherCondition,
     WeatherForecast,
 };
 use chrono::{Duration, Utc};
@@ -37,25 +37,20 @@ fn point(label: &str, rec: &Recommendation) -> Option<String> {
 fn forecast(points: &[(i64, f64)]) -> WeatherForecast {
     WeatherForecast {
         fetched_at: Utc::now(),
-        location: ForecastLocation {
-            city: "Test".into(),
-            country: "US".into(),
-            latitude: 0.0,
-            longitude: 0.0,
-            utc_offset_seconds: 0,
-        },
+        provider: ForecastProvider::OpenWeatherMap,
         hourly: points
             .iter()
             .map(|(hours, mm)| ForecastPoint {
                 timestamp: Utc::now() + Duration::hours(*hours),
+                slot_hours: 3,
                 temp_f: 70.0,
-                feels_like_f: 70.0,
+                feels_like_f: Some(70.0),
                 humidity_percent: 60.0,
-                precipitation_mm: *mm,
-                precipitation_prob: 0.0,
+                precipitation_mm: Some(*mm),
+                precipitation_prob: Some(0.0),
                 wind_speed_mph: 5.0,
                 wind_gust_mph: None,
-                cloud_cover_percent: 20.0,
+                cloud_cover_percent: Some(20.0),
                 weather_condition: WeatherCondition::default(),
             })
             .collect(),
@@ -104,6 +99,14 @@ fn rain_forecast_within_48_hours_holds_the_watering_reminder() {
         waters(&with_forecast(&[(0, 0.5), (51, 10.0)])),
         "rain after 48 h"
     );
+}
+
+// @spec PLANT-WATER-001
+#[test]
+fn a_forecast_point_with_no_rain_amount_adds_nothing() {
+    let mut env = with_forecast(&[(0, 1.5), (3, 9.0), (45, 0.9)]);
+    env.forecast.as_mut().unwrap().hourly[1].precipitation_mm = None;
+    assert!(waters(&env), "2.4 mm from the points that carry an amount");
 }
 
 // @spec PLANT-WATER-002
