@@ -1,7 +1,7 @@
 //! A lawn near Avondale, PA with a stored plan, for tests of the record's contracts.
 //! "Now" is noon Eastern on 2026-07-20 unless a test says otherwise.
 
-use super::plan::{build, Lawn};
+use super::plan::{build, Lawn, MappedSensor};
 use super::record::{AgeLimits, Asked, WeatherRecord};
 use crate::clock::Moment;
 use crate::db::weather_queries::{catalog, days, fetch_state, plan, rows, sources};
@@ -15,6 +15,14 @@ pub const STATION: &str = "station:Uscrn:a";
 pub const ESTIMATE: &str = "estimate:39.8600,-75.7900";
 pub const PRISM: &str = "grid:prism:39.8600,-75.7900";
 pub const NRCC: &str = "grid:nrcc:39.8600,-75.7900";
+pub const ANALYSIS: &str = "analysis:39.8600,-75.7900";
+pub const SENSOR: &str = "sensor:1";
+
+const LAWN: Lawn = Lawn {
+    latitude: 39.86,
+    longitude: -75.79,
+    elevation_ft: Some(400.0),
+};
 
 pub const LIMITS: AgeLimits = AgeLimits {
     sensor_air: Duration::hours(1),
@@ -70,12 +78,7 @@ impl Lab {
             .await
             .unwrap();
         let stations = catalog::stations(&pool).await.unwrap();
-        let lawn = Lawn {
-            latitude: 39.86,
-            longitude: -75.79,
-            elevation_ft: Some(400.0),
-        };
-        plan::replace(&pool, &build(Some(&lawn), &stations, &[], &[]))
+        plan::replace(&pool, &build(Some(&LAWN), &stations, &[], &[]))
             .await
             .unwrap();
         // Every source starts with its history in hand; a test of the backfill undoes it.
@@ -119,6 +122,41 @@ impl Lab {
         let id = self.source(STATION).await.id;
         let mut conn = self.pool.acquire().await.unwrap();
         rows::write_hourly(&mut conn, id, &rows).await.unwrap();
+    }
+
+    /// The first `hours` hours of local July `day` from the hourly analysis.
+    pub async fn analysis_hours(&self, day: u32, hours: i64, air_f: f64, rh: f64, rain_mm: f64) {
+        let start: DateTime<Utc> = days::start_of_day(New_York, d(day));
+        let rows: Vec<HourlyRow> = (0..hours)
+            .map(|hour| HourlyRow {
+                observed_at: start + Duration::hours(hour),
+                air_temp_f: Some(air_f),
+                rh_pct: Some(rh),
+                precip_mm: Some(rain_mm),
+                ..Default::default()
+            })
+            .collect();
+        self.write_hours(ANALYSIS, &rows).await;
+    }
+
+    pub async fn write_hours(&self, key: &str, rows: &[HourlyRow]) {
+        let id = self.source(key).await.id;
+        let mut conn = self.pool.acquire().await.unwrap();
+        rows::write_hourly(&mut conn, id, rows).await.unwrap();
+    }
+
+    /// Rebuilds the plan with one of the owner's sensors mapped to `input`.
+    pub async fn map_sensor(&self, input: Input) -> Source {
+        let stations = catalog::stations(&self.pool).await.unwrap();
+        let sensor = MappedSensor {
+            input,
+            key: SENSOR.into(),
+            name: "Patio".into(),
+        };
+        plan::replace(&self.pool, &build(Some(&LAWN), &stations, &[sensor], &[]))
+            .await
+            .unwrap();
+        self.source(SENSOR).await
     }
 
     /// One of a daily source's own days.

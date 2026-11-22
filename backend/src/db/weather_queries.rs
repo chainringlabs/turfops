@@ -3,6 +3,7 @@
 
 pub mod catalog;
 pub mod days;
+pub mod disease_days;
 pub mod fetch_state;
 pub mod plan;
 pub mod rows;

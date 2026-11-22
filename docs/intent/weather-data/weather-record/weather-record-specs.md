@@ -35,9 +35,9 @@ Design: [weather-record-design.md](weather-record-design.md). Parent: [weather-d
 
 - [x] **WX-REC-RES-001**: For an input on a complete local day, the record shall return the value from the highest-ranked source in the plan that covers that day, provided no higher-ranked source is pending for that day (WX-REC-RES-010), and shall return no value otherwise.
 - [x] **WX-REC-RES-002**: An hourly source shall cover a local day for an input when it holds at least 12 non-null hourly values of that input on that day; a daily source shall cover a local day when it holds a value assigned to that day.
-- [ ] **WX-REC-RES-003**: For the live reading and the local day in progress, the record shall take each input from the highest-ranked source in the plan whose newest non-null value of that input is no older than the age limit its caller gives for that kind of source.
-- [ ] **WX-REC-RES-004**: The live reading shall give, for each input, the speaking source's newest non-null value and the time that value was observed; where the speaking source is daily, the value shall be its newest day's value and the time shall be that day.
-- [ ] **WX-REC-RES-005**: For the daily disease inputs, the record shall take a local day's air temperature and humidity from one source: the highest-ranked source in the plan for hourly air and humidity that holds at least 12 hours on that day with both values present.
+- [x] **WX-REC-RES-003**: For the live reading and the local day in progress, the record shall take each input from the highest-ranked source in the plan whose newest non-null value of that input is no older than the age limit its caller gives for that kind of source, except that rain shall be taken only from an hourly source, a day's total saying nothing about the day in progress.
+- [x] **WX-REC-RES-004**: The live reading shall give, for each input, the speaking source's newest non-null value and the time that value was observed; where the speaking source is daily, the value shall be its newest day's value and the time shall be that day.
+- [x] **WX-REC-RES-005**: For the daily disease inputs, the record shall take a local day's air temperature and humidity from one source: the highest-ranked source in the plan for hourly air and humidity that holds at least 12 hours on that day with both values present.
 - [ ] **WX-REC-RES-006**: Where the soil estimate is the resolved source for days that follow or lie between days resolved from a sensor or a station, the record shall return the soil estimate's anchored value for those days.
 - [x] **WX-REC-RES-007**: The record shall assign a PRISM or NRCC maximum and minimum for day D to local day D, a PRISM or NRCC precipitation amount for day D to local day D − 1, and a soil-estimate value for day D to local day D.
 - [x] **WX-REC-RES-008**: While PRISM has published no precipitation assigned to a local day, the record shall resolve that day's rain total from the hourly analysis, and when PRISM publishes it, from PRISM.
@@ -46,26 +46,26 @@ Design: [weather-record-design.md](weather-record-design.md). Parent: [weather-d
 
 ## Basis in the contracts
 
-- [ ] **WX-REC-BASIS-001**: Every value a record contract returns shall be accompanied by its basis: the kind (sensor, station or estimate), the source's name, the distance in miles when the source is a station, and whether it is approximate.
+- [x] **WX-REC-BASIS-001**: Every value a record contract returns shall be accompanied by its basis: the kind (sensor, station or estimate), the source's name, the distance in miles when the source is a station, and whether it is approximate.
 - [x] **WX-REC-BASIS-002**: The record shall report a value from the hourly analysis as an estimate that is approximate, and a value from a grid or from the soil estimate as an estimate that is not approximate.
 - [x] **WX-REC-BASIS-003**: A contract that returns a series shall return, for each input in the series, the basis as spans of the series' successive days on the same basis, each with its first and last day; a day with no value shall not end a span.
-- [ ] **WX-REC-BASIS-004**: A contract that returns one figure over a period shall return the basis of the newest day in the period and shall mark the figure as mixed when the period drew on more than one basis.
-- [ ] **WX-REC-BASIS-005**: The live reading shall carry one basis for each input it fills.
+- [x] **WX-REC-BASIS-004**: A contract that returns one figure over a period shall return the basis of the newest day in the period and shall mark the figure as mixed when the period drew on more than one basis.
+- [x] **WX-REC-BASIS-005**: The live reading shall carry one basis for each input it fills.
 
 ## Query contracts
 
 - [x] **WX-REC-API-001**: No record contract shall publish a "today" of its own; each shall take the lawn's date or instant from its caller.
-- [ ] **WX-REC-API-002**: `fetch_range(start, end)` shall return hourly readings newest first, each input resolved per local day, and for a local day on which an input's source is daily, one reading of that input at local noon.
-- [ ] **WX-REC-API-003**: `fetch_summary(now)` shall return the live reading, the means of 10 cm soil temperature, air temperature and humidity and the rain total over the 168 hours ending at `now`, and the soil trend; a local day whose source is daily shall contribute its value to a mean for each of its hours inside those 168, and to the rain total in proportion to those hours.
-- [ ] **WX-REC-API-004**: The soil trend shall compare the mean 10 cm soil temperature of the newest 24 hours with that of the 24 hours before: more than +2 °F is Rising, less than −2 °F is Falling, otherwise Stable; where the source is daily it shall compare the newest day with the day before; with fewer than 48 hours, or fewer than two days, it shall be Unknown.
+- [x] **WX-REC-API-002**: `fetch_range(start, end)` shall return hourly readings newest first, each input resolved per local day, and for a local day on which an input's source is daily, one reading of that input at local noon.
+- [x] **WX-REC-API-003**: `fetch_summary(now)` shall return the live reading, the means of 10 cm soil temperature, air temperature and humidity and the rain total over the 168 hours ending at `now`, and the soil trend; a local day whose source is daily shall contribute its value to a mean for each of its hours inside those 168, and to the rain total in proportion to those hours.
+- [x] **WX-REC-API-004**: The soil trend shall compare the mean 10 cm soil temperature of the 24 hours ending at the newest value with that of the 24 hours before: more than +2 °F is Rising, less than −2 °F is Falling, otherwise Stable; where the newest value is a daily one it shall compare the newest day with the day before; where either period has no value, or the two periods rest on different sources, it shall be Unknown.
 - [x] **WX-REC-API-005**: `fetch_daily_soil_temp_averages` shall return, for each complete local day in the span asked for that has one, the resolved 10 cm soil temperature, in ascending date order.
 - [x] **WX-REC-API-006**: `fetch_daily_paired_averages` shall return, for each local day that has both, the resolved daily air mean and the resolved 10 cm soil temperature, in ascending date order.
 - [x] **WX-REC-API-007**: The daily air mean shall be the mean of the day's hours where the daily air source is hourly, and half the sum of the maximum and minimum where it is a grid.
 - [x] **WX-REC-API-008**: `fetch_daily_gdd(start, end)` shall return, for each local day with a resolved daily maximum and minimum, those two values and `gdd50`, the greater of zero and their mean minus 50 °F.
 - [x] **WX-REC-API-009**: `fetch_gdd_ytd(today)` shall return the sum of `gdd50` from January 1 of `today`'s year through `today`, and nothing when no day in that span has a value.
-- [ ] **WX-REC-API-010**: `fetch_daily_disease_inputs(start)` shall return, per local day from `start`, the count of usable hours, air mean, minimum and maximum, humidity mean, hours at humidity of 90 % or more, leaf-wetness hours (humidity of 90 % or more, or precipitation above zero in that hour from the same source), the day's rain total from the rain basis, the peak Magnus dew point, and whether the day has an hour in the dawn hours and in the afternoon hours its caller supplies, with temperatures in °C.
+- [x] **WX-REC-API-010**: `fetch_daily_disease_inputs(start)` shall return, per local day from `start`, the count of usable hours, air mean, minimum and maximum, humidity mean, hours at humidity of 90 % or more, leaf-wetness hours (humidity of 90 % or more, or precipitation above zero in that hour from the same source), the day's rain total from the rain basis (zero where the rain basis has no value for the day), the peak Magnus dew point, and whether the day has an hour in the dawn hours and in the afternoon hours its caller supplies, with temperatures in °C; a usable hour is one with both air temperature and humidity.
 - [x] **WX-REC-API-011**: `fetch_climate_record(start)` shall return, per local day from `start`, the resolved 5 cm soil temperature, the resolved daily air minimum and mean, and `gdd50`, keeping a day that has only some of them with the others empty.
-- [ ] **WX-REC-API-012**: The primary soil moisture shall be the 10 cm value, else 5 cm, else 20 cm.
+- [x] **WX-REC-API-012**: The primary soil moisture shall be the 10 cm value, else 5 cm, else 20 cm.
 
 ## Backfill, what is due, status
 
@@ -80,8 +80,8 @@ Design: [weather-record-design.md](weather-record-design.md). Parent: [weather-d
 
 ## Outages
 
-- [ ] **WX-REC-FAIL-001**: While the lawn has no location, every record contract that answers for the lawn shall return the location-not-set outage.
+- [x] **WX-REC-FAIL-001**: While the lawn has no location, every record contract that answers for the lawn shall return the location-not-set outage.
 - [x] **WX-REC-FAIL-002**: While any source in the plan for 5 cm soil temperature, 10 cm soil temperature or daily air does not yet hold its wanted span, `fetch_climate_record`, `fetch_daily_soil_temp_averages` and `fetch_daily_paired_averages` shall return the history-still-loading outage with the years held and wanted, the years held being the fewest complete years any of those sources holds; a sensor, which has no history to load, shall not be counted.
-- [ ] **WX-REC-FAIL-003**: While history is still loading, `fetch_latest`, `fetch_summary`, `fetch_range`, `fetch_daily_gdd`, `fetch_gdd_ytd` and `fetch_daily_disease_inputs` shall answer from the days held.
-- [ ] **WX-REC-FAIL-004**: If a source in the plan cannot be fetched, then the record shall keep answering from the rows it holds for that source.
+- [x] **WX-REC-FAIL-003**: While history is still loading, `fetch_latest`, `fetch_summary`, `fetch_range`, `fetch_daily_gdd`, `fetch_gdd_ytd` and `fetch_daily_disease_inputs` shall answer from the days held.
+- [x] **WX-REC-FAIL-004**: If a source in the plan cannot be fetched, then the record shall keep answering from the rows it holds for that source.
 - [x] **WX-REC-FAIL-005**: The record shall return a missing value as empty, and shall neither substitute zero for it nor carry an earlier value forward in its place.

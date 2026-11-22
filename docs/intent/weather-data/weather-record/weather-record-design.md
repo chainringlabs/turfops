@@ -205,10 +205,16 @@ Details consumers rely on:
 
 - **Daily air mean** is the mean of the day's hours from a sensor, and `(max + min) / 2` from
   the grid.
-- **Trend** compares the mean 10 cm soil temperature of the newest 24 hours with the 24 before:
-  more than +2 °F is `Rising`, less than −2 °F is `Falling`, otherwise `Stable`. On a daily
-  basis it compares the newest day with the day before. With fewer than 48 hours, or fewer than
-  two days, it is `Unknown`.
+- **Trend** compares the mean 10 cm soil temperature of the 24 hours ending at the newest
+  value with the 24 before: more than +2 °F is `Rising`, less than −2 °F is `Falling`,
+  otherwise `Stable`. On a daily basis it compares the newest day with the day before. It is
+  `Unknown` when either period has no value, and when the two periods rest on different
+  sources: a change of source is a seam, not warming or cooling.
+- **Current rain comes from an hourly source only.** For every other input a daily source's
+  newest day stands as the current value. A day's rain total does not: an earlier day's rain
+  is not falling now. The day in progress takes its rain from a sensor or the hourly analysis.
+- **A disease day's rain total is zero where the rain basis has nothing for it.** The models
+  read it as a number, and the lake they were built on did the same.
 - **The last day of a daily contract is usually partial** on an hourly basis. Whether a day is
   usable stays with the consumer, as does `hours_covered`.
 - **No contract publishes a "today".** Callers pass the lawn's date from the app's `Clock`.
