@@ -6,18 +6,18 @@ Design: [weather-record-design.md](weather-record-design.md). Parent: [weather-d
 
 ## What is stored and how it is written
 
-- [ ] **WX-REC-STORE-001**: The record shall keep every stored weather value in a row that belongs to exactly one source, and shall store no row that combines values from more than one source.
-- [ ] **WX-REC-STORE-002**: The record shall store temperatures in °F, precipitation in millimetres, relative humidity in percent and soil moisture as a fraction from 0 to 1, as handed over by the source clients, and shall convert no unit on read except where a contract states its own unit.
-- [ ] **WX-REC-STORE-003**: The record shall key an hourly row by its source and the UTC start of its hour, and a daily row by its source and the source's own day.
-- [ ] **WX-REC-STORE-004**: When rows are written for a source and hour or day the record already holds, the record shall replace the held row with the new one, nulls included.
-- [ ] **WX-REC-STORE-005**: The record shall compute every daily value of an hourly source on read, by grouping that source's hours into local days, and shall store no daily copy of an hourly source.
-- [ ] **WX-REC-STORE-006**: When a sensor reading arrives, the record shall store the reading as received and recompute that sensor source's hourly row for the reading's hour from all of that hour's readings: the mean for temperature, humidity and soil moisture, and the total for rain.
-- [ ] **WX-REC-STORE-007**: The record shall delete stored sensor readings older than 7 days and shall keep the sensor source's hourly rows without limit.
+- [x] **WX-REC-STORE-001**: The record shall keep every stored weather value in a row that belongs to exactly one source, and shall store no row that combines values from more than one source.
+- [x] **WX-REC-STORE-002**: The record shall store temperatures in °F, precipitation in millimetres, relative humidity in percent and soil moisture as a fraction from 0 to 1, as handed over by the source clients, and shall convert no unit on read except where a contract states its own unit.
+- [x] **WX-REC-STORE-003**: The record shall key an hourly row by its source and the UTC start of its hour, and a daily row by its source and the source's own day.
+- [x] **WX-REC-STORE-004**: When rows are written for a source and hour or day the record already holds, the record shall replace the held row with the new one, nulls included.
+- [x] **WX-REC-STORE-005**: The record shall compute every daily value of an hourly source on read, by grouping that source's hours into local days, and shall store no daily copy of an hourly source.
+- [x] **WX-REC-STORE-006**: When a sensor reading arrives, the record shall store the reading as received and recompute that sensor source's hourly row for the reading's hour from all of that hour's readings: the mean for temperature, humidity and soil moisture, and the total for rain.
+- [x] **WX-REC-STORE-007**: The record shall delete stored sensor readings older than 7 days and shall keep the sensor source's hourly rows without limit.
 - [ ] **WX-REC-STORE-008**: The record shall want, for each source in the plan, this span: for a station that is the basis for an input, the grids at the lawn's point and the soil estimate, 15 complete calendar years before the current year plus the current year; for the hourly analysis, from 93 days before the installation first had a location; for calibration stations and calibration grid points, the span the soil estimate asks for.
 
 ## Station catalog and basis plan
 
-- [ ] **WX-REC-PLAN-001**: The record shall hold a catalog of the USCRN and SCAN stations in the contiguous United States with, for each, its network, the network's station id, name, state, latitude, longitude, elevation in feet and the inputs it reports.
+- [x] **WX-REC-PLAN-001**: The record shall hold a catalog of the USCRN and SCAN stations in the contiguous United States with, for each, its network, the network's station id, name, state, latitude, longitude, elevation in feet and the inputs it reports.
 - [ ] **WX-REC-PLAN-002**: The record shall rebuild the plan when the lawn's location is set or changed, when a sensor is mapped or unmapped, when a station is pinned or unpinned, and when a catalog refresh changes a station that is in the plan.
 - [ ] **WX-REC-PLAN-003**: The plan shall rank, for each input, the owner's sensor mapped to that input first, then stations, then the input's estimate source.
 - [ ] **WX-REC-PLAN-004**: For soil temperature and soil moisture at each depth, the plan shall include the nearest USCRN station within 50 miles of the lawn that reports the input, followed by the nearest SCAN station within 50 miles that reports it.
@@ -69,9 +69,9 @@ Design: [weather-record-design.md](weather-record-design.md). Parent: [weather-d
 
 ## Backfill, what is due, status
 
-- [ ] **WX-REC-FILL-001**: The record shall keep, for each source and product, the span it wants, the span it holds, and the times of the last attempt, the last success and the last failure.
+- [x] **WX-REC-FILL-001**: The record shall keep, for each source and product, the span it wants, the span it holds, and the times of the last attempt, the last success and the last failure.
 - [ ] **WX-REC-FILL-002**: `due(now)` shall report each fetch needed to bring a held span up to its wanted span and each product whose source's cadence says new data may exist, with spans not yet held reported newest first.
-- [ ] **WX-REC-FILL-003**: When a fetch succeeds, the record shall write its rows and extend the held span in one step; when a fetch fails, the record shall record the failure and leave the held span unchanged.
+- [x] **WX-REC-FILL-003**: When a fetch succeeds, the record shall write its rows and extend the held span in one step; when a fetch fails, the record shall record the failure and leave the held span unchanged.
 - [ ] **WX-REC-FILL-004**: `due(now)` shall report, with each station fetch, a re-read of that station's last 3 days, and with each daily grid fetch, a re-read of the grid's last 7 days.
 - [ ] **WX-REC-FILL-005**: `status()` shall report, for each source in use, its name and kind, the inputs it is in the plan for, its last success and last failure, and the span held against the span wanted.
 - [ ] **WX-REC-FILL-006**: When the plan is rebuilt, the record shall stop reporting fetches for sources that left it and shall start each new source with an empty held span.
