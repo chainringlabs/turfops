@@ -1,8 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
+pub mod location;
+#[cfg(test)]
+mod location_tests;
 #[cfg(test)]
 mod parse_tests;
+
+pub use location::LawnLocation;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GrassType {
@@ -164,6 +169,8 @@ pub struct LawnProfile {
     pub soil_type: Option<SoilType>,
     pub lawn_size_sqft: Option<f64>,
     pub irrigation_type: Option<IrrigationType>,
+    /// Where the lawn is. Without it the profile is valid and nothing weather-dependent is shown.
+    pub location: Option<LawnLocation>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
@@ -179,6 +186,7 @@ impl LawnProfile {
             soil_type: None,
             lawn_size_sqft: None,
             irrigation_type: None,
+            location: None,
             created_at: now,
             updated_at: now,
         }

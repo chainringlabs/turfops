@@ -40,6 +40,7 @@ pub(crate) fn profile() -> LawnProfile {
         soil_type: None,
         lawn_size_sqft: Some(5000.0),
         irrigation_type: None,
+        location: None,
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }

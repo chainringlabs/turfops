@@ -63,6 +63,9 @@ services:
       LAWN_SOIL_TYPE: ${LAWN_SOIL_TYPE:-Loam}
       LAWN_SIZE_SQFT: ${LAWN_SIZE_SQFT:-5000}
       LAWN_IRRIGATION_TYPE: ${LAWN_IRRIGATION_TYPE:-InGround}
+      # The lawn's location (contiguous US). No default: unset means no location yet.
+      LAWN_LATITUDE: ${LAWN_LATITUDE:-}
+      LAWN_LONGITUDE: ${LAWN_LONGITUDE:-}
 
       # NOAA station
       NOAA_STATION_WBANNO: ${NOAA_STATION_WBANNO:-3761}

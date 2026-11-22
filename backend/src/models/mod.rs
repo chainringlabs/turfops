@@ -19,6 +19,9 @@ pub mod soil_temp_prediction;
 pub mod soil_test;
 pub mod timing;
 
+// The weather record's stored shapes; referenced by path, not re-exported.
+pub mod weather_record;
+
 pub use application::*;
 pub use disease::*;
 pub use disease_management::*;

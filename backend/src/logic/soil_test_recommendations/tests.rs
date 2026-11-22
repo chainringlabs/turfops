@@ -42,6 +42,7 @@ pub(super) fn make_profile(grass: GrassType, soil: Option<SoilType>) -> LawnProf
         soil_type: soil,
         lawn_size_sqft: Some(5000.0),
         irrigation_type: None,
+        location: None,
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }

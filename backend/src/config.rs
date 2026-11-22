@@ -14,6 +14,9 @@ pub(crate) mod load;
 pub(crate) use load::test_config;
 #[cfg(test)]
 mod load_tests;
+mod location_seed;
+#[cfg(test)]
+mod location_seed_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod startup_profile_db_tests;
 
@@ -42,6 +45,9 @@ pub struct LawnConfig {
     /// `LAWN_SIZE_SQFT` as given; parsed (with a warning when invalid) when seeding.
     pub lawn_size_sqft: Option<String>,
     pub irrigation_type: Option<String>,
+    /// `LAWN_LATITUDE` / `LAWN_LONGITUDE` (or the older `OWM_` pair) as given.
+    #[serde(skip)]
+    pub location: location_seed::LocationSettings,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -244,6 +250,9 @@ impl LawnConfig {
                 warn("LAWN_SIZE_SQFT", raw, "leaving the lawn size unset");
             }
         }
+        let (location, location_warnings) = self.seed_location();
+        profile.location = location;
+        warnings.extend(location_warnings);
         (profile, warnings)
     }
 }
@@ -261,6 +270,7 @@ mod seed_tests {
             soil_type: Some("Clay".into()),
             lawn_size_sqft: Some("5000".into()),
             irrigation_type: Some("InGround".into()),
+            location: Default::default(),
         }
     }
 

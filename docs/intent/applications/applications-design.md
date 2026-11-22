@@ -30,13 +30,13 @@ The system is single-lawn. Every handler resolves "the" profile as the lowest-id
 | `soil_type` | `SoilType?` | `Clay` · `Loam` · `Sandy` · `SiltLoam` · `ClayLoam` · `SandyLoam`. Read by soil-test advice and timing companions. |
 | `lawn_size_sqft` | f64? | Used to scale agronomic amounts (nitrogen, seed per 1,000 sq ft) to the lawn in feeding and seeding advice (the consumers fall back to a default). |
 | `irrigation_type` | `IrrigationType?` | `InGround` · `Hose` · `None`. Stored and shown, but no logic reads it. |
-| `latitude`, `longitude` | f64? each | The lawn's location, set and cleared together. Must lie in the contiguous United States (latitude 24.5 to 49.5, longitude −125 to −66.9). The weather record resolves stations and the grid point from it. Stored to 4 decimal places (about 10 m). |
-| `place_name` | text? | What the owner searched for or typed, shown beside the coordinates. Never sent anywhere. |
-| `timezone` | text? | IANA zone name for the location, derived when the location is set; not editable. The app's `Clock` runs in it. |
+| `location.latitude`, `location.longitude` | f64 each | The lawn's location. The four location fields are one optional `location` object, so they are present together or absent together. Must lie in the contiguous United States (latitude 24.5 to 49.5, longitude −125 to −66.9). The weather record resolves stations and the grid point from it. Stored to 4 decimal places (about 10 m). |
+| `location.place_name` | text? | What the owner searched for or typed, shown beside the coordinates. Never sent anywhere. |
+| `location.timezone` | text | IANA zone name for the location, derived when the location is set; not editable. The app's `Clock` runs in it. |
 
 **The location is the lawn's one weather setting.** Without it the profile is valid and the log works, and every weather-dependent surface directs the owner to setup.
 
-**Timezone** is looked up from the coordinates with a zone map compiled into the application, so setting a location never depends on an outside service and always yields a zone.
+**Timezone** is looked up from the coordinates with a zone map compiled into the application (`tzf-rs`), so setting a location never depends on an outside service and always yields a zone. The map's boundary data is OpenStreetMap's, under the Open Database License; it is embedded unmodified and credited in the README and on the Sources page.
 
 `GrassType::is_cool_season()` is true for the four cool-season species **and `Mixed`**. A mixed lawn is a cool-season blend (fescue / bluegrass / rye), the usual seed mix. It therefore gets the cool-season rules, seeding windows and disease models. Warm-season types (`Bermuda`, `Zoysia`, `StAugustine`) are the only ones that return false. The enum accepts them, but warm-season lawns are unsupported (HLD Non-Goals): no behavior for them is designed. Consumers own what "cool-season" gates.
 
@@ -67,7 +67,7 @@ A grass type stored in the DB that cannot be parsed reads back as `TallFescue` w
 | Method | Path | Behavior |
 |---|---|---|
 | GET | `/api/v1/profile` | The profile; 404 `No lawn profile found` if the table is empty. |
-| PUT | `/api/v1/profile` | Partial update. An absent field is left alone. For `soil_type` / `irrigation_type`, `""` clears the field. For `lawn_size_sqft`, a value ≤ 0 clears it. An unknown enum value returns 400. The response re-reads the row so `updated_at` comes from the DB. When no profile exists, the same request creates it, with any omitted field filled as startup seeding does (`Main Lawn`, `TallFescue`, `7a`, optional fields unset). `latitude` and `longitude` must arrive together; one without the other, or a point outside the contiguous United States, is a 400 saying so. A changed location sets `timezone`, replaces the app's clock with one in that zone, has the weather record rebuild its basis plan, and wakes the fetch schedule, in that order, before the response. |
+| PUT | `/api/v1/profile` | Partial update. An absent field is left alone. For `soil_type` / `irrigation_type`, `""` clears the field. For `lawn_size_sqft`, a value ≤ 0 clears it. An unknown enum value returns 400. The response re-reads the row so `updated_at` comes from the DB. When no profile exists, the same request creates it, with any omitted field filled as startup seeding does (`Main Lawn`, `TallFescue`, `7a`, optional fields unset). A request sets the location as `location: {latitude, longitude, place_name}`. `latitude` and `longitude` must arrive together; one without the other, or a point outside the contiguous United States, is a 400 saying so. `place_name` alone renames the current location. A changed location sets `timezone`, replaces the app's clock with one in that zone, has the weather record rebuild its basis plan, and wakes the fetch schedule, in that order, before the response. |
 
 ## Application Log
 
@@ -303,7 +303,7 @@ The page edits the profile: name and USDA zone are required, plus grass type, so
 | `Mixed` grass | Cool-season | Neither cool nor warm | A mixed lawn is a cool-season blend, and treating it as neither silenced the rules, windows and disease models for the most common lawn. Owner decision. |
 
 | Where the location lives | On the lawn profile | A separate settings table; environment only | It is a fact about the lawn, the profile is the one row every handler already resolves, and it must change without a restart (HLD: choices about the lawn are made in the app). |
-| Timezone source | A zone map compiled into the application | The hourly-analysis service's answer for the point; a setting the owner types | The clock dates every answer in the app; it should not depend on a request succeeding, and a typed zone can contradict the location. |
+| Timezone source | A zone map compiled into the application, accepting its ODbL-licensed boundary data with attribution | The hourly-analysis service's answer for the point; a setting the owner types | The clock dates every answer in the app; it should not depend on a request succeeding, and a typed zone can contradict the location. |
 | Location bounds | Reject points outside the contiguous United States | Accept any point and degrade | No station, grid or estimate exists there (HLD non-goal); accepting the point would produce an app with no weather and no explanation. |
 | Location precision | 4 decimal places | Full precision | The grid cell is about 4 km; more digits describe the owner's house, not the weather. |
 
