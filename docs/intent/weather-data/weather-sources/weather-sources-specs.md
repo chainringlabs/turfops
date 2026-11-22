@@ -13,11 +13,11 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 
 ## How requests are made
 
-- [ ] **WX-SRC-REQ-001**: Every outside request shall carry a `User-Agent` naming TurfOps and its version, and shall carry no owner name, address or contact detail.
-- [ ] **WX-SRC-REQ-002**: Every outside request shall time out after 5 seconds to connect and 30 seconds in total, except a grid request spanning more than one year, which shall time out after 120 seconds in total.
-- [ ] **WX-SRC-REQ-003**: The clients shall make at most one request at a time to a host, with at least 1 second between requests to the same host and at least 2 seconds between requests to RCC-ACIS.
-- [ ] **WX-SRC-REQ-004**: When re-requesting a file it has fetched before, a client shall send `If-Modified-Since` with the time of the copy it holds, and shall treat a not-modified answer as a success that returns no rows.
-- [ ] **WX-SRC-REQ-005**: A client shall not retry a failed request; it shall return the failure to its caller.
+- [x] **WX-SRC-REQ-001**: Every outside request shall carry a `User-Agent` naming TurfOps and its version, and shall carry no owner name, address or contact detail.
+- [x] **WX-SRC-REQ-002**: Every outside request shall time out after 5 seconds to connect and 30 seconds in total, except a grid request spanning more than one year, which shall time out after 120 seconds in total.
+- [x] **WX-SRC-REQ-003**: The clients shall make at most one request at a time to a host, with at least 1 second between requests to the same host and at least 2 seconds between requests to RCC-ACIS.
+- [x] **WX-SRC-REQ-004**: When re-requesting a file it has fetched before, a client shall send `If-Modified-Since` with the time of the copy it holds, and shall treat a not-modified answer as a success that returns no rows.
+- [x] **WX-SRC-REQ-005**: A client shall not retry a failed request; it shall return the failure to its caller.
 - [ ] **WX-SRC-REQ-006**: A point query to an outside source shall send the lawn's coordinates and nothing else about the lawn or its owner.
 
 ## Cadence
@@ -27,24 +27,24 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 
 ## USCRN
 
-- [ ] **WX-SRC-USCRN-001**: The USCRN catalog fetch shall return, for each station in the network's station list whose network is USCRN and whose state is in the contiguous United States, its WBAN number, name, state, latitude, longitude, elevation in feet and operating status.
-- [ ] **WX-SRC-USCRN-002**: The USCRN hourly fetch shall return, for one station and year, each hour's average air temperature, maximum and minimum air temperature, precipitation, relative humidity, and soil temperature and soil moisture at 5, 10, 20, 50 and 100 cm.
-- [ ] **WX-SRC-USCRN-003**: The USCRN hourly fetch shall stamp each row one hour before the file's UTC time, which marks the end of the observed hour.
-- [ ] **WX-SRC-USCRN-004**: The USCRN hourly fetch shall return relative humidity as empty when its quality flag is not 0.
-- [ ] **WX-SRC-USCRN-005**: The USCRN daily fetch shall return, for one station and year, each day's air maximum, minimum and mean, precipitation, and soil temperature at 5 and 10 cm.
-- [ ] **WX-SRC-USCRN-006**: If the file for a station and year does not exist, then the USCRN client shall return an empty success.
+- [x] **WX-SRC-USCRN-001**: The USCRN catalog fetch shall return, for each station in the network's station list whose network is USCRN, USRCRN or Alabama-USRCRN, whose country is the United States, whose state is in the contiguous United States and whose operation is Operational, its WBAN number, name, state, latitude, longitude, elevation in feet, year commissioned and the stem of its data file names.
+- [x] **WX-SRC-USCRN-002**: The USCRN hourly fetch shall return, for one station and year, each hour's average air temperature, maximum and minimum air temperature, precipitation, relative humidity, and soil temperature and soil moisture at 5, 10, 20, 50 and 100 cm.
+- [x] **WX-SRC-USCRN-003**: The USCRN hourly fetch shall stamp each row one hour before the file's UTC time, which marks the end of the observed hour.
+- [x] **WX-SRC-USCRN-004**: The USCRN hourly fetch shall return relative humidity as empty when its quality flag is not 0.
+- [x] **WX-SRC-USCRN-005**: The USCRN daily fetch shall return, for one station and year, each day's air maximum, minimum and mean, precipitation, and soil temperature at 5 and 10 cm.
+- [x] **WX-SRC-USCRN-006**: If the file for a station and year does not exist, then the USCRN client shall return an empty success.
 
 ## SCAN
 
-- [ ] **WX-SRC-SCAN-001**: The SCAN catalog fetch shall return, for each SCAN station in the contiguous United States, its station id, name, state, latitude, longitude, elevation in feet, fixed UTC offset, first date of record, and the hourly elements it reports with their depths.
-- [ ] **WX-SRC-SCAN-002**: The SCAN hourly fetch shall return, for one station and a span of at most one year, air temperature, relative humidity, precipitation, and soil temperature and soil moisture at 2, 4, 8, 20 and 40 inches as the 5, 10, 20, 50 and 100 cm depths, for the elements the station reports.
-- [ ] **WX-SRC-SCAN-003**: The SCAN hourly fetch shall convert each row's time from the station's fixed UTC offset to UTC.
+- [x] **WX-SRC-SCAN-001**: The SCAN catalog fetch shall return, for each SCAN station in the contiguous United States, its station id, name, state, latitude, longitude, elevation in feet, fixed UTC offset, first date of record, and the hourly elements it reports with their depths.
+- [x] **WX-SRC-SCAN-002**: The SCAN hourly fetch shall return, for one station and a span of at most one year, air temperature, relative humidity, precipitation, and soil temperature and soil moisture at 2, 4, 8, 20 and 40 inches as the 5, 10, 20, 50 and 100 cm depths, for the elements the station reports.
+- [x] **WX-SRC-SCAN-003**: The SCAN hourly fetch shall convert each row's time from the station's fixed UTC offset to UTC.
 
 ## PRISM and NRCC grids
 
-- [ ] **WX-SRC-GRID-001**: The grid fetch shall return, for one point, one grid (PRISM or NRCC) and any span of days, each day's air maximum and minimum and precipitation, in one request.
-- [ ] **WX-SRC-GRID-002**: The grid fetch shall return the latitude and longitude of the grid cell the values are for.
-- [ ] **WX-SRC-GRID-003**: The grid fetch shall treat days at the end of the span that the grid returns no value for as not yet published and return the earlier days; if a day before the last day with a value has no value, then the grid client shall return an outage and no rows.
+- [x] **WX-SRC-GRID-001**: The grid fetch shall return, for one point, one grid (PRISM or NRCC) and any span of days, each day's air maximum and minimum and precipitation, in one request.
+- [x] **WX-SRC-GRID-002**: The grid fetch shall return the latitude and longitude of the grid cell the values are for.
+- [x] **WX-SRC-GRID-003**: The grid fetch shall treat days at the end of the span that the grid returns no value for as not yet published and return the earlier days; if a day before the last day with a value has no value, then the grid client shall return an outage and no rows.
 
 ## Open-Meteo
 
