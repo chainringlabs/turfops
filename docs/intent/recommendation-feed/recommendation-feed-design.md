@@ -30,7 +30,7 @@ The answered state follows one principle. A click answers *this alert at this se
 | `category` | `RecommendationCategory` | source | Serialized as the variant name; the UI splits camel case (`categoryLabel`). Also drives episode class (below). |
 | `severity` | `Info < Advisory < Warning < Critical` | source (+ nitrogen guard) | Derived `Ord` in declaration order; escalation compares with it. |
 | `title`, `description`, `explanation` | string | source | `explanation` defaults to empty. |
-| `data_points` | `[{label, value, source}]` | source, then inventory | Inventory appends "On hand" / "Not on shelf" points. |
+| `data_points` | `[{label, value, source, basis?}]` | source, then inventory | A point stating a weather value carries that value's `basis` (measured at a named station with its distance, the owner's sensor, or estimated for the location, with `approximate` where it applies), copied from the summary or contract the source read. Inventory appends "On hand" / "Not on shelf" points. |
 | `suggested_action` | string? | source | |
 | `needs` | `[ProductNeed]` | source (`with_need`) | Empty means nothing to fetch. Always serialized. |
 | `inventory` | `InventoryStatus?` | product inventory | Omitted from the JSON when absent. |
@@ -100,7 +100,7 @@ flowchart TD
 ### Inputs and dates
 
 - The application log is read once (`queries::get_applications_for_profile`, newest first, 1000 rows) and shared by the rules, plant tasks, follow-ups and timing companions. Mowing is an application, so a shorter history would push this season's treatments out of view within weeks. Disease risk and the timing windows run through their page handlers, which read their own date ranges (365 days for fungicide history, 550 days to reach the previous July); sharing those reads is what keeps each alert identical to its page.
-- `today` is the lawn's local date from the app's `Clock` (`state.clock.today()`, resolved once from `TZ`, which deployment sets to the lawn's timezone), as the HLD requires. The feed uses it for plant tasks and follow-ups (`recommendation_feed.rs:54`) and passes it to the nitrogen guard for the budget year. Sources that compute their own date internally are held to the same clock by their own LLDs.
+- `today` is the lawn's local date from the app's `Clock` (`state.clock.today()`, in the timezone of the lawn's location), as the HLD requires. The feed uses it for plant tasks and follow-ups (`recommendation_feed.rs:54`) and passes it to the nitrogen guard for the budget year. Sources that compute their own date internally are held to the same clock by their own LLDs.
 - The feed takes one reading of the app clock (`state.clock.moment()`) and judges every source and stage on it: the rules and plant tasks, follow-ups and the nitrogen guard get its `today`; the rules' forecast hour windows and the answered-state check get its `now` (an instant, measuring elapsed episode time against `updated_at`). A frozen clock therefore runs the whole feed on a chosen day.
 - The shelf is `product_queries::list_products_for_profile(.., include_archived = false)`.
 
@@ -110,9 +110,10 @@ flowchart TD
 |---|---|
 | No lawn profile | 404 from the handler before the feed runs |
 | Profile row without id | `InvalidData` → 400 |
-| Environmental refresh error | Handler returns the error; no feed |
-| Lake / forecast unavailable for disease | Disease recs omitted (warn log); rest of feed intact |
-| Lake unavailable for timing | No timing recs, no aeration, `broadleaf_fall` left as the rule produced it |
+| The summary cannot be assembled | The feed runs on the summary data sync returns, whose weather fields may be empty; weather-dependent sources are silent |
+| No location set | Rules that need weather are silent; plant tasks and follow-ups still appear |
+| Weather record or forecast unavailable for disease | Disease recs omitted (warn log); rest of feed intact |
+| Weather record unavailable for timing | No timing recs, no aeration, `broadleaf_fall` left as the rule produced it |
 | Application, plant, product or answered-state query fails | Whole feed fails (`?`) |
 | A stored severity string doesn't parse | Treated as `None`: the answer can still expire but never escalates |
 
@@ -192,9 +193,9 @@ PATCH semantics (`api/recommendations.rs`):
 The dashboard is a composition. The feed owns only the Active Alerts column and the layout. In order:
 
 1. A header with the profile name, grass type, zone and last-updated time.
-2. A stale-soil banner when the summary's `soil_stale` flag is set (data sync owns the 72 h rule; today the dashboard compares `soil_observed_at` itself).
-3. Connection dots for the weather lake, Home Assistant and OpenWeatherMap.
-4. Four gauges: 10 cm soil temp (with 7-day average and trend), ambient temp (with 7-day average), humidity, and soil moisture (with 7-day precipitation).
+2. With no location set, one notice linking to setup in place of items 3 to 5's weather content. Otherwise a stale-soil banner when the summary's `soil_stale` flag is set (data sync owns the rule).
+3. A source-status line: "All sources current", or the names of the sources whose last fetch failed, and while history is loading its progress. It links to the Sources page. One dot per source would not fit a list whose length depends on the lawn.
+4. Four gauges, each with its basis label: 10 cm soil temp (with 7-day average and trend), ambient temp (with 7-day average), humidity, and soil moisture (with 7-day precipitation; "No source for this location" where nothing measures it).
 5. A widget grid with GDD, Disease Risk, Timing, the compact Shopping List, Nitrogen Budget and the Soil Temp Forecast. Each is owned by its feature LLD.
 6. **Active Alerts**, the top 3 `AlertCard`s, shown beside **Recent Applications** (5 rows: date, type, product).
 
@@ -214,7 +215,9 @@ The dashboard is a composition. The feed owns only the Active Alerts column and 
 | Nitrogen guard placement | A feed stage after every source, before inventory, over every rec its source marked as a feeding | Inside the rules engine over rule recs only; each source guarding its own feeding advice; a fixed id list | Feeding advice from any source must be held during a fertilizer block or heat stress and capped to the annual budget; guarding once, over the assembled feed, means a new feeding source cannot escape it. A source's mark, not an id list, because one id can carry feeding and non-feeding advice (red thread). Running before inventory lets a "target reached" rec drop its need before the shelf is consulted |
 | Where the feed is sorted | Once, as the last stage of the feed | Each surface sorts for itself; source order | Every surface, MCP included, lists advice in the same order, and the dashboard's three alerts are the top of the page by construction |
 | Answers apply last | After nitrogen guard and inventory enrich | Apply answers before enrichment | Enrichment never changes ids or severities, so escalation compares against what the owner would see now (HLD) |
-| "Today" | The lawn's local date from the app's `Clock` (`TZ` = lawn timezone) | UTC date; station-local date from the lake's UTC offset; browser date | One configured clock gives every component the same lawn-local day (HLD) |
+| "Today" | The lawn's local date from the app's `Clock` | UTC date; a station's local date; browser date | One clock gives every component the same day (HLD). |
+| Basis on a data point | A structured `basis` field beside the value | Basis written into the value text; a fixed source enum per kind of sensor | Every surface (cards, the detail pane, MCP) renders the same label from one field, and the set of sources depends on the lawn, so no fixed enum can name them. |
+| Dashboard source status | One line naming failing sources, linked to Sources | A dot per source | The number of sources varies by lawn; the owner needs to know whether anything is wrong and where to look. |
 | Rows without a stored severity | Expire only, never escalate | Treat as Info (escalate on anything); delete | Answers recorded without a severity can't be compared safely `[inferred]` |
 | De-escalation | Keeps the answer | Re-show on any severity change | Only rising risk warrants interrupting the owner again `[inferred]` |
 | Restore | Delete the row (PATCH both false) | A separate DELETE route; a third "restored" flag | Owner decision: "Show dismissed" list with Undo. The absence of a row is the cleanest "never answered" `[inferred]` |
@@ -232,7 +235,7 @@ The dashboard is a composition. The feed owns only the Active Alerts column and 
 2. ✅ Rules do not encode years in ids for expiry purposes. The state policy handles episodes.
 3. ✅ The nitrogen guard is a feed stage over every feeding recommendation, after every source and before inventory and answers (see Pipeline).
 4. ✅ Soil-test advice is not a feed source (HLD); the Soil Tests page and MCP `soil_test_advice` are its surfaces. If it rejoins the feed, `soil_test_npk` is marked as a feeding only when it asks for nitrogen, and the guard caps only its nitrogen part (soil-tests LLD).
-5. ✅ The feed's "today" is the lawn's local date from the app's `Clock` (`TZ`). A source that dates its own work on another clock diverges in that source's LLD, not here.
+5. ✅ The feed's "today" is the lawn's local date from the app's `Clock`. A source that dates its own work on another clock diverges in that source's LLD, not here.
 
 ### Deferred
 

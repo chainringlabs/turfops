@@ -28,12 +28,12 @@ Web UI owns the shell, routing table, API client and the shared status palette. 
 
 **`/disease-risk`** (`pages/DiseaseRisk.tsx`), from top to bottom:
 
-1. The station name.
+1. The shared basis label (environmental views) for hourly air and humidity: the station and its distance, the owner's sensor, or "Estimated for your location · approximate".
 2. Every `data_notes` entry.
 3. A short explainer that native scores are not comparable and that there is no blended score.
 4. One row per disease: name, "score label · model name", a compact `RiskMeter`, and a `TierBadge`. Each row links to `/disease-risk/:slug`.
 
-With no diseases, the first data note is shown, falling back to "Not enough recent weather data to score disease risk." While loading, the page shows "Loading disease risk…". A failed request shows `describeError(e)` (Web UI's human-readable errors): with no lawn profile, a pointer to set one up in Settings; with the weather lake unavailable or not configured, the server's sentence naming the lake and the affected data; never a status code, JSON or internal detail.
+With no diseases, the first data note is shown, falling back to "Not enough recent weather data to score disease risk." While loading, the page shows "Loading disease risk…". A failed request shows `describeError(e)` (Web UI's human-readable errors): with no lawn profile, a pointer to set one up in Settings; with the location not set or the weather record unreadable, the server's sentence saying so; never a status code, JSON or internal detail.
 
 **`/disease-risk/:slug`** shows the same header and notes, a "← All diseases" link and `DiseaseDetail`. A slug that is not in the response shows "No risk data for …" with a link back.
 
@@ -92,6 +92,7 @@ A legend explains the fading and the outline. A "View as table" disclosure lists
 
 | Decision | Chosen | Alternatives Considered | Rationale |
 |---|---|---|---|
+| Approximate tiers | The `TierBadge` and each chart bar from approximate hours carry an "approx." mark and the table view a column; the tier color is unchanged | A different color or a faded badge | Faded already means forecast, and the tier scale is the same scale. The mark is words, so it survives grayscale. |
 | Tier encoding | Status color + symbol + label, ink text | Color alone | [inferred] Color alone fails color-blind viewers and grayscale. Project convention for every status display. |
 | Chart accessibility | Every chart has a "View as table" view | Tooltip only | [inferred] Values must be readable without hover or color vision. |
 | Scale per disease | Meter and chart on each model's native bounds and thresholds | One normalized 0–100 bar for all diseases | A normalized bar would imply the cross-disease comparability the models do not have (parent: native scores, tier-only comparison). |

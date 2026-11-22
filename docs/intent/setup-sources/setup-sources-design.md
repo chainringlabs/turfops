@@ -1,0 +1,183 @@
+---
+parent: high-level-design
+prefix: SETUP
+---
+
+# Setup and Sources
+
+## Context and Design Philosophy
+
+TurfOps needs one fact to describe a lawn's weather, its location, and can use several more the owner may have: their own sensors, a preferred station, a forecast provider. This component is where the owner supplies them and where they can see what the app made of them. It owns the first-run **setup flow**, the **Sources page**, the API both are built on, and the storage of the owner's weather choices and of credentials entered in the app.
+
+It decides nothing about weather. The weather record chooses stations and resolves the basis, the source clients talk to the outside, the soil estimate publishes its accuracy, and data sync reports status. This component asks them and shows the answers, and writes the owner's choices where they read them.
+
+Principles:
+
+- **Nothing to look up.** The owner never types a station number, an entity id or a timezone. The app finds the candidates and the owner picks.
+- **Show before saving.** A location shows the sources it would get before it is saved; a sensor shows its current reading beside the value it would replace. A wrong choice is visible while it is still cheap.
+- **Only the location is required.** Every other step can be skipped and returned to. A lawn with a location and nothing else is fully working.
+- **The Sources page is the standing answer to "where does this number come from".** Every basis label in the app links to it.
+
+## When Setup Appears
+
+- The lawn profile has no location: every weather-dependent page shows one notice, "Tell TurfOps where your lawn is", linking to setup, in place of its weather content. The application log, inventory, soil tests and landscape plants work as usual.
+- Setup can be reopened at any time from the Sources page. It opens on the step asked for, with current values filled in.
+- An installation whose location was seeded from the environment skips to "What we found" the first time the Sources page is opened.
+
+## The Setup Flow
+
+Route `/setup`. Five steps; each saves when the owner continues, so leaving partway keeps what was done.
+
+### 1. Location
+
+- **Search** by place name or postal code. The typed text goes to the place-search client (weather sources); the step says so beside the box. Results list the place, state and coordinates.
+- **Or type** latitude and longitude.
+- A point outside the contiguous United States is refused with the reason: no data is available there yet.
+- Before saving, the step shows the place name, the coordinates rounded as they will be stored, the timezone that follows from them, and the nearest soil station with its distance, as a check that the right place was found.
+
+### 2. What we found
+
+The basis plan the weather record would build for this point, one row per input: the source that will speak, its distance if it is a station, and what stands behind it. In words under the table: what is measured, what is estimated, and what has no source here (soil moisture without a station).
+
+- **Pin a different station** for an input: a list of the stations that report it within 150 miles, with network, distance, elevation difference from the lawn, and years of record. Choosing one shows the same table again with the change.
+- **Forecast provider:** Open-Meteo unless changed. Choosing OpenWeatherMap asks for its key.
+- Continuing saves the location, the pins and the provider, and the fetch schedule starts.
+
+### 3. Your sensors (optional)
+
+**Connect Home Assistant.** Address and a long-lived access token, then Test, which makes one real request and reports what answered and how many sensor entities it has. When the environment sets the connection, the step shows it as fixed by configuration and goes straight to the list.
+
+**Pick and map.** Numeric sensor entities are listed with friendly name, current value, unit and last update; those whose device class is temperature, humidity, moisture or precipitation come first, and a search box filters the rest.
+
+| Entity looks like | The app suggests | The owner confirms |
+|---|---|---|
+| Humidity | Humidity | Nothing more |
+| Temperature | Nothing | Air or soil; for soil, the depth |
+| Moisture | Soil moisture | The depth |
+| Precipitation, state class "total increasing" | Rain, as a counter | That it is a counter |
+| Precipitation, otherwise | Rain, as an amount | That it is an amount |
+
+Soil depth is chosen from the record's five depths; the owner picks the one nearest their probe.
+
+**Check.** Before a mapping is saved the step shows the sensor's current value, converted, beside the value the lawn would otherwise use for that input, with its basis: "Your sensor 61 °F · Estimated for your location 58 °F". A value outside the plausible range for the input, a unit the input does not accept, or a reading more than an hour old is called out, and the last two prevent saving.
+
+**Sensors that are not in Home Assistant.** The owner names a sensor and its input; the step then shows the exact request to send readings to it. It needs `SENSOR_TOKEN` to be set, and says so when it is not.
+
+**Rules.** One sensor per input: mapping a second to the same input replaces the first after a confirmation naming both. One entity maps to one input. Unmapping returns the input to its station or estimate and keeps the sensor's history.
+
+### 4. Your lawn
+
+The lawn profile form (applications): grass type, size, soil type, irrigation.
+
+### 5. Loading history
+
+Progress of the backfill per source: years held against years wanted. The step says what works already (current conditions, the forecast, disease risk for recent days) and what waits for the history (typical dates on the Timing page, the seasonal plan), and offers the dashboard. The same progress is on the Sources page afterwards.
+
+## The Sources Page
+
+Route `/sources`, in the navigation as "Sources".
+
+**By input.** One card per input the record resolves:
+
+| Shown | From |
+|---|---|
+| The basis in use now, with the shared basis label | The record's basis plan and live reading |
+| What stands behind it, in order | The basis plan |
+| Newest value and when it was observed | The live reading |
+| For an estimate: its scored accuracy in plain words ("typically within 2 to 3 days of a measured station for soil-temperature crossings; in one year in five, off by 12 days or more"), and what it may not date | The soil estimate's published figures |
+| For soil moisture with no source: that nothing measures it here and what would (a probe) | The basis plan |
+| Change: pin a station, map or unmap a sensor | Steps 2 and 3 of setup, opened in place |
+
+**By source.** A table of every source in use: name, kind, the inputs it speaks for, last successful fetch, last failure with the owner sentence, history held against wanted, and its attribution line. A source that is failing is at the top.
+
+**Connections.** Home Assistant (connected, fixed by configuration, or not set up), the forecast provider, and whether posted readings are enabled, each with Test and Change.
+
+**Location.** The place, coordinates and timezone, with Change. Changing it warns that station and grid history for the old point will be replaced and reloaded, and that sensor history is kept.
+
+## API
+
+All under `/api/v1`. Reads return the current state; writes return the state after the change.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/setup/places?q=` | Candidate places for a search |
+| GET | `/sources/preview?lat=&lon=` | The basis plan the point would get, without saving anything |
+| GET | `/sources` | Inputs with basis plan, live basis and accuracy; sources with status, history and attribution; connections; location |
+| GET | `/sources/stations?input=` | Stations that report the input within 150 miles of the lawn |
+| PUT / DELETE | `/sources/pins/{input}` | Pin a station for an input; remove the pin |
+| PUT | `/sources/forecast-provider` | Choose the provider; carries the key when the provider needs one |
+| GET / PUT / DELETE | `/sources/home-assistant` | Whether a connection is set and where from; set the address and token; forget them |
+| POST | `/sources/home-assistant/test` | Try the connection, saved or as given in the request |
+| GET | `/sources/home-assistant/entities` | Numeric sensor entities with suggested inputs |
+| GET / POST | `/sources/sensors` | The mapped sensors; map one |
+| POST | `/sources/sensors/check` | The comparison shown before saving a mapping |
+| PUT / DELETE | `/sources/sensors/{id}` | Change a mapping; unmap |
+
+The location itself is saved through the lawn profile's `PUT /profile` (applications).
+
+**After any write** that changes what the record should use (a pin, a mapping, the provider, the Home Assistant connection) the record rebuilds its basis plan and the fetch schedule is woken, before the response.
+
+**Errors** are owner sentences: an address that does not answer ("Home Assistant did not answer at that address"), a token it refuses ("Home Assistant refused the token"), a place search that fails ("Place search is unavailable; enter coordinates instead"), a pin on a station that does not report the input. A write to a connection the environment fixes is a 409 saying it is set by configuration.
+
+## Storage
+
+| Table | Holds |
+|---|---|
+| `weather_setting` | The forecast provider and the installation's fetch-minute offset |
+| `sensor` | Name, way in (Home Assistant entity or posted), entity id, input, depth, rain kind, when mapped and unmapped |
+| `station_pin` | Input and the pinned station |
+| `service_credential` | Service (Home Assistant, OpenWeatherMap), address, secret, when set |
+
+**Credentials are write-only.** A secret is accepted by a PUT, used by its client, and never returned by any endpoint, written to a log, or included in an error. Reads report only that one is set and whether the environment fixes it. Forgetting a connection deletes the row.
+
+**Precedence.** A credential set in the environment is used and the stored one, if any, is ignored; the page says which is in effect.
+
+**First run.** `HA_TEMPERATURE_ENTITY` and `HA_HUMIDITY_ENTITY`, when set and no sensor is mapped, become mappings to air temperature and humidity.
+
+## Failure and Degradation
+
+| Failure | Effect |
+|---|---|
+| Place search unavailable | The step says so; coordinates can still be typed |
+| Home Assistant does not answer or refuses the token | The Test result says which; nothing is saved by Test |
+| Home Assistant connection lost after sensors are mapped | The mappings stay; the sensors' inputs fall to the next basis after data sync's age limit; the Sources page shows the failure |
+| An entity disappears from Home Assistant | Its sensor is shown as "not found in Home Assistant" with Unmap and Remap |
+| The record cannot preview a plan (catalog not loaded yet) | Step 2 shows that the station list is still loading and retries |
+| No stations within 150 miles for a pin | The list is empty and says so; the estimate remains |
+
+## Decisions & Alternatives
+
+| Decision | Chosen | Alternatives Considered | Rationale |
+|---|---|---|---|
+| Where the owner's weather choices are made | In the app, with a guided flow | Environment variables; a configuration file | HLD: the choices depend on what the app can find (stations by distance, a Home Assistant's entities) and must change without a restart. |
+| Required steps | Location only | Require sensors or a profile before the app works | Half the value arrives with the location alone; every further step is an improvement the owner can make later. |
+| Entering a location | Place search, or typed coordinates | A map to click; the browser's location | A map needs a tile service, one more outside dependency and one that sees every pan. Browser location needs a secure origin, which a self-hosted app on a home network usually lacks. |
+| Home Assistant credentials | Entered in the app and stored write-only, or fixed by the environment | Environment only | HLD decision: a new owner should not edit a configuration file and restart before setup can find their sensors. |
+| Secret at rest | Stored as given in the application database | Encrypted with a key from the environment | A key in the environment restores the requirement to edit configuration first, and protects only against someone who has the database but not the host. Database backups therefore contain the secret, which the page states. |
+| Mapping a sensor | The owner picks from discovered entities; the app suggests the input from device class and state class | Automatic mapping by device class; typing entity ids | Device class cannot tell air from soil or give a depth, and a wrong automatic mapping would feed a garage thermometer into fertilizer advice. Typing ids is the lookup the flow exists to remove. |
+| Check before saving | Show the sensor beside the value it replaces; block a wrong unit or a stale reading | Save and let the owner notice | The comparison is the one moment a mis-mapped sensor is obvious. |
+| One sensor per input | Yes | Average several sensors | An average of two instruments is a series neither recorded, and hides the one that is wrong. |
+| Pinning range | Stations within 150 miles | Only within the cut-off; any station | The owner may reasonably prefer a farther station in the same valley; past 150 miles a neighbour's soil dates are no better than the calendar. |
+| Where source status and accuracy are shown | One Sources page, linked from every basis label | On Settings; on each feature page | One place answers "where does this come from" for every number; feature pages stay about their feature. |
+| Location change | Allowed, with a warning that station and grid history reloads | Fixed after setup | People move, and a first guess can be wrong. |
+
+## Open Questions & Future Decisions
+
+### Deferred
+
+1. **The app has no login.** Anyone who can reach it can change the location, repoint Home Assistant or replace a token. They cannot read a stored secret. This is the app's existing exposure, widened by what can now be changed.
+2. **The Home Assistant address is fetched by the server.** An owner-entered address is the intended use; the same field lets anyone with access make the app request an address on its network. Only `http` and `https` are accepted.
+3. **Uncalibrated soil-moisture probes.** The check compares units, not calibration; a raw percentage will be accepted and drive irrigation advice.
+4. **Home Assistant areas** are not shown in the entity list; the states API does not carry them.
+5. **No bulk import** of mappings for an owner with many probes.
+
+## References
+
+- `docs/high-level-design.md`: the setup and Sources goals, the configuration decision.
+- `docs/intent/weather-data/weather-record/`: the basis plan and its preview, stations, `status()`.
+- `docs/intent/weather-data/weather-sources/`: place search, the Home Assistant client and its probe, posted readings, attribution.
+- `docs/intent/weather-data/soil-estimate/`: the accuracy figures shown.
+- `docs/intent/weather-data/environmental-views/`: the shared basis label.
+- `docs/intent/data-sync/`: source status, backfill progress, waking the schedule.
+- `docs/intent/applications/`: the lawn profile, which holds the location.
+- `docs/intent/web-ui/`: routing, navigation, error presentation.

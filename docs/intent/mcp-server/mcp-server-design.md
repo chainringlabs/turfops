@@ -11,12 +11,14 @@ The MCP server gives an AI client acting for the owner read access to the lawn. 
 
 Guiding principles:
 
-- **One answer everywhere.** A tool calls the REST handler that backs the matching page and returns that handler's body, trimmed. No agronomic logic lives in `mcp/`. The one exception is `weather_history`, which composes two existing lake reads because no handler gives a true daily series (see *weather_history*).
+- **One answer everywhere.** A tool calls the REST handler that backs the matching page and returns that handler's body, trimmed. No agronomic logic lives in `mcp/`. The one exception is `weather_history`, which composes two existing weather-record reads because no handler gives a true daily series (see *weather_history*).
 - **Pull, not push.** The client supplies the agent loop, history and UI. TurfOps supplies tools that return answers, not tables. `lawn_snapshot` answers most situational questions in one round trip, and narrower tools give the detail.
 - **Read-only.** Every tool is annotated `read_only_hint = true`, and no tool reaches a write handler. Agents read and the owner changes state through the UI (HLD non-goal: *writes through MCP*).
 - **Withhold rather than invent, at the protocol boundary too.** A tool that fails returns a model-readable error that tells the model to report the gap, not estimate around it. A composite tool that loses one part returns `null` for that part with a note.
 - **The bearer token is the guard.** The gateway in front of TurfOps is open, so `/mcp` is unreachable without `Authorization: Bearer <MCP_TOKEN>`, and the endpoint does not exist at all when no token is configured.
-- **One clock.** "Today" and every date the tools compute is the lawn's local date (the app's `Clock`, resolved from `TZ`, which deployment sets to the lawn's timezone), the same clock every other component uses (HLD decision *"Today" and every date gate*). Handler-backed tools inherit the handler's dates; the only date this component computes itself is `weather_history`'s window start.
+- **The basis travels with the value.** Tools relay each weather value's basis as the handlers return it, and the doctrine tells the model to say whether a value is measured, estimated or from the owner's sensor and never to present an estimate as a measurement.
+- **The lawn's coordinates stay in the app.** No tool returns latitude or longitude. The model gets the place name the owner gave and the timezone.
+- **One clock.** "Today" and every date the tools compute is the lawn's local date (the app's `Clock`, in the timezone of the lawn's location), the same clock every other component uses (HLD decision *"Today" and every date gate*). Handler-backed tools inherit the handler's dates; the only date this component computes itself is `weather_history`'s window start.
 
 ## Module Layout
 
@@ -86,7 +88,8 @@ Every tool is `read_only_hint = true`. Its description is written to tell the mo
 | `gdd` | `year` (i32) | `api::gdd::get_gdd` | `daily_history` dropped (the description points to `weather_history`) |
 | `soil_temp_outlook` | none | `api::soil_temp_prediction::get_soil_temp_forecast` | as-is (10 cm outlook + threshold crossings) |
 | `nitrogen_budget` | `year` (i32) | `api::nitrogen_budget::get_nitrogen_budget` | as-is (includes the per-application list) |
-| `weather_history` | `days` (i64, default 30, clamped 1–120) | lake client directly (see *weather_history*) | own row shape |
+| `weather_history` | `days` (i64, default 30, clamped 1–120) | the weather record directly (see *weather_history*) | own row shape |
+| `sources` | none | `api::sources::get_sources` (setup and sources) | per input: basis in use, what stands behind it, newest observation, the estimate's accuracy; per source: status, history held, attribution. Connections, credentials state and coordinates dropped |
 | `disease_risk` | none | `api::disease_risk::get_disease_risk` | `trim::disease_overview` |
 | `disease_detail` | `slug` (string, required) | `api::disease_risk::get_disease_risk` | `trim::disease_detail` for one disease |
 | `applications` | `type`, `since`, `until` (YYYY-MM-DD, inclusive), `limit` (default 20, clamped 1–100) | `api::applications::list_applications`, or `queries::get_applications_for_profile_in_range` when a date bound is given | as-is (`product_id`, `frac_classes` included) |
@@ -127,11 +130,10 @@ Handler failures are therefore **tool-level** errors that the model can read and
 |---|---|---|
 | `NotFound(msg)`, `InvalidData(msg)` | `msg` verbatim (messages written for users) | no |
 | `Unavailable { origin, outage }` | `Data source unavailable: {owner sentence} Tell the user this data is missing rather than estimating it.` The owner sentence is `owner_message()`: which source is unavailable, what it affects and what to do. No upstream body, URL or task error | `warn`, with the detail |
-| `DataLake(_)` | Fixed text: the NOAA lake could not be read, so station soil, timing windows and disease risk are unavailable, plus the same hint. No path or SQL | `warn` |
-| `Http(_)` | Fixed text: an external source (forecast or Home Assistant) did not respond, plus the hint | `warn` |
+| `Http(_)` | Fixed text: an outside service did not respond, plus the hint | `warn` |
 | anything else (`Database`, `Config`, `Internal`, `Io`, `Json`) | `TurfOps hit an internal error answering this; details are in the server log.` | `error` |
 
-The REST layer shows the user the same `NotFound` and `InvalidData` messages and the same outage sentence (`owner_message()`, `backend/src/error.rs`). The MCP mapping therefore exposes nothing the UI does not already show, and it is stricter for lake and HTTP errors.
+The REST layer shows the user the same `NotFound` and `InvalidData` messages and the same outage sentence (`owner_message()`, `backend/src/error.rs`). The MCP mapping therefore exposes nothing the UI does not already show, and it is stricter for HTTP errors.
 
 ## lawn_snapshot
 
@@ -141,7 +143,7 @@ The REST layer shows the user the same `NotFound` and `InvalidData` messages and
 
 | Key | Handler | Shaping |
 |---|---|---|
-| `profile` | `profile::get_profile` | as-is |
+| `profile` | `profile::get_profile` | `latitude` and `longitude` dropped |
 | `conditions` | `environmental::get_environmental` | `forecast.hourly` dropped |
 | `recommendations` | `recommendations::list_recommendations` (`include_inactive: false`) | the **full** active feed, in the feed's severity order |
 | `recent_applications` | `applications::list_applications` (`limit: 5`, no type) | the 5 latest log entries |
@@ -149,40 +151,44 @@ The REST layer shows the user the same `NotFound` and `InvalidData` messages and
 | `disease_risk` | `disease_risk::get_disease_risk` | `trim::disease_headlines`: per disease `slug, name, tier, tier_note, score_label, as_of, action, headline, protected_through`, plus top-level `today` and `data_notes` |
 | `nitrogen_budget` | `nitrogen_budget::get_nitrogen_budget` (current year) | `trim::nitrogen_totals` (per-application list dropped) |
 
-After the join, `data_sources` is set from Data sync's connection status, under Data sync's key names (`soildata` for the lake). The snapshot reads Data sync's **cached** probe results, which Data sync refreshes per source once a result is older than 5 minutes (MCP-SNAP-009). The snapshot is the tool the model calls first, often several times in a conversation, so live probes would add an OpenWeatherMap request and a Home Assistant ping, with their latency and OWM quota, to every call.
+After the join, `data_sources` is set from Data sync's source status: one entry per source in use with its name, kind, whether its last scheduled fetch succeeded, when, and the inputs it is the basis for. Reading it makes no outside request.
 
-**Degradation.** Each part goes through `trim::part`. A failure becomes `null` at its key, and `notes` gains `"<part> unavailable: <error_message text>"`. A lake outage, for example, nulls `timing_windows` and `disease_risk` but leaves the feed, log and profile intact. The snapshot as a whole always succeeds: `notes` is always present (possibly empty). `data_sources` degrades like every other part: if the connection status cannot be serialized, it is `null` and `notes` gains `"data_sources unavailable: <internal-error text>"` (MCP-SNAP-010).
+**Degradation.** Each part goes through `trim::part`. A failure becomes `null` at its key, and `notes` gains `"<part> unavailable: <error_message text>"`. A weather-record outage, for example, nulls `timing_windows` and `disease_risk` but leaves the feed, log and profile intact. The snapshot as a whole always succeeds: `notes` is always present (possibly empty). `data_sources` degrades like every other part: if the connection status cannot be serialized, it is `null` and `notes` gains `"data_sources unavailable: <internal-error text>"` (MCP-SNAP-010).
 
-The concurrent handlers share the Data sync refresh, the climate-record memo and the database pool. Contention between them is resolved inside those components, not here.
+The concurrent handlers share Data sync's memoized summary, the climate-record memo and the database pool. Contention between them is resolved inside those components, not here.
 
 ## weather_history
 
-`weather_history` (`tools/weather.rs`) returns one row per local calendar day for the last `days` days. It does **not** call `/api/v1/historical`. That handler downsamples hourly points for charts, so summing its rain per day gives wrong totals. Instead the tool joins two daily lake reads from the Weather data access component:
+`weather_history` (`tools/weather.rs`) returns one row per local calendar day for the last `days` days. It does **not** call `/api/v1/historical`. That handler downsamples hourly points for charts, so summing its rain per day gives wrong totals. Instead the tool joins two daily reads of the weather record:
 
-1. `WeatherLakeClient::fetch_daily_disease_inputs(start)`: silver hourly data aggregated per `obs_date_local`. It supplies air mean/min/max (°C), mean RH, rain (mm) and `hours_covered`.
-2. `api::timing::climate_record(state, client)`: the 15-year climate record memoized for 1 hour, owned by Timing windows. It supplies the daily 5 cm soil mean (°F), gold air min and mean (°F) and gold `gdd50`.
+1. `fetch_daily_disease_inputs(start)`: hourly air and humidity aggregated per lawn-local day, with the day's rain total from the record's rain basis. It supplies air mean/min/max (°C), mean RH, rain (mm), `hours_covered` and the basis of the hours.
+2. `api::timing::climate_record(state)`: the 15-year climate record memoized for 1 hour, owned by Timing windows. It supplies the daily 5 cm soil mean (°F), daily air min and mean (°F), `gdd50` and their basis.
 
-`start` is the lawn's local today minus `days`: `history_start(self.state.clock.today(), days)` (`tools/weather.rs`), so the window holds `days` local days whatever the hour. The rows themselves are keyed by the silver layer's `obs_date_local`, the station's civil date in America/New_York, which is the same calendar `TZ` gives (Weather data access). The two reads run with `tokio::try_join!`, so either failing fails the tool through `error_message`. If no lake client is configured, the tool returns `TurfOpsError::not_configured(Source::WeatherLake)`, which reaches the model as the lake-not-configured sentence.
+`start` is the lawn's local today minus `days`: `history_start(self.state.clock.today(), days)` (`tools/weather.rs`), so the window holds `days` local days whatever the hour. Both reads key their rows by the same lawn-local calendar. The two reads run with `tokio::try_join!`, so either failing fails the tool through `error_message`.
 
 **Join** (`join_days`, `tools/weather.rs:105-138`, a pure function). Both inputs are filtered to `date >= start` and merged into a `BTreeMap` keyed by date, ascending. A date present in either source gets a row.
 
 | Field | From | Unit / rounding |
 |---|---|---|
-| `air_mean_f`, `air_min_f` | silver (°C → °F); gold fills them when silver has no value | °F, 0.1 |
-| `air_max_f` | silver only | °F, 0.1 |
-| `rh_mean_pct` | silver | %, 0.1 |
-| `rain_in` | silver `precip_mm / 25.4` | in, 0.01 |
-| `hours_observed` | silver `hours_covered` | count |
+| `air_mean_f`, `air_min_f` | the hourly source (°C → °F); the climate record's daily air fills them when the day has no hours | °F, 0.1 |
+| `air_max_f` | the hourly source | °F, 0.1 |
+| `rh_mean_pct` | the hourly source | %, 0.1 |
+| `rain_in` | the day's rain total `/ 25.4` | in, 0.01 |
+| `hours_observed` | `hours_covered` | count |
 | `soil_5cm_f`, `gdd50` | climate record | 0.1 |
+| `soil_basis`, `air_basis` | the basis of that day's soil and of its hourly air: `measured`, `sensor`, `estimated` or `approximate` | text |
 
-Totals: `rain_total_in` sums the days that have `rain_in`, and `gdd50_total` sums the days that have `gdd50`. A fixed `note` explains that a day with fewer than 24 hours observed is partial. The newest day is usually partial because the lake lags about a day.
+The result also carries `basis`: the source names behind those words (the station and its distance, the estimate, the sensor), once, not per row.
+
+Totals: `rain_total_in` sums the days that have `rain_in`, and `gdd50_total` sums the days that have `gdd50`. A fixed `note` explains that a day with fewer than 24 hours observed is partial. The newest day is usually partial.
 
 ## Doctrine and Resources
 
 **Instructions** (`instructions.rs`) form a static string. The lawn's particulars come from `lawn_profile`, not the doctrine. In order, it covers:
 
 1. **Source of truth.** Call `lawn_snapshot` first, then use narrower tools. Never guess a reading, date or product. Read the resources for "why" questions.
-2. **Setting.** A cool-season lawn in zone 7a, southeast Pennsylvania. Lake-lagged data; `today` is the lawn's local date; observed values kept distinct from forecast values; °F; timing uses 5 cm soil, while the live reading and the grub window use 10 cm. The text tells the model that `today` "is the lawn's local date (the server's `TZ`)" (`instructions.rs`) and names no second clock (MCP-DOC-004; asserted in `mod.rs` tests).
+2. **Setting.** A cool-season lawn in the contiguous United States; where, and which grass, come from `lawn_profile`. `today` is the lawn's local date; observed values kept distinct from forecast values; °F; timing uses 5 cm soil, while the live reading and the grub window use 10 cm. The text names no second clock (MCP-DOC-004; asserted in `mod.rs` tests).
+2a. **Basis.** Every weather value has a basis: measured at a named station, the owner's sensor, or estimated for the location. Say which when giving a reading or a date that rests on one. An estimated soil date comes with its typical error; relay it. A disease tier marked approximate rests on estimated humidity; say so. Soil moisture may have no source at all: report that, never infer it. `sources` answers where any value comes from.
 3. **Products and rates.** Never state a product's label rate, and never any rate for a pesticide (fungicide, herbicide, insect control); the label governs. Agronomic amounts are part of the advice and may be relayed: nutrient per 1,000 sq ft (the nitrogen budget is in lb N/1,000 sq ft), lime or sulfur from a soil test, seed per 1,000 sq ft, mulch depth. A nutrient amount may be converted into an amount of a fertilizer or soil-amendment material, but not of a material that is also a pesticide active (give the nutrient amount only). When the owner asks about a specific shelf product, its stored `label_rate` may be reported as the owner's recorded value with "verify against your label"; it is never offered unprompted or used inside advice. Never invent products, and prefer the shelf. Off the shelf, name the active ingredient and, for fungicides, the FRAC class, not a brand.
 4. **Seed vs pre-emergent.** The two never share a season, and the state is `Blocked`. Fall pre-emergent is the alternative to fall seeding, and aeration belongs to the seeding window.
 5. **Timing windows.** The eight window states and the four date sources. `date: null` means later than usual, never unknown.
@@ -220,17 +226,19 @@ An unknown URI returns `ErrorData::resource_not_found`. `docs/agronomy-methods.m
 | HTTP methods on `/mcp` | `POST` only; anything else `405` with `Allow: POST` | Pass every method to rmcp and rely on its handling | Stateless JSON mode has no `GET` stream and no session to `DELETE`. Stating the method set makes the surface explicit instead of an rmcp implementation detail. |
 | Snapshot composition | Composed from seven handlers | Wrapping `/dashboard` | The dashboard truncates the feed to three items, and the snapshot must carry the full feed. |
 | Feed order in tools | Relay the feed's own order (descending severity, ties in source order) unchanged | Sorting in the tool; source order | One answer everywhere: the model sees the most severe advice first, and its first three items are the dashboard's three alerts. Ordering lives in the feed, so no surface sorts on its own. |
-| Partial failure in the snapshot | `null` part + `notes` entry, `data_sources` included | Failing the whole call; a silent `null` for `data_sources` | Plan decision: a lake outage must not hide the feed, the log or the profile. Every part, the connection status included, explains its absence, so the model never mistakes a missing part for an empty one. |
-| Snapshot connection status | Data sync's cached probe results (re-probed per source after 5 minutes) | Live probes on every call | The snapshot is called first and often. Live probes cost an OWM request and an HA ping per call, and a status up to 5 minutes old answers "is a source down" as well as a live one. |
+| Partial failure in the snapshot | `null` part + `notes` entry, `data_sources` included | Failing the whole call; a silent `null` for `data_sources` | Plan decision: a weather outage must not hide the feed, the log or the profile. Every part, the connection status included, explains its absence, so the model never mistakes a missing part for an empty one. |
+| Snapshot source status | Data sync's status from the last scheduled fetches | Live probes on every call | The snapshot is called first and often, and the schedule already knows each source's last outcome. |
+| Coordinates in tool results | Dropped; place name and timezone kept | Returned with the profile | The model needs the region to reason about a lawn, not the house. Coordinates sent to a model leave the owner's network for no benefit. |
+| A sources tool | `sources`, trimmed from the Sources page's handler | Leave provenance to the per-value basis alone | "Why is my soil temperature estimated" and "is a source down" are questions an owner asks an agent; the page's answer should be the agent's (one answer everywhere). |
 | Handler errors | `isError` tool result with model-readable text | JSON-RPC `internal_error` (`ErrorData`) | A tool-level error is shown to the model, which can then tell the user what is missing. A protocol error tends to be treated as a transport failure. Internal details stay in the log. [inferred] |
 | Reply serialization failure | `isError` tool result with the internal-error text | JSON-RPC error from `ContentBlock::json` | It is an internal failure like any other, so it gets the same tool-level treatment and the same log entry; the client never sees a transport-style error for a tool call. |
 | Unknown-value errors | Name the bad value and list the valid ones (`disease_detail` slugs, `products` categories); one wording per mistake on every path (`applications` type) | Bare "unknown X"; per-path wording | The model can correct its own call from the error alone, and the same mistake reads the same however the tool was called. |
-| Daily weather | `weather_history` joining silver per-day aggregates with the climate record | Wrapping `/historical` | `/historical` downsamples hourly points for charts, so a daily rain sum from it is wrong. |
+| Daily weather | `weather_history` joining the record's per-day hourly aggregates with the climate record | Wrapping `/historical` | `/historical` downsamples hourly points for charts, so a daily rain sum from it is wrong. |
 | Disease trimming | Overview keeps the assessment and the recommended preventative; `disease_detail` has everything | Returning the full response every time | Plan decision: the daily series, methodology and full programs are bulky. The detail tool exists for "what should I spray". |
 | Guarding the trims | Test each trim against a body serialized from the handler's response model | Typed trims over the models; hand-written JSON fixtures | Trimming by field name keeps `mcp/` free of response-model types, and a serialized-model test catches a rename that a fixture would hide. |
-| Router layout | One `#[tool_router]` per area, summed | One impl with 18 tools | Keeps each file under the 300-line limit. |
+| Router layout | One `#[tool_router]` per area, summed | One impl with 19 tools | Keeps each file under the 300-line limit. |
 | Methodology access | Two `include_str!` resources + doctrine; no MCP prompts | Prompts; fetching the docs at runtime | Plan decision: the docs ship with the binary and cannot drift from the build. The doctrine covers what prompts would. |
-| Model's notion of today | The lawn's local date (the app's `Clock`, `TZ` = the lawn's timezone), inherited from the handlers and used for `weather_history`'s window start | The UTC date; a station-local date from the lake's UTC offset | Every agronomic date is a lawn-local calendar day, and one configured clock gives every surface, the MCP tools included, the same day. |
+| Model's notion of today | The lawn's local date (the app's `Clock`), inherited from the handlers and used for `weather_history`'s window start | The UTC date; a station's local date | Every agronomic date is a lawn-local calendar day, and one clock gives every surface, the MCP tools included, the same day. |
 | Rates in agent answers | Agronomic amounts relayed (and convertible to a fertilizer or amendment material); never a pesticide rate; a stored label rate only when the owner asks about that product, with "verify against your label" | No amounts at all; quoting the stored label rate in any answer | Nutrient, lime and seed amounts are agronomy and do not depend on the product. How much of a product to apply is set by its label, the legal authority, above all for pesticides; a recorded label rate is the owner's own data, so reporting it on request answers a question rather than giving advice. |
 
 ## Open Questions & Future Decisions
@@ -244,8 +252,7 @@ An unknown URI returns `ErrorData::resource_not_found`. `docs/agronomy-methods.m
 ### Deferred
 1. **Write tools.** `log_application`, `add_product`, `set_stock_status`, `answer_recommendation`, `record_soil_test`: same bearer, `destructive_hint`/`idempotent_hint` annotations, reusing the POST/PATCH handlers. The kill criteria in `docs/plans/ai-assistant.md` apply first.
 2. **Function and file length.** `lawn_snapshot` (`tools/lawn.rs:50-113`) is about 63 lines, over the project's 50-line limit. `trim.rs` is 295 lines, close to the 300-line limit.
-3. **Tool-call coverage.** Handler-backed tools need PostgreSQL and the lake, so tests cover only the pure parts: trimming, the date range, `join_days`, auth, config, registration and resources. No test exercises a tool end to end.
-4. **Rain undercount boundary.** `weather_history` rain comes from silver hours with non-null air temperature and `rh_pct > 0` (`datasources/weather/disease.rs:48`, Weather data access). Rain in hours when those sensors dropped out is not counted. Whether that is the intended contract belongs to Weather data access.
+3. **Tool-call coverage.** Handler-backed tools need PostgreSQL with a weather record in it, so tests cover only the pure parts: trimming, the date range, `join_days`, auth, config, registration and resources. No test exercises a tool end to end.
 
 ## References
 

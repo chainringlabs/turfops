@@ -7,15 +7,15 @@ prefix: DEPLOY
 
 ## Context and Design Philosophy
 
-TurfOps ships as one statically served binary in one container image that runs next to a PostgreSQL database. The repo provides the image, its configuration surface and an example Compose file, and each works for anyone who wants to run the project; the owner's own deployment is built separately and is out of scope here. This component owns everything between the source tree and a running, observable process: the image build, the example Compose stack, environment configuration, startup order, router assembly and middleware, the database pool and migration run, the HTTP error contract, the health endpoint, logging, and the CI / supply-chain gates that guard `main`.
+TurfOps ships as one statically served binary in one container image that runs next to a PostgreSQL database, and those two are a complete installation: weather is fetched by the app and kept in that database, so nothing is mounted and no other service is needed. The repo provides the image, its configuration surface and an example Compose file, and each works for anyone who wants to run the project; the owner's own deployment is built separately and is out of scope here. This component owns everything between the source tree and a running, observable process: the image build, the example Compose stack, environment configuration, startup order, router assembly and middleware, the database pool and migration run, the HTTP error contract, the health endpoint, logging, and the CI / supply-chain gates that guard `main`.
 
 Guiding principles:
 
-- **Small, non-root, distroless runtime.** The runtime image carries the binary, the built SPA and the timezone database, and nothing else: no shell, no package manager, no library of its own (the C++ runtime that bundled DuckDB loads comes with the base image).
-- **Configuration is the environment.** Every setting is an environment variable with a safe default. Optional integrations are off when their key is unset or empty; nothing optional can stop the app from starting. Only the database password is required (unset or empty refuses to start). A malformed `MCP_TOKEN` or `CORS_ALLOWED_ORIGIN` refuses to start rather than run weakly, and a `TZ` that names no timezone refuses to start rather than run on the wrong clock. Any other unusable value falls back to its default with a warning naming the setting.
-- **Secrets never leave the process.** Config structs holding a credential redact it in `Debug`, error responses never echo internals, and `.env` files are never committed or copied into an image. The OpenWeatherMap key, which must travel in the request URL, is stripped from every error its client builds.
-- **`TZ` is the app's one clock.** "Today" and every date gate in every component is the lawn's local date, taken from `TZ` (the app's `Clock`, `backend/src/clock.rs`; no component reads `chrono::Local` or the system time to judge a date or an age), so the deployment sets `TZ` to the lawn's timezone. A process running on UTC computes wrong dates, not just odd-looking ones. Startup logs the zone it resolved and warns when `TZ` is unset.
-- **The lake is mounted, never written.** The NOAA weather lake is a read-only bind mount; the app reads it in place (owned by Weather data access).
+- **Small, non-root, distroless runtime.** The runtime image carries the binary, the built SPA and the timezone database, and nothing else: no shell, no package manager, no library of its own.
+- **The environment holds what must exist before the app starts; the app holds the rest.** The database connection, the listen address, tokens that guard a route, and the switches for optional services are environment variables with safe defaults. Choices about the lawn (its location, sources, sensors, forecast provider) are made in the app and stored in the database (setup and sources); `LAWN_*` variables only seed a first run. Nothing optional can stop the app from starting. Only the database password is required (unset or empty refuses to start). A malformed `MCP_TOKEN`, `SENSOR_TOKEN` or `CORS_ALLOWED_ORIGIN` refuses to start rather than run weakly, and a `TZ` that names no timezone refuses to start rather than run on the wrong clock. Any other unusable value falls back to its default with a warning naming the setting.
+- **Secrets never leave the process.** Config structs holding a credential redact it in `Debug`, error responses never echo internals, and `.env` files are never committed or copied into an image. A credential entered in the app is stored write-only (setup and sources). The OpenWeatherMap key, which must travel in the request URL, is stripped from every error its client builds.
+- **One clock, in the lawn's timezone.** "Today" and every date gate in every component is the lawn's local date, read from the app's `Clock` (`backend/src/clock.rs`; no component reads `chrono::Local` or the system time to judge a date or an age). The zone is the one that follows from the lawn's location; `TZ`, when set, overrides it. A process on the wrong zone computes wrong dates, not just odd-looking ones, so startup logs the zone in force and where it came from.
+- **Outbound HTTPS is the one thing the host must allow.** The app reaches NOAA, USDA, RCC-ACIS and Open-Meteo for weather; with none of them reachable it starts and serves the log, the shelf and whatever weather it already holds.
 - **Graceful stop.** On SIGTERM the server finishes in-flight requests before exiting, so stopping or restarting the container does not cut a request off midway.
 - **Gates before merge.** Format, clippy, tests, type check, lint and a supply-chain scan run on every PR; dependency updates arrive continuously through Renovate.
 
@@ -31,23 +31,19 @@ Three stages, every base image pinned by digest (Renovate maintains the digests)
 
 **No install scripts.** The frontend stage installs with `--ignore-scripts`, the same policy as the supply-chain scan, so no package's lifecycle script runs in the image build. `frontend/.npmrc` sets the same policy (`ignore-scripts=true`) for every other npm install, with `min-release-age=7` so npm resolves no version published in the last seven days; the stage copies it in before `npm ci`. No dependency in the lockfile declares an install script; one that genuinely needs it would be named in the Dockerfile with the reason.
 
-**Native toolchain.** The build stage installs `g++` because the `duckdb` crate is built with `bundled` (its C++ amalgamation compiles into the binary) and `tzdata` only so its files can be copied forward.
-
-**The parquet reader is compiled in.** `backend/Cargo.toml` enables the `duckdb` crate's `parquet` feature, so DuckDB's parquet extension is linked into the binary and `read_parquet` works the moment a connection opens. Without it DuckDB *autoloads* the extension: at the first `read_parquet` it downloads `parquet.duckdb_extension` for its exact version from `extensions.duckdb.org` and caches it under the home directory. The runtime runs as uid 65532 with no home directory and no guaranteed egress, so that download is a start-up dependency on the network and a writable filesystem that the image is designed not to have. The feature adds no build tool (it needs only `g++`); it does add the extension's compile time to the dependency layer.
-
-**C++ runtime.** The binary loads `libstdc++.so.6` and `libgcc_s.so.1` dynamically, next to glibc: the `cc` crate links `-lstdc++` explicitly when it compiles bundled DuckDB's C++ sources, and Rust's standard library links `-lgcc_s`, so the GCC driver flags `-static-libstdc++` / `-static-libgcc` (which only replace the driver's *implicit* C++ runtime) leave both dependencies in place. The Chainguard `glibc-dynamic` base ships all three libraries, so the runtime stage copies no shared library and the base's identity is what guarantees the binary loads; a runtime base without `libstdc++.so.6` fails at exec, which the PR image build does not exercise.
+**Native toolchain.** The build stage installs `tzdata` only so its files can be copied forward. No C++ compiler is needed.
 
 **Dependency caching.** `Cargo.toml` / `Cargo.lock` are copied first and built against a placeholder `main.rs` (`cargo build --release 2>/dev/null || true`), so the dependency layer is reused until the manifests change. The real `src/` is then copied and `touch src/main.rs` forces the crate itself to rebuild.
 
 **MCP resources.** `docs/timing-windows.md` and `docs/agronomy-methods.md` are copied to `/docs/` in the build stage. The MCP server embeds them with `include_str!("../../../docs/…")` from `backend/src/mcp/resources.rs`; from `/app/src/mcp/` that path resolves to `/docs/`, and from the repo checkout it resolves to the repo's `docs/`. Both copies must exist at compile time or the build fails. `.dockerignore`'s `*.md` is root-anchored, so it excludes only top-level Markdown and leaves `docs/*.md` in the context.
 
-**Timezone database and `TZ`.** `TZ` is resolved once, in `Config::from_env`, by `Clock::from_tz` (`backend/src/clock.rs`): an IANA name becomes `Clock::Zone`, looked up in the zone database compiled into the binary by `chrono-tz` (0.10.4), and unset or blank becomes `Clock::System`, the host's default zone. The resolved `Clock` is stored as `config.clock` and handed to `AppState`, data sync and the OpenWeatherMap client. `/usr/share/zoneinfo` is copied from the build stage for `chrono::Local`, which `Clock::System` reads: without it `Local` silently stays on UTC whatever `TZ` says.
+**The clock's zone.** The `Clock` is built after the database is reachable, from the first of: `TZ` when set (an IANA name looked up in the zone database compiled into the binary by `chrono-tz`); the lawn profile's `timezone`, which the profile derives from the location; otherwise the host's default zone (`Clock::System`). It lives in `AppState` behind a shared handle and is replaced when the owner changes the location, unless `TZ` fixes it. `/usr/share/zoneinfo` is copied from the build stage for `chrono::Local`, which `Clock::System` reads.
 
-**One reading of the clock.** `Clock::now()` is the current instant and `Clock::today()` its local date; `Clock::moment()` takes both at once (`Moment { now, today }`), so a computation that needs "now" and "today" judges both on the same reading. Every age, staleness, expiry and date gate reads the app's `Clock`. `Clock::Frozen { at, zone }` is a clock stopped at one instant in one zone: configuration never produces it (`from_tz` yields only `Zone` or `System`); tests use it to run a whole request, feed included, on a chosen day. Infrastructure timestamps (`created_at`, cache ages) keep the real time. The image itself sets no `TZ`, because it cannot know where the lawn is; whoever runs it supplies the lawn's timezone (the example Compose passes one). `TZ` is the single "today" clock for the whole app (HLD, Key Design Decisions): window days, freeze nights, fungicide residual windows, the nitrogen budget's year, plan and calendar dates, and the local calendar days that observed lake data and forecast slots are bucketed into. Without `TZ` the clock in the image is UTC, and without the zoneinfo files so is `chrono::Local`. In the eastern US every date gate is then a day ahead from evening (20:00 EDT / 19:00 EST) until midnight, and the year rolls over early on New Year's Eve. That is a correctness failure, so running without `TZ` is unsupported, and the backend makes the clock visible instead of trusting it:
+**One reading of the clock.** `Clock::now()` is the current instant and `Clock::today()` its local date; `Clock::moment()` takes both at once (`Moment { now, today }`), so a computation that needs "now" and "today" judges both on the same reading. Every age, staleness, expiry and date gate reads the app's `Clock`. `Clock::Frozen { at, zone }` is a clock stopped at one instant in one zone: configuration never produces it (`from_tz` yields only `Zone` or `System`); tests use it to run a whole request, feed included, on a chosen day. Infrastructure timestamps (`created_at`, cache ages) keep the real time. The image sets no `TZ` and the example Compose passes none: the zone comes from the location. The clock dates window days, freeze nights, fungicide residual windows, the nitrogen budget's year, plan and calendar dates, and the local calendar days that hourly observations and forecast slots are bucketed into. Until a location is set, with no `TZ`, the clock is the host's zone (UTC in the image); nothing weather-dependent is shown in that state, and the application log's dates are the ones the owner typed. The backend makes the clock visible instead of trusting it:
 
-- At startup `main.rs` logs at INFO `Clock: TZ=<zone> (UTC<offset>), local time <date> <time>` (`Clock::describe`), so a wrong clock shows in the startup log.
-- When `TZ` is unset or empty it logs a warning that every date gate follows the host's default zone (UTC in the container image) and that `TZ` must be set to the lawn's timezone. It still starts: a local `cargo run` legitimately uses the developer's OS zone, while in the image the default is UTC.
-- When `TZ` is set but is not a timezone name (a typo, or a name the zone database lacks), `Clock::from_tz` returns a configuration error naming `TZ` and the value, `Config::from_env` fails, and `main` exits non-zero, because chrono would otherwise fall back to UTC without a word.
+- At startup `main.rs` logs at INFO the zone, its offset, the local date and time, and its origin: `TZ`, the lawn's location, or the host default (`Clock::describe`). The same line is logged when the clock is replaced.
+- When `TZ` is set and differs from the zone of the lawn's location, it logs a warning naming both; `TZ` wins. The Sources page shows the zone in force.
+- When `TZ` is set but is not a timezone name (a typo, or a name the zone database lacks), `Clock::from_tz` returns a configuration error naming `TZ` and the value, `Config::from_env` fails, and `main` exits non-zero, because chrono would otherwise fall back to UTC without a word. `TZ` is the one clock input read in `Config::from_env`.
 - `GET /api/v1/today` (`backend/src/api/today.rs`) exposes the clock to the web UI as `{"today": "YYYY-MM-DD", "timezone": <IANA name or null>}`, with no database or data-source access, so forms judge "future" by the lawn's date rather than the viewer's (DEPLOY-TZ-006). It is its own route, not part of `/health`, which stays an operations probe.
 
 **Runtime.** Binary and static files are copied `--chown=65532:65532`, and the image declares `USER 65532:65532` explicitly, so the process stays non-root even if the base image's default user changes. `ENV STATIC_DIR=/app/static`, `EXPOSE 3000`, `ENTRYPOINT ["./turfops-backend"]`.
@@ -58,12 +54,12 @@ Three stages, every base image pinned by digest (Renovate maintains the digests)
 
 ## Example Compose Stack (`docker-compose.yml`)
 
-`docker-compose.yml` is an example for anyone who wants to try the project: it builds the image from source and runs it next to PostgreSQL 18, with the weather lake mounted from the host. It assumes nothing about a particular host beyond the variables below.
+`docker-compose.yml` is an example for anyone who wants to try the project: it builds the image from source and runs it next to PostgreSQL 18. Those two services are the whole installation: no volume is mounted into the app. It assumes nothing about a particular host beyond the variables below.
 
 | Service | Image / build | Ports | Notes |
 |---|---|---|---|
 | `db` | `postgres:18-alpine@sha256:…` | `127.0.0.1:5433:5432` | `POSTGRES_DB` / `POSTGRES_USER` = `turfops`; `POSTGRES_PASSWORD: ${DB_PASSWORD:?}`; volume `turfops_data:/var/lib/postgresql`; healthcheck `pg_isready -U turfops` every 5 s, 5 retries |
-| `app` | `build: .` (Dockerfile) | `3000:3000` | `depends_on: db: condition: service_healthy`; lake mount `${DATALAKE_HOST_PATH:-/data}:/data:ro` |
+| `app` | `build: .` (Dockerfile) | `3000:3000` | `depends_on: db: condition: service_healthy`; no volumes |
 
 Both services `restart: unless-stopped`. Host port 5433 exposes Postgres for a local `cargo run` against the Compose database (`README.md`, Local development); it is bound to the loopback interface, so other machines on the network cannot reach the database.
 
@@ -71,7 +67,7 @@ Both services `restart: unless-stopped`. Host port 5433 exposes Postgres for a l
 
 **Required password.** `DB_PASSWORD` is read with `${DB_PASSWORD:?}`: Compose refuses to start when it is unset or empty, and the same value feeds both `POSTGRES_PASSWORD` and the app's `DATABASE_PASSWORD`. The bare `:?` form (no message) is deliberate: the ggshield pre-commit hook flags `${VAR:?message}` as a hard-coded password.
 
-**Env passthrough.** Every optional key is passed as `${KEY:-}` or `${KEY:-default}`, so an unset host variable reaches the app as an **empty string**. Values come from the shell environment or from a `.env` file beside the Compose file, which Compose reads on its own and `.gitignore` keeps out of the repo. The app's "empty = not configured" rule exists for exactly this. `SERVER_HOST`, `SERVER_PORT` and `STATIC_DIR` are fixed in the file; `TZ` defaults to `America/New_York` and should be set to the lawn's timezone; `RUST_LOG` defaults to `info`.
+**Env passthrough.** Every optional key is passed as `${KEY:-}` or `${KEY:-default}`, so an unset host variable reaches the app as an **empty string**. Values come from the shell environment or from a `.env` file beside the Compose file, which Compose reads on its own and `.gitignore` keeps out of the repo. The app's "empty = not configured" rule exists for exactly this. `SERVER_HOST`, `SERVER_PORT` and `STATIC_DIR` are fixed in the file; `TZ` is passed through empty unless the host sets it; `RUST_LOG` defaults to `info`.
 
 **Pre-built image.** CI publishes the image to `ghcr.io/chainringlabs/turfops`; the README shows replacing `build:` with `image:` to run it without building.
 
@@ -87,27 +83,26 @@ Both services `restart: unless-stopped`. Host port 5433 exposes Postgres for a l
 | `SERVER_HOST` / `SERVER_PORT` | `0.0.0.0` / `3000` | fixed `0.0.0.0` / `3000` | bad host → warn, `0.0.0.0`; bad port → warn, 3000 |
 | `STATIC_DIR` | `./static` | `/app/static` | missing `index.html` → API-only mode (warn) |
 | `CORS_ALLOWED_ORIGIN` | unset → `http://localhost:<port>` | `""` | empty = unset; `*` = permissive (warn); an unparseable origin **panics** at startup |
-| `DATALAKE_ROOT` | `/data` | `/data` | paths derive as `<root>/silver/weather/silver_weather.parquet`, `<root>/gold/weather/daily_weather.parquet`; logged at INFO |
-| `WEATHER_SILVER_PATH` / `WEATHER_GOLD_PATH` | derived | not passed | override the derived path; not checked at startup (first read reports) |
-| `NOAA_STATION_WBANNO` | 3761 | 3761 | unparseable → warn, 3761 |
-| `HA_URL` / `HA_TOKEN` | `http://localhost:8123` / `""` | `""` / `""` | Home Assistant is configured iff the token is non-empty (`logic/data_sync.rs`) |
-| `HA_TEMPERATURE_ENTITY` / `HA_HUMIDITY_ENTITY` | `sensor.temp_humidity_sensor_temperature` / `…_humidity` | same | — |
-| `HA_TEMPERATURE_UNIT` | Fahrenheit | `fahrenheit` | `celsius` → Celsius; `fahrenheit` → Fahrenheit; anything else → warn, Fahrenheit |
-| `OWM_API_KEY` | unset | `""` | empty/whitespace = not configured (whole `OpenWeatherMapConfig` is `None`) |
-| `OWM_LATITUDE` / `OWM_LONGITUDE` | unset | `""` / `""` (no `0` default, which would read as a real place) | with `OWM_API_KEY` set, both required: unset, blank, unparseable or out of range → warn, forecast off (WX-SRC-CFG-003) |
-| `OWM_ENABLED`, `OPENROUTER_ENABLED` | on | `true` | `true`, `1` or `yes` in any letter case → on; any other value → off |
+| `HA_URL` / `HA_TOKEN` | unset | `""` / `""` | both set → the Home Assistant connection is fixed by configuration; otherwise the owner may enter one in the app |
+| `HA_TEMPERATURE_ENTITY` / `HA_HUMIDITY_ENTITY` | unset | `""` / `""` | first run only: become sensor mappings when no sensor is mapped (setup and sources) |
+| `OWM_API_KEY` | unset | `""` | set → fixes the OpenWeatherMap key; does not by itself select that provider |
+| `SENSOR_TOKEN` | unset | `""` | trimmed; empty = the posted-readings route is not mounted; set but < 32 chars → `Config` error, process exits |
+| `OPENROUTER_ENABLED` | on | `true` | `true`, `1` or `yes` in any letter case → on; any other value → off |
 | `OPENROUTER_API_KEY` | unset | `""` | empty/whitespace = not configured |
 | `OPENROUTER_MODEL` | `anthropic/claude-haiku-4.5` | same | not validated |
 | `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | not passed | — |
 | `MCP_TOKEN` | unset | `""` | trimmed; empty = `/mcp` not mounted; set but < 32 chars → `Config` error, process exits (`mcp/config.rs`) |
 | `LAWN_NAME`, `LAWN_GRASS_TYPE`, `LAWN_USDA_ZONE` | `Main Lawn`, `TallFescue`, `7a` | same | unknown grass → warn, TallFescue |
-| `LAWN_SOIL_TYPE`, `LAWN_SIZE_SQFT`, `LAWN_IRRIGATION_TYPE` | none | `Loam`, `5000`, `InGround` | unknown / unparseable → warn, none |
-| `TZ` | process default (UTC in the image, the OS zone under `cargo run`) | `America/New_York` | **required in practice**: the lawn's timezone, the app's single "today" clock; unset or empty → warn, process default; set but not a timezone → `Config` error naming `TZ`, process exits |
+| `LAWN_SOIL_TYPE`, `LAWN_SIZE_SQFT`, `LAWN_IRRIGATION_TYPE` | none | `""` | unknown / unparseable → warn, none |
+| `LAWN_LATITUDE` / `LAWN_LONGITUDE` | none | `""` / `""` | seed the lawn's location (applications); either missing, unparseable or outside the contiguous United States → warn, no location. `OWM_LATITUDE` / `OWM_LONGITUDE` are read in their place when only they are set |
+| `TZ` | unset: the zone of the lawn's location | `""` | overrides the location's zone; set but not a timezone → `Config` error naming `TZ`, process exits |
 | `RUST_LOG` | `info` | `info` | invalid filter → warn, `info` |
 
-Every fallback caused by an unusable non-empty value logs a warning naming the setting and the default used, so a typo shows in the startup log instead of quietly changing behavior. An empty value is "not set", not invalid, and takes the default without a warning (except `TZ`, whose absence is always worth a warning).
+Every fallback caused by an unusable non-empty value logs a warning naming the setting and the default used, so a typo shows in the startup log instead of quietly changing behavior. An empty value is "not set", not invalid, and takes the default without a warning.
 
-`LAWN_*` values only seed the lawn profile on first start (`ensure_default_profile`); once a profile exists they are ignored and the profile is edited through Settings.
+`LAWN_*` values only seed the lawn profile on first start (`ensure_default_profile`); once a profile exists they are ignored and the profile is edited in the app. The one exception is the location, which is also seeded into an existing profile that has none.
+
+**Retired settings.** `DATALAKE_ROOT`, `WEATHER_SILVER_PATH`, `WEATHER_GOLD_PATH`, `NOAA_STATION_WBANNO`, `HA_TEMPERATURE_UNIT` and `OWM_ENABLED` are no longer read. When one is set, startup logs one line naming it and saying it has no effect, so an old Compose file explains itself.
 
 **Secret redaction.** `HomeAssistantConfig`, `OpenWeatherMapConfig`, `OpenRouterConfig`, `DatabaseConfig` and `McpConfig` implement `Debug` by hand with the credential printed as `[REDACTED]`.
 
@@ -117,24 +112,24 @@ Every fallback caused by an unusable non-empty value logs a warning naming the s
 
 1. (`dev-env` only) load `.env`.
 2. Initialize `tracing_subscriber::fmt` with `RUST_LOG` (default `info`), so config warnings are logged.
-3. `Config::from_env()`, including the `TZ` check; log the resolved zone, offset and local date and time (see Timezone database and `TZ`).
+3. `Config::from_env()`, including the `TZ` check.
 4. `create_pool`: connect to Postgres, retrying with increasing backoff for about a minute while it is unreachable (each failed attempt logged at WARN), then run all pending migrations (below).
-5. `ensure_default_profile`: insert a profile from `LAWN_*` when the database has none.
-6. `DataSyncService::initialize`: construct the lake, Home Assistant and OpenWeatherMap clients. No network or lake I/O happens here; each source is first touched on demand (Data sync).
+5. `ensure_default_profile`: insert a profile from `LAWN_*` when the database has none; seed the location into a profile that lacks one. Build the `Clock` and log it.
+6. Construct the source clients and the summary service, and turn `HA_TEMPERATURE_ENTITY` / `HA_HUMIDITY_ENTITY` into sensor mappings when none exist. No network I/O happens here.
 7. Construct the OpenRouter client whenever a key is configured, turned off or not (a turned-off client answers with the "turned off" 503, so the owner learns which switch to flip); log the model and whether it is enabled at INFO.
-8. Build `AppState` (pool, sync service, OpenRouter, `mcp_enabled`).
-9. Assemble the router (below), bind `SERVER_HOST:SERVER_PORT`, and `axum::serve` with graceful shutdown on SIGTERM.
+8. Build `AppState` (pool, summary service, schedule handle, clock, OpenRouter, `mcp_enabled`).
+9. Assemble the router (below), bind `SERVER_HOST:SERVER_PORT`, start the fetch schedule (data sync), and `axum::serve` with graceful shutdown on SIGTERM.
 
 | Startup failure | Behavior |
 |---|---|
-| `DATABASE_PASSWORD` unset or empty; `MCP_TOKEN` too short; `TZ` set but not a timezone | `Config` error returned from `main`; exit non-zero |
+| `DATABASE_PASSWORD` unset or empty; `MCP_TOKEN` or `SENSOR_TOKEN` too short; `TZ` set but not a timezone | `Config` error returned from `main`; exit non-zero |
 | Postgres unreachable | retried after 2, 4, 8, 16 and 30 s (about a minute, `db::pool::startup_delays`, each failure logged at WARN), so a database that starts a little later (a host reboot, or a run without Compose's `depends_on`) is picked up; still unreachable → error returned from `main`, exit non-zero. Only reachability failures are retried (I/O, pool timeout, TLS, Postgres `57P03` still starting): a wrong password or database name fails at once |
 | Migration fails | error returned from `main`; exit non-zero (no retry: a failing migration fails the same way again) |
 | Invalid `CORS_ALLOWED_ORIGIN` | panic in `build_cors_layer` |
 | Port already bound | `TcpListener::bind` error; exit non-zero |
-| Lake, Home Assistant, OWM or OpenRouter unreachable | no effect at startup; degraded per feature at request time |
+| Any weather source, Home Assistant or OpenRouter unreachable | no effect at startup; the schedule retries, and features degrade per source |
 
-**Shutdown.** On SIGTERM (or Ctrl-C) the server stops accepting new connections, lets in-flight requests finish, then exits 0 (`axum::serve(...).with_graceful_shutdown`, `main.rs::shutdown_signal`), so `docker stop` or a Compose restart does not cut a request off midway.
+**Shutdown.** On SIGTERM (or Ctrl-C) the server stops accepting new connections, lets in-flight requests finish, tells the fetch schedule to stop after the fetch in progress, then exits 0 (`axum::serve(...).with_graceful_shutdown`, `main.rs::shutdown_signal`), so `docker stop` or a Compose restart does not cut a request off midway.
 
 ## Router Assembly and Middleware
 
@@ -146,6 +141,7 @@ The REST routes (30 paths, 41 method handlers under `/api/v1`, listed in `main.r
 
 After the layers, two things are added that the layers therefore do **not** cover:
 
+- **`/api/v1/sensor-readings`** (weather sources): mounted only when `SENSOR_TOKEN` is set, guarded by that bearer token. It is called by hubs and scripts, not the SPA.
 - **`/mcp`** (MCP server): merged only when `MCP_TOKEN` is set, guarded by its own bearer middleware. It is server-to-server, so it sits outside CORS. Its internals belong to the MCP server LLD.
 - **SPA fallback** (Web UI): when `STATIC_DIR/index.html` exists at startup, `ServeDir(STATIC_DIR)` with `index.html` as the not-found service becomes the router fallback, so any unmatched path outside `/api/v1/` returns the SPA shell; an unknown `/api/v1/...` path has already been answered by the JSON 404 route. Without `index.html` the app runs API-only and logs a warning.
 
@@ -169,25 +165,32 @@ All handler errors are `TurfOpsError` and render as JSON `{"error": "<message>"}
 | `Database` violating `applications_unique_turf` / `applications_unique_plant` | 409 | fixed duplicate-application text | no |
 | `Database` violating any other unique index | 409 | generic plain-language conflict text (the record conflicts with one that already exists) | no |
 | `Config(msg)`, `Internal(msg)` | 500 | `SERVER_ERROR_MESSAGE`: "Something went wrong on the server. Try again; the details are in the server log." | ERROR |
-| `DataLake` | 503 | the weather-lake owner sentence (Weather data access, WX-SRC-LAKE-014) | WARN |
 | `Database` (other), `Http`, `Io`, `Json` | 500 | `SERVER_ERROR_MESSAGE` | ERROR |
 
 `owner_message()` builds the `error` text; `IntoResponse` picks the status and does the logging. `Internal` marks the server's own data being inconsistent (a stored profile row without an id, for example).
 
-**Data-source outages.** `Source` names a source as the owner knows it: `WeatherLake`, `Forecast` (OpenWeatherMap), `PatioSensor` (Home Assistant), `PlanAssistant` (OpenRouter for plant care plans), `ProductAssistant` (OpenRouter answering for a shelf product being added), `ProfileRefresh` (OpenRouter regenerating a shelf product's profile) and `SoilOutlook` (the 10 cm projection). `Outage` says why: `NotConfigured`, `Disabled`, `Down(detail)` or `NotEnoughData`. Sources build these through `TurfOpsError::unavailable(source, detail)`, `not_configured(source)`, `disabled(source)` and `not_enough_data(source)`; `for_products()` re-labels a `PlanAssistant` outage as `ProductAssistant` so adding a product words it for products, and `for_refresh()` re-labels it as `ProfileRefresh` for a profile refresh. Each source and outage pair has one sentence saying what is unavailable, what it affects and what to do, for example "The weather data lake isn't configured, so soil, disease, timing and history data are unavailable. Set DATALAKE_ROOT and restart TurfOps." A `Down` detail (an upstream status and body, a raw model output, a lake task error) is logged and never part of the response.
+**Data-source outages.** `Source` names a source as the owner knows it: `WeatherRecord` (the stored weather as a whole), `SoilStation`, `Grid` (daily air and rain), `HourlyAnalysis`, `OwnerSensors` (Home Assistant or posted readings), `Forecast`, `PlanAssistant` (OpenRouter for plant care plans), `ProductAssistant` (OpenRouter answering for a shelf product being added), `ProfileRefresh` (OpenRouter regenerating a shelf product's profile) and `SoilOutlook` (the 10 cm projection). `Outage` says why: `NotConfigured`, `Disabled`, `Down(detail)`, `NotEnoughData`, `LocationNotSet` or `HistoryLoading { held, wanted }`. Sources build these through `TurfOpsError::unavailable(source, detail)` and its siblings; `for_products()` re-labels a `PlanAssistant` outage as `ProductAssistant` and `for_refresh()` as `ProfileRefresh`. Each source and outage pair has one sentence saying what is unavailable, what it affects and what to do:
+
+| Outage | Sentence |
+|---|---|
+| `LocationNotSet` | "TurfOps doesn't know where your lawn is yet, so weather, timing and disease information are unavailable. Set the location in Setup." |
+| `HistoryLoading` | "Weather history is still loading (*held* of *wanted* years), so typical dates aren't available yet. Current conditions and the forecast already are." |
+| `Down` for a weather source | Names the source in the owner's words and what rests on it, for example "The soil station (*name*) can't be reached, so soil readings are coming from the estimate." |
+
+A `Down` detail (an upstream status and body, a raw model output) is logged and never part of the response. A source failing in the background is not a request error at all: it appears as source status (data sync).
 
 The duplicate-application text tells the owner how to fix the entry (edit the existing one, or rename the product), so it is used only for the two indexes it describes; the constraint name decides which message applies, and any other unique index gets the generic text rather than advice that does not fit. Requests that fail before a handler runs get the same shape through `with_json_errors`, one plain sentence per status: 400 (malformed JSON, a non-numeric `{id}`) "The request couldn't be read. Check the form and try again.", 405 "That action isn't supported here.", 413 (a body over 1 MiB) "That request is too large to accept.", 415 "The request must be sent as JSON.", 422 "Some fields are missing or not valid. Check the form and try again.", any 5xx the server-error sentence. A response that is already JSON passes through unchanged.
 
 ## Health Endpoint (`backend/src/api/health.rs`)
 
-`GET /api/v1/health` always answers **200** with `{status, version, database, datasources, mcp}`. `database` is `SELECT 1` with a 2 s timeout; `status` is `ok` when that succeeds, else `degraded`. `datasources` is Data sync's `ConnectionStatus` (the lake under the legacy key `soildata`). `mcp` is `enabled` or `disabled`. `version` is `CARGO_PKG_VERSION`. No container healthcheck consumes it.
+`GET /api/v1/health` always answers **200** with `{status, version, database, sources, mcp}`. `database` is `SELECT 1` with a 2 s timeout; `status` is `ok` when that succeeds, else `degraded`. `sources` is data sync's source status: one entry per source in use, with backfill progress. `mcp` is `enabled` or `disabled`. `version` is `CARGO_PKG_VERSION`. The image's `HEALTHCHECK` consumes only the 200.
 
 ## Logging and Operations
 
-- `tracing` text output to stdout; `RUST_LOG` sets the filter. Startup logs the lake paths, which integrations are configured, the OpenRouter model, whether `/mcp` is mounted, the CORS origin, and the bind address, so a misconfiguration shows on every restart.
+- `tracing` text output to stdout; `RUST_LOG` sets the filter. Startup logs whether a location is set, which integrations are configured and where each credential comes from (environment or the app, never its value), the OpenRouter model, whether `/mcp` is mounted, the CORS origin, and the bind address, so a misconfiguration shows on every restart.
 - Startup also logs the resolved timezone, offset and local date and time, and warns on every setting that fell back to a default.
 - Shipping stdout to a log store is the deployment's concern; the backend assumes nothing about it.
-- The container must be able to read the lake as uid 65532.
+- The container needs outbound HTTPS to the weather hosts and no mounted volume. The fetch schedule logs each failed fetch at WARN with the client's detail and each backfill year at INFO.
 - No log line may contain a credential. The OpenWeatherMap key travels in the request URL's query string, so its client formats every reqwest error with `without_url()` (`request_error`, `backend/src/datasources/openweathermap.rs`).
 
 ## CI, Release and Supply Chain (`.github/workflows/`, `renovate.json5`, `scripts/github-protection.sh`)
@@ -214,11 +217,12 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 | Scan mode on pull requests | OSV comparison: fail only on vulnerabilities the pull request introduces; full scan with `cargo-deny`'s advisory check on `main` and weekly | Full scan on every pull request | A full scan on pull requests blocks unrelated work, including automatic dependency updates, the day an advisory lands against a dependency already on `main`. The weekly run keeps `main`'s own state visible. |
 | Rust dependency policy tool | `cargo-deny` (advisories, licences, bans, sources) | `cargo audit` (advisories only) | Both read the RustSec database, so advisory coverage is the same; `cargo-deny` adds a licence allow-list and source restrictions, and it is the one tool every Rust repository in the organization uses. |
 | Where the scan logic lives | The organization's shared workflow (`chainringlabs/ci`), pinned by commit | A copy in this repository | One reviewed scan for every repository; a change reaches this one only when its pin is raised. The ignore lists stay here. |
-| Runtime base | Chainguard `glibc-dynamic` distroless | Debian slim; Alpine/musl; scratch | No shell or package manager, non-root by default, small CVE surface; glibc avoids musl build friction with bundled DuckDB. [inferred] |
-| Parquet reader | Compiled into the binary (`duckdb` feature `parquet`) | DuckDB extension autoload at the first `read_parquet`; `INSTALL parquet` at start-up; a pre-populated extension directory in the image | Autoload and `INSTALL` both download from `extensions.duckdb.org` at run time and write under the home directory, which the distroless runtime (uid 65532, no home, no guaranteed egress) does not offer; a baked extension directory is a second artifact to keep on the exact DuckDB version. Linking it in costs compile time once and nothing at run time. |
-| C++ runtime for DuckDB | Supplied by the Chainguard `glibc-dynamic` base (`libstdc++.so.6`, `libgcc_s.so.1`) | Static link via `-static-libstdc++ -static-libgcc`; copy `libstdc++.so.6` from the build stage; a fuller runtime base | The driver flags do not reach a C++ runtime that is linked explicitly, which is how the `cc` crate links it for bundled DuckDB, so a static build would need a hand-built linker line; a library copied from Debian is tied to that glibc build and would need its own upkeep. The base already carries the libraries, under Chainguard's CVE process. |
-| Weather lake delivery | Read-only bind mount at `/data`, paths derived from `DATALAKE_ROOT` | Weather HTTP API; Postgres copy | Local parquet is fast and always current; read-only protects the pipeline's data. Overrides exist for a different layout. |
-| Timezone | Ship `/usr/share/zoneinfo`; deployment sets `TZ` to the lawn's timezone (Compose default `America/New_York`); the app's `Clock`, resolved once from `TZ`, is the one "today" | Compute all dates in UTC; a station-local date from the lake's UTC offset; the viewer's browser date; hard-code the zone in the image | Every agronomic date is a lawn-local calendar day. One configured clock gives every component the same day. Lake timestamps are UTC, so the UTC date would be wrong every evening. The image cannot know the lawn's location, so the zone belongs to the deployment. |
+| Runtime base | Chainguard `glibc-dynamic` distroless | Debian slim; Alpine/musl; scratch | No shell or package manager, non-root by default, small CVE surface; glibc avoids musl build friction with the TLS stack. [inferred] |
+| What an installation is | The app image and PostgreSQL; weather fetched by the app | A mounted weather lake built by a separate pipeline; a second ingester container | HLD: the product stands alone. A mount or a second service is something a new owner must build before the first page works. |
+| Where settings live | Environment for what must exist before start; the app and its database for choices about the lawn | Everything in the environment | HLD decision. A station or a sensor mapping is a choice among things the app has to find and show, and must change without a restart. |
+| Retired settings | Ignored, with one startup line naming each that is still set | Refuse to start; ignore silently | An upgrade must not fail on an old Compose file, and the owner should learn the setting no longer does anything. |
+| Posted-readings route | Mounted only with `SENSOR_TOKEN`, minimum 32 characters, startup refused when shorter | Always mounted; no minimum | The same rule as `MCP_TOKEN`: a write route is either properly guarded or absent. |
+| Timezone | The zone of the lawn's location, held in a replaceable `Clock`; `TZ` overrides; `/usr/share/zoneinfo` shipped for the host-default case | `TZ` as a required setting; compute all dates in UTC; the viewer's browser date | Every agronomic date is a lawn-local calendar day, and one clock gives every component the same day (HLD). Deriving the zone from the location removes the one setting that could silently contradict it. |
 | Required DB password syntax | `${DB_PASSWORD:?}` | `${DB_PASSWORD:?message}`; a default password | A missing password must stop Compose; the message form trips the ggshield secret scanner. |
 | Optional keys | Empty or whitespace = not configured | Treat empty as a value; separate `*_ENABLED` only | Compose passes unset `${KEY:-}` as `""`; treating it as configured would start clients with blank credentials. [inferred] |
 | Container health check | The binary probes its own `/api/v1/health` (`--healthcheck`), declared in the image | `curl` in the runtime; a Compose-only check; no check | The distroless runtime has no shell or curl and should stay that way; an image-level check covers every deployment of the image, not just the example Compose stack. |
@@ -227,7 +231,7 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 | Malformed security config | Refuse to start (`MCP_TOKEN` < 32, bad CORS origin) | Warn and continue | A short token or wrong origin would silently weaken an open endpoint (MCP plan, `docs/plans/ai-assistant.md`). |
 | Other malformed values | Warn, naming the setting and the default, then fall back | Refuse to start; fall back silently | Keeps the app up on a typo in a non-security setting, while the warning makes the typo visible on the next restart. |
 | Empty `DATABASE_PASSWORD` | Refuse to start | Connect with a blank password | A blank password is never intended; failing at startup with the setting's name beats an authentication error from Postgres, and runs without Compose's `:?` guard get the same protection. |
-| `TZ` handling | Log zone, offset and local time; warn when unset; refuse when set but unresolvable | Refuse to start when unset; trust `TZ` silently | A local `cargo run` without `TZ` correctly uses the OS zone, so unset cannot be fatal; a set but unresolvable value is always a mistake and would otherwise run on UTC without a word. |
+| `TZ` handling | An override: log the zone in force and its origin; warn when it differs from the location's zone; refuse when set but unresolvable | Warn whenever unset; trust `TZ` silently | The location supplies the zone, so an unset `TZ` is the normal case. A set but unresolvable value is always a mistake and would otherwise run on UTC without a word. |
 | `*_ENABLED` flags | `true`, `1`, `yes`, case-insensitive | Exact `true` only | `TRUE` or `1` turning a feature off is a surprising failure; these are the common spellings of "on". |
 | Role of `docker-compose.yml` | An example any user can run to try the project | The definition of the owner's deployment | Keeps the repo usable by anyone; an environment-specific deploy belongs with that environment, not in the repo. |
 | Example Postgres port | Published on `127.0.0.1:5433` only | All interfaces; not published | Local `cargo run` against the Compose database keeps working without exposing the database to the network. |
@@ -255,7 +259,7 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 4. **CI does not build the frontend.** `ci.yml` type-checks, lints and runs the Vitest suite; only the PR image build in `docker-publish.yml` runs `npm run build`.
 5. **`.dockerignore` patterns are root-anchored.** `target/`, `src/` and `*.md` match only top-level paths, so `backend/target` (tens of GB locally) is not excluded. BuildKit transfers only paths the Dockerfile copies, which keeps this harmless today. Widening `*.md` to `**/*.md` would break the MCP docs copy.
 6. **`main.rs` is 353 lines,** over the 300-line limit; the route table is the natural split (for example `api::router()`).
-7. **No start-up smoke test of the built image.** The PR image build proves the image builds, not that the binary loads on the runtime base; a base that stopped shipping `libstdc++.so.6` would surface only at deployment. A smoke run of the built image (checking the exit code is not the loader's missing-library failure) would close this.
+7. **No start-up smoke test of the built image.** The PR image build proves the image builds, not that the binary loads and starts on the runtime base. A smoke run of the built image would close this.
 7. **The example stack's database user is fixed.** The `db` service always creates `turfops`, while `app` takes `${DATABASE_USER:-turfops}`; a `.env` that sets `DATABASE_USER` (Compose reads `.env` automatically) makes the app authenticate as a user the database never created.
 
 ## References
@@ -266,4 +270,4 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 - `.github/workflows/ci.yml`, `docker-publish.yml`, `ghcr-retention.yml`
 - `README.md` (Environment Variables, Docker Build, local development)
 - `docs/plans/ai-assistant.md` (MCP token and mounting rules)
-- Boundaries: Weather data access (lake paths, client construction), Data sync (`ConnectionStatus`, on-demand refresh), MCP server (`/mcp` router and auth), Web UI (SPA served from `STATIC_DIR`)
+- Boundaries: Weather data access (source clients, the record's migrations), Data sync (the fetch schedule, source status), Setup and sources (stored settings and credentials), Applications (the lawn profile and its location), MCP server (`/mcp` router and auth), Web UI (SPA served from `STATIC_DIR`)
