@@ -91,12 +91,18 @@ The **basis plan** is the ranked list of sources for each input. The record buil
 the lawn's location is set or changes, a sensor is mapped or unmapped, the owner pins or unpins
 a station, or the catalog refresh changes a station in use:
 
-1. The owner's sensor mapped to the input, if any.
+1. The owner's sensor mapped to the input, if any. A sensor mapped to air temperature also
+   speaks for daily air, whose maximum, minimum and mean are taken from its hours.
 2. For inputs with a station cut-off: the owner's pinned station if there is one. Otherwise the
    nearest USCRN station within the cut-off that reports the input, then the nearest SCAN
    station within the cut-off that reports it. A station more than 1,000 ft above or below the
    lawn is skipped unless pinned.
 3. The input's estimate source, if it has one.
+
+For hourly air a default station must report both temperature and humidity, because dew point
+needs the two from one instrument. A grid, the hourly analysis and the soil estimate are
+sources at the lawn's point: a lawn that moves gets new ones, and the old point's rows are not
+read for the new location.
 
 Distance is great-circle miles between the lawn and the station. The lawn's elevation is the
 one the hourly analysis reports for the point. Until that is known the plan is built without
