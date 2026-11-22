@@ -147,7 +147,9 @@ Three refinements:
   between or after a station's or sensor's values, the record uses the estimate's anchored form
   for those days, which `WX-EST` defines, so a change of basis is not a step in the series.
 - **Rain's newest days.** A lawn day PRISM has not yet published takes its total from the
-  hourly analysis and is replaced when PRISM arrives.
+  hourly analysis and is replaced when PRISM arrives. Rain is never held back for a pending
+  source: a rain sensor that reports only when it rains would otherwise leave every dry day
+  empty.
 
 ### Daily sources and the lawn's day
 
@@ -171,8 +173,9 @@ BasisSpan  { input, from: date, to: date, basis }
 - A value from the hourly analysis is `Estimate` with `approximate: true`. A value from PRISM
   or the soil estimate is `Estimate`. The source name says which.
 - A **series** contract returns its rows plus `basis: Vec<BasisSpan>`: for each input in the
-  rows, consecutive days on the same basis collapsed into one span. A series on one basis
-  throughout has one span per input; a seam is the boundary between two spans.
+  rows, the series' successive days on the same basis collapsed into one span. A series on one
+  basis throughout has one span per input; a seam is the boundary between two spans. A day
+  with no value does not end a span.
 - The **live reading** carries one `Basis` per filled input.
 - A **scalar** over a period (a 7-day mean, the year-to-date GDD) carries the basis of the
   newest day in the period, and `mixed: true` when the period used more than one.
