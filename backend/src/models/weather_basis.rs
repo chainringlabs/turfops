@@ -53,3 +53,20 @@ pub struct BasisSpan {
     pub to: NaiveDate,
     pub basis: Basis,
 }
+
+/// A series from the record: its rows, and what each input in them rests on.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Series<T> {
+    pub rows: Vec<T>,
+    pub basis: Vec<BasisSpan>,
+}
+
+/// One figure over a period, with the basis of the period's newest day.
+// @spec WX-REC-BASIS-004
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Figure<T> {
+    pub value: T,
+    pub basis: Basis,
+    /// The period drew on more than one basis.
+    pub mixed: bool,
+}
