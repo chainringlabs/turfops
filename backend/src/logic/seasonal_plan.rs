@@ -11,7 +11,7 @@ mod activity_tests;
 mod completion_tests;
 #[cfg(test)]
 mod crossing_tests;
-mod crossings;
+pub(crate) mod crossings;
 #[cfg(test)]
 mod details_tests;
 mod fall;
