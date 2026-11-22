@@ -153,6 +153,13 @@ fn outage_message(source: Source, outage: &Outage) -> String {
             "The daily temperature and rain grid can't be reached right now. Days TurfOps \
              already holds are still used; newer ones will arrive when it answers."
         }
+        // @spec WX-SRC-ERR-001
+        (HourlyAnalysis, _) => {
+            "The hourly weather analysis can't be reached right now. Hours TurfOps already \
+             holds are still used; newer ones will arrive when it answers."
+        }
+        // @spec WX-SRC-ERR-001, SETUP-FAIL-001
+        (PlaceSearch, _) => "Place search is unavailable; enter coordinates instead.",
         (SoilOutlook, _) => {
             "Not enough recent station data to project soil temperature. Try again once the \
              station has reported a few more days."
@@ -182,6 +189,10 @@ pub enum Source {
     SoilStation,
     /// The daily air-temperature and rain grid (PRISM, NRCC).
     Grid,
+    /// Open-Meteo's hourly analysis of past air temperature, humidity and rain.
+    HourlyAnalysis,
+    /// Open-Meteo's place search, used in setup.
+    PlaceSearch,
 }
 
 /// Why a source cannot answer.

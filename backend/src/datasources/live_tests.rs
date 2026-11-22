@@ -3,6 +3,7 @@
 //! `cargo test live_ -- --ignored --test-threads=1`.
 
 use super::grid::{Grid, GridClient};
+use super::open_meteo::OpenMeteoClient;
 use super::outside::Outside;
 use super::scan::ScanClient;
 use super::uscrn::{StationYear, UscrnClient};
@@ -81,4 +82,25 @@ async fn live_scan_catalog_and_hours() {
         "{} rows",
         rows.len()
     );
+}
+
+#[tokio::test]
+#[ignore = "calls Open-Meteo"]
+async fn live_open_meteo_analysis_and_place_search() {
+    let client = OpenMeteoClient::new(Arc::new(Outside::new()));
+    let now = Utc::now();
+    let analysis = client.analysis(39.86, -75.79, 92, now).await.unwrap();
+    let hours = &analysis.hours;
+    assert!(hours.len() > 92 * 24 - 2, "{} hours", hours.len());
+    let newest = hours.last().unwrap();
+    assert!(now - newest.observed_at < Duration::hours(2));
+    assert!(
+        newest.air_temp_f.is_some() && newest.rh_pct.is_some() && newest.precip_mm.is_some(),
+        "{newest:?}"
+    );
+    let elevation = analysis.elevation_ft.unwrap();
+    assert!((300.0..600.0).contains(&elevation), "{elevation} ft");
+    let places = client.places("19311").await.unwrap();
+    assert_eq!(places[0].name, "Avondale");
+    assert_eq!(places[0].state.as_deref(), Some("Pennsylvania"));
 }

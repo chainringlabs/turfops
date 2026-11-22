@@ -154,10 +154,13 @@ the outcome of scheduled fetches (data sync).
 - **Hourly analysis:** past hours' air temperature, relative humidity and precipitation at the
   point, from the forecast API's past days (up to 92) at first start and hourly thereafter.
   Soil variables are never requested: the reanalysis soil scored worse than the soil estimate.
+  Only hours that have ended are returned. Temperature and humidity are the model's values at
+  the start of the hour; Open-Meteo reports precipitation as the sum over the hour before its
+  timestamp, so an hour's rain is the amount stamped at its end.
 - **Point facts:** every response carries the model grid's elevation in metres, which the
   client returns in feet, the unit the station catalogs use.
-- **Place search:** a name or postal code to a list of candidate places with coordinates, for
-  setup. The typed text is sent to Open-Meteo and nothing else is.
+- **Place search:** a name or postal code to at most ten candidate places in the United States
+  with coordinates, for setup. The typed text is sent to Open-Meteo and nothing else is.
 - **Forecast:** see "Forecast" below.
 - **Terms:** free for non-commercial use, data under CC BY 4.0, a daily request allowance the
   schedule above stays far inside. Attribution is shown wherever its values are.
