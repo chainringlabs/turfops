@@ -44,6 +44,10 @@ fn profile_row(grass: &str, soil: &str, irrigation: &str) -> LawnProfileRow {
         irrigation_type: Some(irrigation.into()),
         created_at: Utc::now(),
         updated_at: Utc::now(),
+        latitude: None,
+        longitude: None,
+        place_name: None,
+        timezone: None,
     }
 }
 

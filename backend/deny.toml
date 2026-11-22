@@ -52,6 +52,14 @@ confidence-threshold = 0.9
 # One list is shared across repositories; an entry no crate here uses is fine.
 unused-allowed-license = "allow"
 
+# ODbL-1.0 is accepted for this one crate only. tzf-dist is the timezone-boundary data
+# tzf-rs looks a lawn's zone up in (OpenStreetMap data, via timezone-boundary-builder).
+# It is embedded unmodified, so the share-alike term reaches no TurfOps code; the
+# attribution it requires is in README.md and on the app's Sources page.
+[[licenses.exceptions]]
+allow = ["ODbL-1.0"]
+crate = "tzf-dist"
+
 [licenses.private]
 # This crate is not published to a registry.
 ignore = true

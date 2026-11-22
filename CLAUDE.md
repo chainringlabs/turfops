@@ -156,7 +156,7 @@ See `backend/.env.example` for full list:
 - `MCP_TOKEN` — bearer token for `/mcp` (≥ 32 chars; unset = not mounted)
 - `TZ` — the lawn's timezone for every `Local::now()` date gate (compose default `America/New_York`)
 - `DB_PASSWORD` — required by compose (no default); flows to Postgres and `DATABASE_PASSWORD`
-- `LAWN_*` — Default lawn profile settings
+- `LAWN_*` — Default lawn profile settings, read once to create the profile. `LAWN_LATITUDE` / `LAWN_LONGITUDE` (contiguous US; `OWM_LATITUDE` / `OWM_LONGITUDE` when only those are set) also give a location to an existing profile that has none; the profile's timezone is derived from it (`models/lawn_profile/location.rs`, tzf-rs)
 
 ## Agronomic Thresholds (TTTF Zone 7a)
 

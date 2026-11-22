@@ -10,8 +10,17 @@ export interface LawnProfile {
 	soil_type: SoilType | null;
 	lawn_size_sqft: number | null;
 	irrigation_type: IrrigationType | null;
+	location: LawnLocation | null;
 	created_at: string;
 	updated_at: string;
+}
+
+/** Where the lawn is. The timezone always follows from the coordinates. */
+export interface LawnLocation {
+	latitude: number;
+	longitude: number;
+	place_name: string | null;
+	timezone: string;
 }
 
 export type GrassType =

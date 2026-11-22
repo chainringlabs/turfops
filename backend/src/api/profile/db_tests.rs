@@ -186,3 +186,133 @@ async fn saving_with_no_profile_creates_it_with_the_seeding_defaults(pool: PgPoo
     put(&state, json!({ "name": "Front" })).await.unwrap();
     assert_eq!(profiles(&pool).await, 1, "the next save updates it");
 }
+
+// @spec APP-PROF-013, APP-PROF-014
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn a_location_is_stored_rounded_with_the_timezone_that_follows_from_it(pool: PgPool) {
+    lawn(&pool).await;
+    let state = state(&pool).await;
+    let before = put(&state, json!({})).await.unwrap();
+    assert_eq!(before.location, None, "a profile starts without a location");
+
+    let saved = put(
+        &state,
+        json!({"location": {"latitude": 39.861_234_9, "longitude": -75.786_551,
+                             "place_name": " Avondale, PA "}}),
+    )
+    .await
+    .unwrap();
+    let location = saved.location.expect("the location");
+    assert_eq!((location.latitude, location.longitude), (39.8612, -75.7866));
+    assert_eq!(location.place_name.as_deref(), Some("Avondale, PA"));
+    assert_eq!(location.timezone, "America/New_York");
+
+    // A later save that says nothing about the location leaves it alone.
+    let renamed = put(&state, json!({"name": "Back Forty"})).await.unwrap();
+    assert_eq!(renamed.location.unwrap().timezone, "America/New_York");
+}
+
+// @spec APP-PROF-014
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn moving_the_lawn_moves_its_timezone_and_a_request_cannot_set_one(pool: PgPool) {
+    lawn(&pool).await;
+    let state = state(&pool).await;
+    let moved = put(
+        &state,
+        json!({"location": {"latitude": 33.45, "longitude": -112.07,
+                             "timezone": "America/New_York"}}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(moved.location.unwrap().timezone, "America/Phoenix");
+}
+
+// @spec APP-PROF-017
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn half_a_location_or_one_outside_the_contiguous_us_is_a_400_that_changes_nothing(
+    pool: PgPool,
+) {
+    lawn(&pool).await;
+    let state = state(&pool).await;
+    put(
+        &state,
+        json!({"location": {"latitude": 39.86, "longitude": -75.79}}),
+    )
+    .await
+    .unwrap();
+    for (body, says) in [
+        (
+            json!({"name": "Changed", "location": {"latitude": 40.0}}),
+            "longitude",
+        ),
+        (
+            json!({"name": "Changed", "location": {"longitude": -80.0}}),
+            "latitude",
+        ),
+        (
+            json!({"name": "Changed", "location": {"latitude": 61.2, "longitude": -149.9}}),
+            "contiguous United States",
+        ),
+        (
+            json!({"name": "Changed", "location": {"latitude": 0.0, "longitude": 0.0}}),
+            "contiguous United States",
+        ),
+    ] {
+        let (status, message) = put(&state, body).await.unwrap_err();
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(message.contains(says), "{message}");
+    }
+    let Json(after) = get_profile(State(state)).await.unwrap();
+    assert_ne!(after.name, "Changed");
+    assert_eq!(after.location.unwrap().latitude, 39.86);
+}
+
+// @spec APP-PROF-013
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn the_place_name_can_change_without_moving_the_lawn(pool: PgPool) {
+    lawn(&pool).await;
+    let state = state(&pool).await;
+    put(
+        &state,
+        json!({"location": {"latitude": 39.86, "longitude": -75.79, "place_name": "Home"}}),
+    )
+    .await
+    .unwrap();
+    let renamed = put(&state, json!({"location": {"place_name": "The farm"}}))
+        .await
+        .unwrap()
+        .location
+        .unwrap();
+    assert_eq!(
+        (renamed.latitude, renamed.place_name.as_deref()),
+        (39.86, Some("The farm"))
+    );
+
+    // A place name alone, on a lawn with no location, has nowhere to go.
+    sqlx::query("UPDATE lawn_profiles SET latitude = NULL, longitude = NULL, timezone = NULL")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let (status, message) = put(&state, json!({"location": {"place_name": "Nowhere"}}))
+        .await
+        .unwrap_err();
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(
+        message.contains("latitude") && message.contains("longitude"),
+        "{message}"
+    );
+}
+
+// @spec APP-PROF-012, APP-PROF-013
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn a_profile_created_by_a_save_can_carry_its_location(pool: PgPool) {
+    let state = state(&pool).await;
+    let created = put(
+        &state,
+        json!({"location": {"latitude": 41.88, "longitude": -87.63}}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(created.location.unwrap().timezone, "America/Chicago");
+    assert_eq!(profiles(&pool).await, 1);
+}

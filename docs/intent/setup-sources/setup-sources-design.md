@@ -92,7 +92,7 @@ Route `/sources`, in the navigation as "Sources".
 
 **Connections.** Home Assistant (connected or not set up), the forecast provider, and whether posted readings are enabled, each with Test and Change.
 
-**Location.** The place, coordinates and timezone, with Change. Changing it warns that station and grid history for the old point will be replaced and reloaded, and that sensor history is kept.
+**Location.** The place, coordinates and timezone, with Change, and the credit the timezone boundary data requires (© OpenStreetMap contributors, ODbL). Changing it warns that station and grid history for the old point will be replaced and reloaded, and that sensor history is kept.
 
 ## API
 

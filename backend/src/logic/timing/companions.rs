@@ -158,6 +158,7 @@ mod tests {
             soil_type: soil,
             lawn_size_sqft: Some(5000.0),
             irrigation_type: None,
+            location: None,
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         }
