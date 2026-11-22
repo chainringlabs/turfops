@@ -8,11 +8,12 @@ use crate::db::weather_queries::days;
 use crate::db::weather_queries::plan::{self, Placed};
 use crate::db::weather_queries::rows;
 use crate::error::{Result, TurfOpsError};
-use crate::models::weather_record::{Input, Source, SourceKind};
-use chrono::{Duration, NaiveDate};
+use crate::models::weather_record::{HourlyRow, Input, Source, SourceKind};
+use chrono::{DateTime, Duration, NaiveDate, Utc};
 use chrono_tz::Tz;
 use sqlx::PgPool;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 
 /// How old a source's newest value may be while the source still counts as reporting.
 /// Data sync sets these.
@@ -73,6 +74,8 @@ pub(super) struct View<'a> {
     pub zone: Tz,
     pub plan: Vec<Placed>,
     pub asked: Asked,
+    /// Each hourly source's recent hours, read once per question.
+    pub(super) recent: tokio::sync::Mutex<HashMap<i64, Arc<Vec<HourlyRow>>>>,
 }
 
 /// A resolved series and the sources it was resolved among.
@@ -101,6 +104,7 @@ impl WeatherRecord {
             zone,
             plan: plan::read(&self.pool).await?,
             asked,
+            recent: Default::default(),
         })
     }
 }
@@ -135,6 +139,11 @@ impl View<'_> {
             .map(|placed| &placed.source)
     }
 
+    /// How far back a source's newest value is looked for: past the longest age limit.
+    pub fn look_back(&self) -> DateTime<Utc> {
+        self.asked.at.now - self.asked.limits.longest() - Duration::days(2)
+    }
+
     async fn resolved<T: Clone>(
         &self,
         input: Input,
@@ -165,7 +174,7 @@ impl View<'_> {
         let pool = &self.record.pool;
         let now = self.asked.at.now;
         let limit = self.asked.limits.of(source.kind, input);
-        let look_back = now - self.asked.limits.longest() - Duration::days(2);
+        let look_back = self.look_back();
         let (covered, newest) = if source.publishes_daily() {
             let shift = Duration::days(reading.shift_days);
             let rows = rows::daily(pool, source.id, from - shift, through - shift).await?;

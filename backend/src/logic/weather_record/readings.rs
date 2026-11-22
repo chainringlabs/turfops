@@ -3,7 +3,7 @@
 
 use super::resolve::{self, DayAir};
 use crate::db::weather_queries::days::{HourlyDay, NewestHours};
-use crate::models::weather_record::{DailyRow, Input};
+use crate::models::weather_record::{DailyRow, HourlyRow, Input};
 use chrono::{DateTime, Utc};
 
 /// A value's valid hours on a day, and the value.
@@ -102,5 +102,20 @@ pub(super) fn air() -> Reading<DayAir> {
         daily: resolve::air_of_grid,
         shift_days: 0,
         newest: |n| n.air,
+    }
+}
+
+/// An input's value in one hour of an hourly source.
+pub(super) fn of_hour(row: &HourlyRow, input: Input) -> Option<f64> {
+    match input {
+        Input::AirTemp | Input::DailyAir => row.air_temp_f,
+        Input::Humidity => row.rh_pct,
+        Input::Rain => row.precip_mm,
+        Input::SoilTemp5
+        | Input::SoilTemp10
+        | Input::SoilTemp20
+        | Input::SoilTemp50
+        | Input::SoilTemp100 => row.soil_temp_f[depth(input)],
+        _ => row.soil_moisture[depth(input)],
     }
 }
