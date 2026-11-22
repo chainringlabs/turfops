@@ -6,6 +6,9 @@ mod db;
 #[cfg(test)]
 mod deployment_tests;
 mod error;
+// Used by the scoring command now and by the weather record's station choice.
+#[allow(dead_code)]
+mod geo;
 mod health_probe;
 mod logging;
 mod logic;
@@ -34,6 +37,15 @@ async fn main() -> anyhow::Result<()> {
     #[cfg(feature = "dev-env")]
     {
         let _ = dotenvy::dotenv();
+    }
+
+    // The soil-estimate scoring command (maintainers only; not in the release build).
+    #[cfg(feature = "scoring")]
+    {
+        let args: Vec<String> = std::env::args().collect();
+        if let Some(at) = args.iter().position(|arg| arg == "score-estimate") {
+            return logic::soil_estimate::scoring::run::run(&args[at + 1..]).await;
+        }
     }
 
     // The container health check: probe our own /api/v1/health and exit.

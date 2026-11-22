@@ -112,7 +112,7 @@ The thresholds are constants in `windows.rs` and match `docs/timing-windows.md` 
 
 `typical()` = `date_stat` over the history years that produce a date. It reports how many of those years' dates are estimated.
 
-**A window the lawn's basis cannot date.** When a window has a `Soil` boundary that is not `datable` and no history year dates it from measured soil, the window is not offered, and a data note names it and the reason. On a lawn with no soil station that is dormant seeding, whose opening (falling 40 °F) the estimate dates no better than the calendar.
+**A window the lawn's basis cannot date.** When a window has a `Soil` boundary that is not `datable` and no history year dates it from measured soil, the window is not offered, and a data note names it and the reason. As scored today every boundary of the five windows is datable under both calibrations, so no window is withheld; the rule stands for a threshold a later scoring run fails.
 
 ## Resolving This Season
 
@@ -274,7 +274,7 @@ A failed fetch shows `describeError(e)` (Web UI's human-readable errors): with n
 | Condition | Behavior |
 |---|---|
 | Location not set, history still loading, or the record unreadable | `/timing-windows` returns 503 with the record's sentence. The feed adds no timing recommendations, no aeration companion and no herbicide reconciliation. The plan keeps its own activities. |
-| Soil estimated for the location | Windows are evaluated on the estimate and every soil date is marked estimated with its typical error. Dormant seeding is not offered. A data note says so. |
+| Soil estimated for the location | Windows are evaluated on the estimate and every soil date is marked estimated with its typical error. A data note says so. |
 | A station or probe drops out mid-season | Days it has not reported stay empty while it is within its age limit (the lag case). Once it is past that limit the estimate, anchored to the last measurements, continues the series; later crossings are marked estimated and a data note gives the date of the change. |
 | Newest soil day > 5 days old | Only confirmed crossings count. Other boundaries follow the calendar (a passed median counts as passed). A data note says so. |
 | Inside the record's lag | A typical date the record does not yet reach stays an estimate, not overdue. A forecast crossing in the lag is dated today. |
