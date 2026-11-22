@@ -1,48 +1,104 @@
 # Weather Sources — EARS Specs
 
-Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather-data](../weather-data-design.md). Prefix `WX-SRC`. Facets: `LAKE` (lake access and query contracts), `HA` (Home Assistant reader), `OWM` (OpenWeatherMap forecast and day helpers), `MODEL` (environmental data model), `CFG` (configuration).
+Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather-data](../weather-data-design.md). Prefix `WX-SRC`. Facets: `NORM` (units, sentinels and time), `REQ` (how requests are made), `CAD` (cadence), `USCRN`, `SCAN`, `GRID` (PRISM and NRCC through RCC-ACIS), `OM` (Open-Meteo), `HA` (Home Assistant), `POST` (posted sensor readings), `FC` (forecast providers), `OWM` (the forecast model and its day helpers, and the OpenWeatherMap provider), `MODEL` (shared units), `CFG` (settings), `ERR` (errors).
 
-"Silver" is the lake's hourly `silver_weather.parquet` (°C, station-filtered); "gold" is its daily `daily_weather.parquet` (°F). "Local day" for observed data is the lake's `obs_date_local` (the station's civil date in America/New_York, daylight-saving aware).
+"Client" is the code that talks to one outside source. "Record units" are °F, millimetres, percent relative humidity and soil moisture as a fraction from 0 to 1. "Lawn-local" is the app's `Clock`, in the timezone of the lawn's location.
 
-## Lake access and query contracts
+## Units, sentinels and time
 
-- [x] **WX-SRC-LAKE-001**: The system shall read the weather lake in place with embedded DuckDB, opening a fresh in-memory connection per query on a blocking task, and shall copy or cache no raw weather at this layer.
-- [x] **WX-SRC-LAKE-002**: Lake queries shall bind every station, date and timestamp value as a parameter, interpolating only the configured parquet paths (with single quotes escaped).
-- [x] **WX-SRC-LAKE-003**: When reading silver, the system shall convert °C temperatures to °F at ingestion, keep precipitation in millimetres, and drop temperatures at or below −50°C and negative moisture, RH or precipitation values.
-- [x] **WX-SRC-LAKE-004**: The live reading shall take, for each of its columns, the newest non-null, non-sentinel value within the 24 hours ending at the station's newest silver row, leave a column with no such value empty, and stamp the reading with the newest row's time.
-- [x] **WX-SRC-LAKE-005**: The 7-day summary shall report the live reading, the 7-day means of 10 cm soil temperature, air temperature and RH, the 7-day precipitation total, and the soil trend, from the 168 hours before the `now` its caller passes (data sync's reading of the app clock).
-- [x] **WX-SRC-LAKE-006**: The soil trend shall compare the mean 10 cm temperature of the newest 24 hourly rows with the 24 before them: more than +2°F is Rising, less than −2°F is Falling, otherwise Stable; with fewer than 48 rows or no 10 cm values in either half it shall be Unknown.
-- [x] **WX-SRC-LAKE-007**: The gold daily contracts (10 cm soil means, air/soil pairs) shall include only days with at least 12 observed hours and the required values present, in ascending date order.
-- [x] **WX-SRC-LAKE-008**: The daily GDD contract shall return each gold day with non-null `gdd50` in a date range, and the year-to-date contract shall sum gold `gdd50` from Jan 1 of the given year, returning nothing when there are no rows.
-- [x] **WX-SRC-LAKE-009**: The daily disease-inputs contract shall return, per local day from a start date, the usable-hour count, air mean / min / max, RH mean, hours at RH ≥ 90%, leaf-wetness hours (RH ≥ 90% or precipitation > 0), precipitation sum, peak Magnus dew point, and whether the day has dawn and afternoon hours (hour sets owned by disease risk), in °C, using only hours with air temperature and RH above 0.
-- [x] **WX-SRC-LAKE-010**: The climate-record contract shall return, per local day from a start date, the 5 cm soil mean in °F (only days with at least 12 valid hourly values), and gold's air minimum, air mean and `gdd50` (only days with at least 12 observed hours), merging the two by date with missing fields left empty.
-- [x] **WX-SRC-LAKE-011**: The daily silver contracts shall bucket hours by the lake's `obs_date_local` without re-bucketing them.
-- [x] **WX-SRC-LAKE-012**: The lake contracts shall publish no "today" of their own; consumers shall take "today" from the server's local date (`TZ`).
-- [x] **WX-SRC-LAKE-013**: If silver has no rows for the station, then the 7-day summary shall report the soil trend as Unknown.
-- [x] **WX-SRC-LAKE-014**: If a lake query fails, then the system shall answer the request with HTTP 503 and the owner sentence naming the weather data lake (what is unavailable, and to check the mount at `DATALAKE_ROOT` if it persists), logging the query error and never showing its detail or file paths to the owner.
+- [ ] **WX-SRC-NORM-001**: Every client shall return temperatures in °F, precipitation in millimetres, relative humidity in percent and soil moisture as a fraction from 0 to 1, converting from the units the source declares.
+- [ ] **WX-SRC-NORM-002**: Every client shall return as empty any value that is the source's missing marker, any temperature outside −80 to 150 °F, any relative humidity outside 0 to 100, any precipitation that is negative or above 300 mm in an hour, and any soil moisture outside 0 to 1, keeping the rest of the row.
+- [ ] **WX-SRC-NORM-003**: Every client shall return as empty any value the source itself flags as failed quality control.
+- [ ] **WX-SRC-NORM-004**: Every client shall stamp an hourly row with the UTC start of the hour it describes, and shall leave a daily row on the source's own day.
 
-## Home Assistant reader
+## How requests are made
 
-- [x] **WX-SRC-HA-001**: When reading Home Assistant, the system shall read the temperature entity and the humidity entity independently, converting temperature from Celsius when configured, and stamp the reading with the server clock.
-- [x] **WX-SRC-HA-002**: If a Home Assistant entity's state is not numeric or its request fails, then the system shall log a warning, leave that field empty, and still return the reading.
+- [ ] **WX-SRC-REQ-001**: Every outside request shall carry a `User-Agent` naming TurfOps and its version, and shall carry no owner name, address or contact detail.
+- [ ] **WX-SRC-REQ-002**: Every outside request shall time out after 5 seconds to connect and 30 seconds in total, except a grid request spanning more than one year, which shall time out after 120 seconds in total.
+- [ ] **WX-SRC-REQ-003**: The clients shall make at most one request at a time to a host, with at least 1 second between requests to the same host and at least 2 seconds between requests to RCC-ACIS.
+- [ ] **WX-SRC-REQ-004**: When re-requesting a file it has fetched before, a client shall send `If-Modified-Since` with the time of the copy it holds, and shall treat a not-modified answer as a success that returns no rows.
+- [ ] **WX-SRC-REQ-005**: A client shall not retry a failed request; it shall return the failure to its caller.
+- [ ] **WX-SRC-REQ-006**: A point query to an outside source shall send the lawn's coordinates and nothing else about the lawn or its owner.
 
-## OpenWeatherMap forecast
+## Cadence
 
-- [x] **WX-SRC-OWM-001**: When fetching the forecast, the system shall return every 3-hourly point (temperature, RH, precipitation as rain plus snow in mm, probability, wind, gust, condition) and daily summaries with high, low, mean RH, total precipitation, maximum probability, the most frequent condition, mean wind, maximum gust, and hours covered (3 × points).
-- [x] **WX-SRC-OWM-002**: When grouping forecast points into daily summaries, the system shall use each point's local date in the server's `TZ`, never a UTC date or the forecast location's offset.
+- [ ] **WX-SRC-CAD-001**: Each client shall state, for each product it serves, how often the source may have new data: hourly for USCRN and SCAN hourly data of the current year, the hourly analysis and the forecast; daily for the PRISM grid and for calibration stations' daily data; every 5 minutes for Home Assistant entities; monthly for station catalogs; never for a station-year that has ended.
+- [ ] **WX-SRC-CAD-002**: The NRCC grid client shall state that its data is wanted only for days the PRISM grid has returned no value for.
+
+## USCRN
+
+- [ ] **WX-SRC-USCRN-001**: The USCRN catalog fetch shall return, for each station in the network's station list whose network is USCRN and whose state is in the contiguous United States, its WBAN number, name, state, latitude, longitude, elevation in feet and operating status.
+- [ ] **WX-SRC-USCRN-002**: The USCRN hourly fetch shall return, for one station and year, each hour's average air temperature, maximum and minimum air temperature, precipitation, relative humidity, and soil temperature and soil moisture at 5, 10, 20, 50 and 100 cm.
+- [ ] **WX-SRC-USCRN-003**: The USCRN hourly fetch shall stamp each row one hour before the file's UTC time, which marks the end of the observed hour.
+- [ ] **WX-SRC-USCRN-004**: The USCRN hourly fetch shall return relative humidity as empty when its quality flag is not 0.
+- [ ] **WX-SRC-USCRN-005**: The USCRN daily fetch shall return, for one station and year, each day's air maximum, minimum and mean, precipitation, and soil temperature at 5 and 10 cm.
+- [ ] **WX-SRC-USCRN-006**: If the file for a station and year does not exist, then the USCRN client shall return an empty success.
+
+## SCAN
+
+- [ ] **WX-SRC-SCAN-001**: The SCAN catalog fetch shall return, for each SCAN station in the contiguous United States, its station id, name, state, latitude, longitude, elevation in feet, fixed UTC offset, first date of record, and the hourly elements it reports with their depths.
+- [ ] **WX-SRC-SCAN-002**: The SCAN hourly fetch shall return, for one station and a span of at most one year, air temperature, relative humidity, precipitation, and soil temperature and soil moisture at 2, 4, 8, 20 and 40 inches as the 5, 10, 20, 50 and 100 cm depths, for the elements the station reports.
+- [ ] **WX-SRC-SCAN-003**: The SCAN hourly fetch shall convert each row's time from the station's fixed UTC offset to UTC.
+
+## PRISM and NRCC grids
+
+- [ ] **WX-SRC-GRID-001**: The grid fetch shall return, for one point, one grid (PRISM or NRCC) and any span of days, each day's air maximum and minimum and precipitation, in one request.
+- [ ] **WX-SRC-GRID-002**: The grid fetch shall return the latitude and longitude of the grid cell the values are for.
+- [ ] **WX-SRC-GRID-003**: The grid fetch shall treat days at the end of the span that the grid returns no value for as not yet published and return the earlier days; if a day before the last day with a value has no value, then the grid client shall return an outage and no rows.
+
+## Open-Meteo
+
+- [ ] **WX-SRC-OM-001**: The hourly-analysis fetch shall return, for one point, each past hour's air temperature, relative humidity and precipitation for up to 92 days back.
+- [ ] **WX-SRC-OM-002**: No Open-Meteo request shall ask for a soil temperature or soil moisture variable.
+- [ ] **WX-SRC-OM-003**: The hourly-analysis fetch shall return the elevation Open-Meteo reports for the point, in feet.
+- [ ] **WX-SRC-OM-004**: The place search shall return, for a typed name or postal code, the candidate places in the United States with their name, state, latitude and longitude, sending the typed text and nothing else.
+
+## Home Assistant
+
+- [ ] **WX-SRC-HA-001**: When reading Home Assistant, the system shall read each mapped entity independently and return, for each whose state is a number, the value converted from the entity's own unit of measurement and the time the entity last reported: its `last_reported` time, or its `last_updated` time where Home Assistant gives no `last_reported`.
+- [ ] **WX-SRC-HA-002**: If a mapped Home Assistant entity's state is not numeric, then the system shall log a warning, return no reading for that sensor, and still return the other sensors' readings.
+- [ ] **WX-SRC-HA-003**: When a mapped entity's reported time (WX-SRC-HA-001) is unchanged since the previous read, the system shall return no new reading for that sensor.
+- [ ] **WX-SRC-HA-004**: The Home Assistant entity listing shall return every entity in the `sensor` domain whose state is a number, with its entity id, friendly name, state, unit of measurement, device class, state class and reported time (WX-SRC-HA-001).
+- [ ] **WX-SRC-HA-005**: The Home Assistant probe shall report whether one authenticated request to the given address succeeded and, when it did not, whether the address did not answer or the token was refused.
+- [ ] **WX-SRC-HA-006**: For a sensor mapped to rain as a counter, the system shall return as the rain amount the increase in the entity's value since the previous reading, and zero when the value has decreased.
+- [ ] **WX-SRC-HA-007**: For a sensor mapped to rain as an amount, the system shall return the entity's value as the rain amount.
+
+## Posted sensor readings
+
+- [ ] **WX-SRC-POST-001**: While `SENSOR_TOKEN` is set, the system shall accept `POST /api/v1/sensor-readings` carrying one or more readings, each with a sensor name, a value, a unit and optionally the time observed, and shall require the token as a bearer token.
+- [ ] **WX-SRC-POST-002**: While `SENSOR_TOKEN` is not set, the system shall not mount `/api/v1/sensor-readings`.
+- [ ] **WX-SRC-POST-003**: If a request to `/api/v1/sensor-readings` lacks the bearer token or carries a wrong one, then the system shall answer 401 and store nothing.
+- [ ] **WX-SRC-POST-004**: If a posted reading names a sensor that is not mapped, gives a unit its sensor's input does not accept, gives a value outside that input's plausible range, or is dated more than 5 minutes after the current time, then the system shall reject that reading with a message naming the sensor and the problem and shall store the other readings in the request; it shall answer 200 listing what was stored and what was rejected when at least one reading was stored, and 400 when none was.
+- [ ] **WX-SRC-POST-005**: When a posted reading gives no time observed, the system shall take the time the request was received.
+- [ ] **WX-SRC-POST-006**: The system shall treat a posted reading for a sensor mapped to rain as WX-SRC-HA-006 and WX-SRC-HA-007 treat a Home Assistant reading.
+
+## Forecast providers
+
+- [ ] **WX-SRC-FC-001**: The system shall fetch the forecast from the provider the owner has chosen: Open-Meteo by default, the National Weather Service, or OpenWeatherMap.
+- [ ] **WX-SRC-FC-002**: Every forecast point shall carry its slot's length in hours: 1 for Open-Meteo and the National Weather Service, 3 for OpenWeatherMap.
+- [ ] **WX-SRC-FC-003**: Where a provider gives no forecast of a quantity for a slot, the forecast point shall hold that quantity as empty, not zero.
+- [ ] **WX-SRC-FC-004**: If the chosen provider cannot be used because it needs a key and none is set, then the system shall fetch no forecast, shall not fetch one from another provider, and shall report the reason as that provider's status.
+
+## The forecast model and its day helpers
+
+- [ ] **WX-SRC-OWM-001**: When fetching the forecast, the system shall return every point the provider gives (temperature, RH, precipitation as rain plus snow in mm, probability, wind, gust, condition) and daily summaries with high, low, mean RH, total precipitation, maximum probability, the most frequent condition, mean wind, maximum gust, and hours covered (the sum of the day's slot lengths).
+- [x] **WX-SRC-OWM-002**: When grouping forecast points into daily summaries, the system shall use each point's lawn-local date, never a UTC date or the forecast location's offset.
 - [x] **WX-SRC-OWM-003**: The forecast shall treat a daily summary as a full day when it covers at least 18 hours, and `full_days()` shall return only full days, for every consumer that needs a daily mean or judges a whole day.
 - [x] **WX-SRC-OWM-004**: `next_hours(n)` shall include every point up to now + n hours, including the current slot; `next_days(n)` every summary up to today + n, partial days included; `rain_expected_within(h, mm)` shall report rain when the total in the next h hours is at least mm or any slot in them has probability ≥ 0.5; `max_temp_next_days(n)` the highest daily high over `next_days(n)`.
 - [x] **WX-SRC-OWM-005**: No error, log line or response produced by the forecast reader shall contain the OpenWeatherMap API key.
 - [x] **WX-SRC-OWM-006**: If the forecast request fails, then the reader's error message shall be plain language naming the forecast as unavailable, keeping upstream response bodies for the log only.
 
-## Environmental data model
+## Shared units
 
-- [x] **WX-SRC-MODEL-001**: The environmental summary shall publish the live soil temperature, moisture and precipitation from the lake, the live ambient temperature and humidity from Home Assistant only, the lake's 7-day means, total and trend, the lake reading's observation stamp, the time data sync last refreshed, the forecast, and year-to-date GDD.
-- [x] **WX-SRC-MODEL-002**: The primary soil moisture shall be the 10 cm value, else 5 cm, else 20 cm.
 - [x] **WX-SRC-MODEL-003**: Every backend weather contract shall carry precipitation in millimetres; only the UI converts to inches.
 
-## Configuration
+## Settings
 
-- [x] **WX-SRC-CFG-001**: The system shall derive the silver and gold parquet paths from `DATALAKE_ROOT` (default `/data`), overridable by `WEATHER_SILVER_PATH` and `WEATHER_GOLD_PATH`, and filter silver by `NOAA_STATION_WBANNO` (default 3761, falling back to 3761 with a warning when unparsable).
-- [x] **WX-SRC-CFG-002**: The system shall treat Home Assistant as configured only when `HA_TOKEN` is non-empty (`HA_URL` defaults to `http://localhost:8123`), and OpenWeatherMap only when `OWM_API_KEY` is non-blank and `OWM_ENABLED` is `true` (the default).
-- [x] **WX-SRC-CFG-003**: If `OWM_API_KEY` is set but `OWM_LATITUDE` or `OWM_LONGITUDE` is missing, unparseable, or out of range (latitude outside −90 to 90, longitude outside −180 to 180), then the system shall not enable the forecast and shall log a warning naming the setting, never forecasting for a substitute location such as 0,0.
+- [ ] **WX-SRC-CFG-002**: The system shall use the Home Assistant address and token stored in the app, and shall treat Home Assistant as not configured when none is stored.
+- [ ] **WX-SRC-CFG-003**: The system shall use the OpenWeatherMap key stored in the app; a stored key shall not by itself choose OpenWeatherMap as the forecast provider.
+- [ ] **WX-SRC-CFG-004**: The station and grid clients shall take the station or point as an argument and shall read no setting.
+
+## Errors
+
+- [ ] **WX-SRC-ERR-001**: If a request fails in transport, returns a non-success status, or returns a body that does not parse, then the client shall return an outage of its source whose owner sentence names the source and what depends on it, and shall write the URL, status, body or parse error to the log only.
+- [ ] **WX-SRC-ERR-002**: No response, log line or error shall contain a stored credential or one read from the environment.

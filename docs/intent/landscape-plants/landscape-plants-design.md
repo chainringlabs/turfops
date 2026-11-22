@@ -174,13 +174,13 @@ Completion is per window. A spring pruning does not complete a fall pruning task
 
 | Signal | Source | Holds the reminder back when |
 |--------|--------|------------------------------|
-| Forecast rain | Sum of `precipitation_mm` over OpenWeatherMap points with timestamp ≤ now + 48 h (`next_hours`). The first slot is the current weather, so rain falling now counts. | ≥ `PRECIP_TRACE_MM` = 2.5 mm (≈ 0.1") |
-| Recent rain | Lake `precipitation_7day_total_mm` | ≥ `PRECIP_HEAVY_7DAY_MM` = 25 mm (≈ 1") |
-| Soil moisture | Station `primary_soil_moisture()` (10 cm, else 5 cm, else 20 cm) | ≥ `SOIL_MOISTURE_ADEQUATE` = 0.20 |
+| Forecast rain | Sum of `precipitation_mm` over forecast points with timestamp ≤ now + 48 h (`next_hours`). The first slot is the current one, so rain falling now counts. | ≥ `PRECIP_TRACE_MM` = 2.5 mm (≈ 0.1") |
+| Recent rain | The summary's `precipitation_7day_total_mm` for the lawn's point | ≥ `PRECIP_HEAVY_7DAY_MM` = 25 mm (≈ 1") |
+| Soil moisture | `primary_soil_moisture()` (10 cm, else 5 cm, else 20 cm), where the lawn has a station within 50 miles or a probe | ≥ `SOIL_MOISTURE_ADEQUATE` = 0.20 |
 
-The thresholds are the shared constants in `logic/rules/thresholds.rs` (owned by **Agronomic rules**). They are checked in the order shown, and the first one met supplies the `wet_reason` text. A missing signal never holds the reminder back, so with no weather data at all the reminder still fires. When the reminder does fire, `annotate` adds "Rain last 7 d", "Rain forecast" and "Soil Moisture" data points for whichever signals are known. The hold-back applies only to the feed. The seasonal-plan activity for a Watering task is unaffected.
+The thresholds are the shared constants in `logic/rules/thresholds.rs` (owned by **Agronomic rules**). They are checked in the order shown, and the first one met supplies the `wet_reason` text. A missing signal never holds the reminder back, so with no weather data at all the reminder still fires. A lawn with no soil-moisture source is judged on the two rain signals alone. When the reminder does fire, `annotate` adds "Rain last 7 d", "Rain forecast" and "Soil Moisture" data points for whichever signals are known. The hold-back applies only to the feed. The seasonal-plan activity for a Watering task is unaffected.
 
-**Accepted limit: the reminder can return for up to a day after a shower.** The lake lags about a day, so a few hours after rain ends with none forecast, the 7-day total and the station's soil moisture have not yet caught up and no signal holds the reminder back. This is accepted rather than fixed: the forecast's first slot already covers rain falling now, and a day-old dry-spell reminder costs the owner a glance, while a second rain source would add a dependency for a one-day gap.
+**Accepted limit: the reminder can return for up to a day after a shower.** The daily rain total for the newest day comes from the hourly analysis until the grid publishes, and that first figure misses some rain. A few hours after rain ends with none forecast, the 7-day total may not yet show it and no signal holds the reminder back. This is accepted: the forecast's first slot already covers rain falling now, and a day-old dry-spell reminder costs the owner a glance.
 
 ## Seasonal Plan and Calendar Overlay
 
@@ -200,7 +200,7 @@ The Calendar and Seasonal Plan pages render these activities. The Calendar recog
 | No `OPENROUTER_API_KEY` | Add and refresh return 503 `not_configured(PlanAssistant)`: the plan assistant isn't configured, set `OPENROUTER_API_KEY` and restart. List, get, update, delete, the feed and the plan overlay work normally. |
 | `OPENROUTER_ENABLED=false` | The client exists, but add and refresh return 503 saying the plan assistant is turned off and to set `OPENROUTER_ENABLED=true`. |
 | OpenRouter error, timeout or schema mismatch | 503 saying the plan assistant couldn't answer and to try again later; the upstream detail is logged. Nothing is written, and on refresh the old plan is kept. |
-| Lake or forecast unavailable | Watering reminders are not held back. All other tasks are unaffected. |
+| Weather record or forecast unavailable | Watering reminders are not held back. All other tasks are unaffected. |
 | Malformed window string in a stored plan | That task is skipped in both the feed and the plan. |
 | Undeserializable stored plan | That plant is skipped, with a warning naming it, by `GET /plants`, the feed and the seasonal plan; every other plant keeps working. Reading that plant by id returns 400. |
 | Plant deleted | Its applications keep their rows, with `plant_id` set to NULL and the plant's name in `plant_name`, so they stay landscape history (Applications). Its recommendations stop. Stored answers keyed by its ids remain and are never matched again. |
@@ -241,7 +241,7 @@ The API client (`frontend/src/api/client.ts`) exports `updatePlant` for the edit
 | Client sharing | One client and `complete_json` path; each feature owns its prompt and schema module | A client per feature | One place for the key, timeouts, headers, prompt caching and error mapping. [inferred] |
 | Prompt caching | System prompt marked `cache_control: ephemeral` | No caching | The system prompt is large and identical across calls. [inferred] |
 | Amounts in plan text | Agronomic amounts (mulch depth, nutrient amounts) allowed; product label rates and pesticide rates never | No amounts at all; pass the LLM's text through unconstrained | HLD: agronomic amounts are part of the advice, while how much of a product to apply is set by its label, the legal authority, above all for pesticides. |
-| Which "today" | The server's local date (`TZ`, set to the lawn's timezone) for windows, lead-in, completion and status | The UTC date; the viewer's browser date | HLD: every agronomic date is a lawn-local calendar day, and one configured clock gives every component the same day. A Dec 31 evening must not already be Jan 1. |
+| Which "today" | The lawn's local date (the app's `Clock`) for windows, lead-in, completion and status | The UTC date; the viewer's browser date | HLD: every agronomic date is a lawn-local calendar day on one clock. |
 
 ## Open Questions & Future Decisions
 
@@ -254,7 +254,7 @@ The API client (`frontend/src/api/client.ts`) exports `updatePlant` for the edit
 6. ✅ Plant Fertilizing tasks are not lawn feedings: plant fertilizer is outside the lawn nitrogen budget, so the nitrogen guard neither holds nor caps them.
 
 ### Deferred
-1. **Accepted limit: watering reminder after a shower.** The lake lags about a day, so the reminder can return for up to a day after rain ends with none forecast. Accepted as a limit of the design, not a gap (see Watering hold-back).
+1. **Accepted limit: watering reminder after a shower.** The newest day's rain is the weakest value in the record, so the reminder can return for up to a day after rain ends with none forecast. Accepted as a limit of the design, not a gap.
 2. **`TaskFrequency` is display-only** (PLANT-DATA-007). Intended, and the code agrees: one logged application completes a "Twice" or "Monthly" task for the whole window (`models/plant.rs:101`; no reader in `logic/`). Nothing to fix.
 3. **Profile scoping.** Get, update, delete and refresh act by id without checking the profile (`db/plant_queries.rs:22`, `:74`, `:143`). This is harmless for a single-lawn app.
 4. **Divergence: Watering answers last 120 days** (FEED-STATE-010, owned by the Recommendation feed). `PlantMaintenance` falls to the seasonal episode (`models/recommendation_state.rs:46`), so answering a dry-spell reminder hides it for a whole season. Intent: the 7-day weather episode.

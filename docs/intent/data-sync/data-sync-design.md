@@ -7,196 +7,212 @@ prefix: SYNC
 
 ## Context and Design Philosophy
 
-Data Sync is the demand-driven refresh layer between the external data sources and everything that reasons about current conditions. It owns one in-memory `EnvironmentalSummary` (current reading, 7-day aggregates, trend, GDD year-to-date, forecast) and decides when that summary is re-read from the weather lake, Home Assistant and OpenWeatherMap. It also owns the application's shared runtime state (`AppState`), including the slot that memoizes the 15-year climate record, and the datasource connection status shown on the dashboard and the health endpoint.
+Data Sync keeps the weather record current and turns it into the one picture of present conditions that everything else reasons from. It owns three things: the **fetch schedule** (the background task that calls each source client when its data is due and writes the result to the weather record), the **summary** (`EnvironmentalSummary`: current reading, 7-day aggregates, trend, GDD year-to-date, forecast, each with its basis), and the application's shared runtime state (`AppState`), including the memo of the 15-year climate record and the source status shown on the dashboard and the health endpoint.
 
-Three HLD commitments shape it:
+Four HLD commitments shape it:
 
-- **Zero external calls when idle.** There is no background task, scheduler or poller. A refresh happens only inside a request that needs the summary, and only when the cached part it needs is older than its staleness limit.
-- **Graceful degradation.** Losing one source removes only what depends on it. A refresh never fails as a whole: every source failure is logged and absorbed, and the summary is returned with that source's fields kept from the last good read (for a bounded time) or left empty. A failing source is not hammered: each retry waits for its own interval.
-- **Withhold rather than invent.** Station weather that no longer describes the present (the feed has stopped) is not presented as current: neither the live soil reading nor the 7-day aggregates built from it. A forecast too old to describe the coming days is dropped instead of reused, and a carried-forward ambient reading expires after an hour.
+- **The record keeps itself current.** Sources are fetched on their own publishing rhythm whether or not anyone is looking, so a page never waits on a download and the owner's sensors build a history between visits.
+- **Polite fetching.** Nothing is requested more often than its source publishes, a failing source is retried on a lengthening interval, and one installation's whole traffic to outside hosts is on the order of a hundred requests a day.
+- **Graceful degradation.** Losing one source removes only what depends on it. A failed fetch is logged and absorbed; the record keeps answering from what it holds, and the summary falls to the next basis or leaves a field empty.
+- **Withhold rather than invent.** A value too old to describe the present is not presented as current, whatever its source.
 
-Implementation: `backend/src/logic/data_sync.rs` (`DataSyncService`, `ConnectionStatus`: the I/O), `backend/src/logic/data_sync/sync_state.rs` (`SyncState`: staleness, assembly and the summary, with no I/O), `backend/src/logic/data_sync/probes.rs` (`ProbeCache`), `backend/src/api/timing/memo.rs` (the climate-record memo's age rules), `backend/src/state.rs` (`AppState`, `ClimateCache`), `backend/src/api/environmental.rs` (the two endpoints), `backend/src/api/health.rs` (connection status). The summary type lives in `backend/src/models/environmental.rs`.
+Weather sources own what a fetch returns and how often a source has something new. The weather record owns what is stored, which fetches are due, and which source speaks for an input. Data Sync owns *when* a due fetch runs, what happens when it fails, how old a value may be and still be called current, and the assembly of the summary.
 
 ## Boundaries
 
 | Neighbor (HLD component) | Direction | Contract at the boundary |
 |---|---|---|
-| Weather data access | consumed | `WeatherLakeClient::fetch_summary()` → `EnvironmentalSummary` with `current` (newest value of each sensor within 24 h of the station's newest row, stamped with that row's time), 7-day averages, 7-day rain total and soil trend; `fetch_gdd_ytd(today)` → `Option<f64>`; `test_connection()` → readable gold parquet. `HomeAssistantClient::fetch_current()` → reading with `ambient_temp_f` / `humidity_percent` (per-entity failures already become `None`). `OpenWeatherMapClient::fetch_forecast()` → `WeatherForecast` stamped `fetched_at`. Query internals, unit conversion and local-date bucketing belong to Weather data access. |
-| Agronomic rules, Recommendation feed, Disease risk, Timing windows, MCP server | consumers | Receive a cloned `EnvironmentalSummary` from `get_or_refresh()`. Fields may be `None` at any time; consumers must degrade, not fail. |
-| Timing windows | consumer of `AppState.climate_cache` | Owns what the climate record contains, the accessor (`api::timing::climate_record`) and the data note shown when the record comes from the last good read. Data Sync owns the slot and its memo contract (below), including the stale-record fallback. |
-| Web UI | consumer | Renders `last_updated`, the stale-station banner (shown when the summary's `soil_stale` flag is true, dated from `soil_observed_at`; the UI applies no age limit of its own), the connection dots, and the Environmental page's refresh button. |
+| Weather data access: sources | consumed | Each client's fetch for a station or point and span, returning rows in the record's units or an outage; each client's stated cadence |
+| Weather data access: record | consumed | `due(now)` → the fetches that are due; the write of a fetch's rows and outcome; `fetch_summary(now)`, `fetch_gdd_ytd(today)`; `status()` |
+| Agronomic rules, Recommendation feed, Disease risk, Timing windows, Seasonal plan, Soil-temperature outlook, MCP server | consumers | Receive a cloned `EnvironmentalSummary` from `summary()`. Fields may be `None` at any time; consumers must degrade, not fail. They read the record's other contracts directly, not through Data Sync |
+| Timing windows | consumer of `AppState.climate_cache` | Owns what the climate record contains, the accessor and the data note shown when the record comes from the last good read. Data Sync owns the slot and its memo contract |
+| Setup and sources (web UI) | consumer and trigger | Reads source status and backfill progress; a change it makes to the location, a pinned station or a sensor mapping wakes the schedule |
+| Web UI | consumer | Renders `last_updated`, the stale-soil banner (from the summary's `soil_stale` flag; the UI applies no age limit of its own), the source status, and the Environmental page's refresh button |
 
 ## Runtime State (`AppState`)
 
-`AppState` (`backend/src/state.rs`) is the Axum state cloned into every handler and the MCP server. All members are cheap clones (`Arc` or pool handles).
+`AppState` (`backend/src/state.rs`) is the Axum state cloned into every handler and the MCP server. All members are cheap clones.
 
-| Field | Type | Purpose |
-|---|---|---|
-| `pool` | `sqlx::PgPool` | Application database |
-| `rules_engine` | `Arc<RulesEngine>` | Stateless rules, built once |
-| `sync_service` | `Arc<tokio::sync::RwLock<DataSyncService>>` | The one refresh service and its cached summary |
-| `openrouter` | `Option<Arc<OpenRouterClient>>` | LLM client when configured |
-| `climate_cache` | `ClimateCache` = `Arc<RwLock<Option<(DateTime<Utc>, Arc<ClimateRecord>)>>>` | 1 h memo of the multi-year climate record, with when its read completed |
-| `mcp_enabled` | `bool` | Whether `/mcp` is mounted; reported by the health check |
-| `clock` | `Clock` (`backend/src/clock.rs`) | The lawn's clock, resolved once from `TZ` (`Config::from_env`); every handler's "today" |
-
-`DataSyncService` (`backend/src/logic/data_sync.rs`) holds the three source clients, the app's `Clock` (also handed to the OpenWeatherMap client for its day buckets), a `SyncState` and a `ProbeCache` (the last probe result per source with the time it was taken, see Connection Status). `SyncState` (`logic/data_sync/sync_state.rs`) holds the last good lake read, year-to-date GDD, the last good Home Assistant ambient temperature and humidity each with the time it was read, the sensor part as composed by the last sensor refresh, the last good forecast, and three wall-clock timestamps: the last sensor refresh, the last successful forecast fetch and the last forecast attempt. It does no I/O; every method takes `now`, so staleness, carry-forward, the 72 h gate and the forecast cap are unit-tested. It is built once at startup by `initialize()` (`backend/src/main.rs`), which only constructs clients. No connection is tested at startup, so a source that is down does not slow boot.
-
-| Client | Configured when | Otherwise |
-|---|---|---|
-| Weather lake | Always (paths derive from `DATALAKE_ROOT`) | n/a: the field is an `Option` but is always `Some` |
-| Home Assistant | `HA_TOKEN` non-empty | `None`; ambient fields stay empty |
-| OpenWeatherMap | OWM config enabled and `OWM_API_KEY` non-empty | `None`; no forecast |
+| Field | Purpose |
+|---|---|
+| `pool` | The application database, which holds the weather record |
+| `rules_engine` | Stateless rules, built once |
+| `sync` | The summary service: the memoized summary and the latest forecast |
+| `schedule` | A handle to the fetch schedule: wake it, read what it is doing |
+| `openrouter` | LLM client when configured |
+| `climate_cache` | 1 h memo of the multi-year climate record, with when its read completed |
+| `mcp_enabled` | Whether `/mcp` is mounted; reported by the health check |
+| `clock` | The lawn's clock, in the timezone of the lawn's location; every handler's "today". Replaced when the location's timezone changes |
 
 ### Climate-record memo contract
 
-The memo is a single slot shared by every caller of `api::timing::climate_record` (timing windows, the seasonal plan's timing activities via `plan_for`, and the MCP `weather_history` tool).
+The memo is a single slot shared by every caller of `api::timing::climate_record` (timing windows, the seasonal plan's timing activities, and the MCP `weather_history` tool).
 
-- **Key:** none. One record per process. The start date (`climate_start(today)`: Jan 1 of the lawn's local year, from `state.clock.today()`, minus `HISTORY_YEARS`) is not part of the key, so a record read just before the lawn's New Year is served for up to an hour into it with the old start.
-- **TTL:** 1 h (`memo::FRESH_FOR`, `backend/src/api/timing/memo.rs`), measured from when the read completed.
+- **Key:** none; one record per process. The slot is emptied when the basis plan changes.
+- **TTL:** 1 h, measured from when the read completed.
 - **Hit:** checked under the read lock; a fresh entry is returned as a shared `Arc`.
-- **Miss:** the lake read runs with **no lock held**; the result is stored under a short write lock. Concurrent misses each read the lake and the last writer wins (no single-flight).
-- **Failure:** a failed re-read is not memoized and leaves the slot unchanged. While the slot's record was read less than 24 h ago, the accessor serves it, marked as coming from the last good read, and Timing windows adds a data note saying so; the 1 h TTL still governs when the next re-read is attempted. Only when the slot is empty or its record is 24 h old or more (`memo::may_stand_in`) does the error reach the caller (SYNC-MEMO-002). `api::timing::climate_read` returns the record with `last_good_at` set in that case; `climate_record` (the plan's timing activities and `weather_history`) returns the record alone.
-- **Lifetime:** in memory only, empty at startup. Nothing derived from it is written to Postgres, so the current season is recomputed from a record at most an hour old while the lake is readable, and at most a day old (and labelled as such) while it is not.
+- **Miss:** the record is read with no lock held; the result is stored under a short write lock. Concurrent misses each read and the last writer wins.
+- **Failure:** a failed re-read is not memoized and leaves the slot unchanged. While the slot's record was read less than 24 h ago the accessor serves it, marked as coming from the last good read, and Timing windows adds a data note. Only when the slot is empty or its record is 24 h old or more does the error reach the caller.
+- **Lifetime:** in memory only, empty at startup.
 
-## Staleness and Refresh
+## The Fetch Schedule
 
-Every judgment here reads "now" from the app clock (`self.clock.now()`): which part is stale, when a failed forecast fetch may be retried, how old a probe or the station's newest observation is, and where the lake's 7-day window ends (`fetch_summary(now)`). Under a frozen clock (tests) the whole refresh runs at that instant.
+One background task, started once the database is reachable and the migrations have run.
 
-| Part | Staleness limit | Timestamp | Set when |
-|---|---|---|---|
-| Sensors (lake soil + rain, Home Assistant ambient, GDD YTD) | 5 min (`SENSOR_STALE`) | the last sensor refresh | When a sensor refresh's summary has been stored, success or failure of any source |
-| Forecast (OWM) | 30 min (`FORECAST_STALE`) | the last successful fetch | When a **successful** fetch's summary has been stored |
+**The loop.** Once a minute, and at once when woken, the task asks the record what is due and runs those fetches. Each fetch is one call to a source client; its rows and its outcome are written to the record before the next begins. The task holds no lock on the summary while it fetches.
 
-A part with no timestamp yet is stale. Each part is judged independently by `SyncState::due(now)`: `get_or_refresh()` refreshes only the parts that are due and returns `SyncState::summary(now)`; with nothing due it does no I/O. `force_refresh()` refreshes both.
+**Order.** Due fetches run in this order, so the present is never queued behind history:
 
-**Fresh only once stored.** A refresh records the new freshness timestamps only after it has stored the summary it built, in the same step (SYNC-REFRESH-008). Every await (lake, Home Assistant, GDD, OWM) comes before that step, so a request dropped mid-refresh leaves both the old summary and the old timestamps in place, and the next request refreshes again. `DataSyncService::refresh` gathers every read first and then calls `store_sensors` / `store_forecast`, which compose the summary and set the timestamps together.
+1. The owner's sensors (Home Assistant entities).
+2. The forecast.
+3. Current hourly data: the stations in the basis plan and the hourly analysis.
+4. Current daily data: the grid at the lawn's point, then at the calibration points; calibration stations.
+5. Backfill, newest year first; within a year, the lawn's own sources before calibration sources.
 
-**Forecast retry interval.** A failed forecast fetch leaves the forecast part stale but records the attempt. The fetch is not tried again until 5 minutes after that attempt, so while OWM is down at most one request in five minutes pays its timeout under the lock; in between, the summary carries the last good forecast within its 6 h cap (SYNC-FAIL-008).
+After each backfill fetch the task returns to the top of the list, so backfill never delays a current fetch by more than one request.
 
-Who triggers a refresh: every handler that needs current conditions calls `get_or_refresh()` under the write lock: `/environmental`, `/dashboard`, `/recommendations`, `/inventory/shopping-list`, `/soil-temp-forecast`, `/disease-risk`, `/timing-windows`, `/seasonal-plan` (for the feed it assembles to judge the current season's rule states, so the plan and the Recommendations page see the same conditions), and through them the MCP tools. Handlers that only need the lake client (`/gdd`, `/historical`, the first half of `/soil-temp-forecast`) take the read lock and call `weather_client()`; they never refresh. `/seasonal-plan` also reads the lake under the read lock to fill its crossing cache.
+**Rhythm.** A product is due when its source's cadence says there may be something new: hourly for stations, the analysis and the forecast; daily for the grids; every 5 minutes for Home Assistant. Hourly and daily fetches run at a minute offset chosen at random when the installation is first set up and kept thereafter, so installations do not all call a public host at the top of the hour.
+
+**Failure.** A failed fetch is logged with the client's detail and recorded against its source and product. That product is next tried after 5 minutes, then 15, then every hour, until one succeeds. Other products of the same host are unaffected unless they fail themselves. The failure never reaches a page as an error: pages see it as source status and, in time, as an aging value.
+
+**Catch-up.** After downtime the record's held spans are simply behind; `due(now)` reports the gap and the loop fills it in the order above. No separate catch-up mode exists.
+
+**Waking.** A change to the location, a pinned station, a sensor mapping or the forecast provider wakes the task so the new plan starts filling at once. `POST /environmental/refresh` wakes it too, asking for every current product regardless of rhythm, at most once a minute.
+
+**Stopping.** On shutdown the task finishes the fetch in progress or abandons it at the client's timeout, and starts no other. An interrupted backfill resumes from the record's held spans at next start.
+
+**Nothing to do.** With no location set the plan is empty, nothing is due, and the task makes no requests.
+
+**One process.** The schedule assumes a single running instance. A second instance against the same database would repeat fetches; the record's upserts make that harmless but it doubles the traffic, and it is not a supported arrangement.
+
+### What a day costs
+
+For a lawn with a soil station, steady state:
+
+| Host | Requests a day |
+|---|---|
+| NOAA (one or two station files hourly, five calibration files daily) | About 30 to 55, most answered "not modified" |
+| RCC-ACIS (the lawn's point and five calibration points) | About 6 |
+| Open-Meteo (analysis and forecast together) | 24 |
+| USDA (a SCAN station, where one is in the plan) | 24 |
+| Home Assistant (local) | 288 |
+
+The first start adds the backfill: about 15 hourly files per basis station, 15 daily files per calibration station, and one request per grid point.
+
+## The Summary
+
+`summary()` returns the `EnvironmentalSummary`. It is assembled from the record and memoized for one minute; within that minute callers receive the stored copy with no database read. A change of basis plan and a completed current fetch both discard the memo.
+
+Assembly, in order:
+
+1. **The record's summary.** `fetch_summary(now)` gives the live reading (each input's newest value from the source that speaks for it, with its basis and stamp), the 7-day means of 10 cm soil, air and humidity, the 7-day rain total and the soil trend.
+2. **Age limits.** The record offers each input's best source; Data Sync says how old that source's newest value may be and still be current:
+
+   | Kind of source | Current while no older than |
+   |---|---|
+   | Owner's sensor: air temperature, humidity | 1 hour |
+   | Owner's sensor: soil temperature, soil moisture | 6 hours |
+   | Owner's sensor: rain | No limit |
+   | Hourly analysis | 3 hours |
+   | Station | 72 hours |
+   | Daily estimate (soil estimate, grid) | 72 hours after the end of the day it is for |
+
+   An input whose best source is past its limit takes the next source in the plan that is within its own limit. With none, the input is withheld: its current value is `None`, and the 7-day figures built on it are `None` (the soil trend `Unknown`).
+3. **Soil stamp and flag.** `soil_observed_at` is the stamp of the 10 cm soil value in use. `soil_stale` is true when soil temperature is withheld for age; every stale-soil banner reads it.
+4. **GDD.** `fetch_gdd_ytd(clock.today())` → `gdd_base50_ytd`.
+5. **Forecast.** The newest forecast the schedule fetched, attached only while it is less than 6 hours old.
+6. **Stamp.** `last_updated` is the time of assembly.
+
+A read of the record that fails leaves the previous summary in place for up to 5 minutes, after which the summary is returned with the weather fields empty.
+
+### Field provenance
+
+| Summary field | From | Notes |
+|---|---|---|
+| `current.soil_temp_*_f`, `current.soil_moisture_*` | The record's live reading | Per input: sensor, then station within 50 miles, then (5 and 10 cm temperature only) the estimate. Withheld past the age limit |
+| `current.ambient_temp_f`, `current.humidity_percent` | The record's live reading | Sensor, then station within 10 miles, then the hourly analysis, marked approximate |
+| `current.precipitation_mm` | The record's live reading | The newest hour from a rain sensor or the hourly analysis |
+| Basis of each `current` field | The record | Carried through unchanged |
+| `soil_observed_at`, `soil_stale` | Step 3 | |
+| `soil_temp_7day_avg_f` (10 cm), `ambient_temp_7day_avg_f`, `humidity_7day_avg`, `precipitation_7day_total_mm`, `soil_temp_trend` | The record, the 7 local days ending now | Each with its basis; `None` when its input is withheld |
+| `gdd_base50_ytd` | The record's resolved daily air, Jan 1 to today on the lawn's calendar | |
+| `forecast` | The forecast client, via the schedule | At most an hour old when healthy; dropped at 6 hours |
+| `last_updated` | Time of assembly | Not an observation time |
 
 ### API endpoints owned
 
 | Method | Path | Behavior | Response |
 |---|---|---|---|
-| GET | `/api/v1/environmental` | `get_or_refresh()` | `EnvironmentalSummary` |
-| POST | `/api/v1/environmental/refresh` | `force_refresh()`: all sources, ignoring age | `EnvironmentalSummary` |
+| GET | `/api/v1/environmental` | `summary()` | `EnvironmentalSummary` |
+| POST | `/api/v1/environmental/refresh` | Wakes the schedule for every current product (at most once a minute), waits up to 20 s for those fetches, then `summary()` | `EnvironmentalSummary` |
+| GET | `/api/v1/health` | A 2 s database ping, source status, backfill progress, whether `/mcp` is mounted. `status` is `ok` or `degraded` on the database alone | See "Source Status" |
 
-Neither returns a datasource error: the refresh absorbs every source failure and always returns `Ok`. The `Result` signature is kept, but the only way these endpoints fail is a panic or a dropped request.
+Neither environmental endpoint returns a source error.
 
-## Assembling the Summary
+## Source Status
 
-A sensor refresh gathers the lake summary, the Home Assistant reading and year-to-date GDD, then `SyncState::store_sensors` builds the summary in this order:
+Status is one entry per source in use, in the shape the environmental views define: id, name, kind, `ok`, last success, last failure, and the inputs it is the basis for.
 
-1. **Lake.** `fetch_summary()` succeeds → its summary becomes the base (7-day averages, rain total, trend, `current`), and `soil_observed_at` = the lake reading's timestamp, which is the station's observation time.
-   Fails → the base is the last good lake read, kept from an earlier refresh, so `soil_observed_at`, the soil values, aggregates and trend are carried forward.
-2. **Station-age gate.** If `now − soil_observed_at > 72 h` (`SOIL_MAX_AGE`), the station's weather is withheld and a warning is logged: the soil values are not copied into the current reading, the 7-day averages (10 cm soil, station air, station humidity) and the 7-day precipitation total are set to `None`, and the soil trend to `Unknown` (SYNC-FAIL-004, SYNC-FAIL-009). The aggregates are computed over whatever lake rows fall in the last 7 days, so after 72 h without new rows they describe weather that is days old; withholding them keeps the rules that read them silent instead of acting on it. Otherwise the soil temperatures (5/10/20/50/100 cm), soil moistures and `precipitation_mm` are copied from the base's `current` into a fresh combined reading. Because this gate is applied after step 1, a carried-forward reading also ages out at 72 h. The same comparison sets the summary's `soil_stale` flag (true past 72 h; false within it or when `soil_observed_at` is absent), which is what every stale-soil banner reads (SYNC-MERGE-006).
-3. **Home Assistant.** `fetch_current()` succeeds → `ambient_temp_f` and `humidity_percent` are taken from it where present, and each value read is kept as that field's last good value with its read time. When the read fails, or a field comes back empty, the field's last good value is used while it was read less than 1 h ago; after that, or when Home Assistant is unconfigured, the field is `None` (SYNC-FAIL-005). One dropout therefore does not lift the over-85°F fertilizer block, while an hour-old patio reading is no longer offered as current.
-4. **Stamp.** The combined reading gets `timestamp = now` and `source = Cached`. It becomes `current`, and `last_updated = now`.
-5. **GDD YTD.** `fetch_gdd_ytd(self.clock.today())` → `gdd_base50_ytd`: the sum of the gold layer's daily `gdd50` from Jan 1 of the lawn's local year through the lawn's local date. On failure the base's value stands: `None` after a successful lake read, the previous value after a failed one.
-
-Without a sensor refresh, the sensor part is the one the last sensor refresh stored.
-
-**Forecast.** When the forecast is stale, OWM is configured and no attempt was made in the last 5 minutes, `fetch_forecast()` runs; `store_forecast` keeps a success as the last good forecast and records every attempt's time. The forecast is attached when the summary is returned (`SyncState::summary(now)`), not when it is stored: the last good forecast is included **only if** `now − fetched_at < 6 h` (`FORECAST_MAX_AGE`). Older than that, the summary carries no forecast, whichever part was refreshed (SYNC-FAIL-007).
-
-### Field provenance
-
-| Summary field | Source | Notes |
-|---|---|---|
-| `current.soil_temp_*_f`, `current.soil_moisture_*`, `current.precipitation_mm` | Lake silver (per-sensor newest within 24 h) | Empty when the station is > 72 h old |
-| `current.ambient_temp_f`, `current.humidity_percent` | Home Assistant | After a failed or empty read, the field's last good value while under 1 h old; empty after that or when HA is unconfigured. The lake's air temperature and humidity are not used here |
-| `current.timestamp` | Time of the refresh | Not the observation time |
-| `soil_observed_at` | Lake observation time | Serialized only when present; the banners show it as the date the feed stopped |
-| `soil_stale` | `soil_observed_at` more than 72 h old at the sensor refresh | The one place the 72 h limit is applied for display; every stale-soil banner reads it |
-| `soil_temp_7day_avg_f` (10 cm), `ambient_temp_7day_avg_f`, `humidity_7day_avg`, `precipitation_7day_total_mm`, `soil_temp_trend` | Lake silver, last 7 days | Station air and humidity, not the patio sensor. Empty (trend `Unknown`) when the station is > 72 h old |
-| `last_updated` | Time of the last sensor refresh | |
-| `gdd_base50_ytd` | Lake gold `gdd50`, Jan 1 to today, the lawn's local year and date | |
-| `forecast` | OWM | ≤ 30 min since fetch when healthy; ≤ 6 h after failures |
+- **`ok` is the outcome of the source's most recent scheduled fetch.** The schedule already calls every source at least hourly, so no separate probe runs. A source never yet fetched is reported as pending.
+- **Backfill progress** is reported per source as the span held against the span wanted.
+- Callers: `GET /api/v1/health`, `GET /api/v1/dashboard`, the Sources page and MCP `lawn_snapshot`. All read the record's `status()` and the schedule's forecast outcome; none makes an outside request.
 
 ## Failure and Degradation
 
 | Failure | Effect on the summary | Recovery |
 |---|---|---|
-| Lake read fails | Last good soil, aggregates, trend and GDD kept; `soil_observed_at` unchanged | Retried at the next sensor refresh (5 min) |
-| Lake current but station feed stopped (> 72 h) | Current soil and rain, the 7-day aggregates and the trend withheld; `soil_stale` true; `soil_observed_at` still reported so the UI can say when it stopped | Automatic when the feed resumes |
-| Lake never read successfully | Empty soil, aggregates and GDD | Next sensor refresh |
-| Home Assistant fails (or a field reads empty) | Each field's last good value kept while under 1 h old, then `None` | Next sensor refresh |
-| Home Assistant unconfigured | Ambient temperature and humidity `None` | n/a |
-| GDD read fails | `gdd_base50_ytd` `None` (or the previous value if the lake read also failed); GDD-enhanced rules fall back | Next sensor refresh |
-| OWM fails | Last forecast kept while `fetched_at` < 6 h; forecast stays stale, but the fetch is not retried for 5 min after the failed attempt | First successful fetch |
-| OWM unconfigured | No forecast; forecast-dependent features degrade | n/a |
-
-Errors are logged at `warn` with the source's error text and never returned to the client.
+| A station stops reporting | Its inputs stay current for 72 h, then fall to the next basis (the estimate for soil temperature; nothing for soil moisture). `soil_stale` only if no basis is left | Automatic when it resumes |
+| The grid cannot be reached | Daily air, rain and the estimate stay current for 72 h after their last day, then are withheld | Retried on the lengthening interval |
+| The hourly analysis cannot be reached | Approximate air and humidity withheld after 3 h where no sensor or near station supplies them | As above |
+| Home Assistant unreachable or an entity not numeric | That sensor's input falls to the next basis once its age limit passes; rain keeps its last totals | Next 5-minute read |
+| The forecast provider fails | The last forecast is kept while under 6 h old | As above |
+| The database cannot be read | The previous summary for up to 5 minutes, then empty weather fields | Next request |
+| Backfill incomplete | The summary is unaffected: it needs only recent days | The schedule continues |
+| No location set | Empty weather fields; the app directs the owner to setup | Setting a location |
 
 ## Concurrency
 
-`DataSyncService` sits behind one `tokio::sync::RwLock`. `get_or_refresh()` and `force_refresh()` take `&mut self`, so every caller that may refresh takes the **write** lock, even when the summary is fresh. The lock is held across all external awaits of a refresh: lake summary, two Home Assistant entity reads, GDD, and the OWM fetch. The HTTP clients' timeouts (connect 5 s; request 10 s for HA, 15 s for OWM) bound a refresh at roughly 35 s of network waiting plus the lake reads.
-
-Consequences:
-
-- **Two simultaneous refresh triggers.** The first caller refreshes. The second waits on the lock, then finds both parts fresh and returns the new summary with no I/O. Refreshes are never duplicated and never interleave. The MCP `lawn_snapshot` tool, which runs several handlers concurrently with `tokio::join!`, gets one refresh this way.
-- **Readers wait behind a refresh.** `tokio`'s RwLock is fair, so read-lock users (`/gdd`, `/historical`, `/seasonal-plan`, `/health`, connection checks) queue behind a refresh in progress. Read-lock holders that do lake I/O while holding the lock (`/historical`, `/seasonal-plan`, `/gdd`, and the start of `/soil-temp-forecast`, which drops its read guard before taking the write lock) also delay a pending refresh.
-- **Timing windows and disease risk** take the write lock only for `get_or_refresh()`, clone the lake client and forecast, and release it before their own lake reads.
-
-## Connection Status
-
-`check_connections()` reports each source's status under the **read** lock, and reports `false` for unconfigured sources and failed probes. Each source's probe result, up or down, is kept with the time it was taken and reused for 5 minutes; only a configured source whose result is older or missing is probed again, sequentially (SYNC-CONN-006). The per-source results (`ProbeCache`, `logic/data_sync/probes.rs`) sit behind their own `std::sync::Mutex` inside the service, never held across a probe, so a status check never needs the service's write lock.
-
-| JSON key | Probe | Notes |
-|---|---|---|
-| `soildata` | DuckDB `SELECT 1` on the gold parquet | Key name kept for frontend compatibility; it reports the weather lake. Silver readability is not probed. |
-| `homeassistant` | `GET {HA_URL}/api/` with the bearer token | 2xx = up |
-| `openweathermap` | `GET /weather` (current conditions) with the API key | 2xx = up; a real OWM API call |
-
-Callers: `GET /api/v1/health` (with a 2 s database ping; `status` is `ok`/`degraded` on the database alone), `GET /api/v1/dashboard` (after its `get_or_refresh()` and after releasing the write lock), and the MCP `lawn_snapshot` tool. With the 5-minute reuse, dashboard loads, health checks and `lawn_snapshot` calls together cost at most one probe per source per 5 minutes, which also bounds the OWM quota the probe spends. Idle cost is zero, because nothing calls them unless a page or client does. A status can therefore lag a source's recovery or outage by up to 5 minutes; the dots are informational and drive no behavior. The compose file defines no health check for the app container.
+- **The schedule and the summary do not share a lock.** The schedule writes to the record through the pool. The summary service holds its memo behind a read-write lock that is taken for writing only to store a newly assembled summary, never across a database read or a fetch.
+- **Simultaneous requests after the memo expires** may each assemble a summary; the last one stored wins. Assembly is a handful of local queries.
+- **Fetches run one at a time.** The schedule is sequential, which is also what keeps it to one request at a time per host.
+- **Consumers that read the record** (timing windows, disease risk, `/historical`, `/gdd`, the seasonal plan) use the pool directly and wait on nothing here.
 
 ## Decisions & Alternatives
 
 | Decision | Chosen | Alternatives Considered | Rationale |
 |---|---|---|---|
-| When to refresh | On demand inside the request, per-part staleness (sensors 5 min, forecast 30 min) | Background polling task; refresh on every request | HLD goal: zero external calls when idle; the forecast changes far more slowly than the station. |
-| Raw weather caching | Keep only the in-memory summary; re-read the lake on each sensor refresh | Postgres cache of observations or of the summary | Owner decision (lake migration): lake parquet reads are local and fast, and a copy goes stale. |
-| Startup | Construct clients without testing them | Test connections at boot | A source that is down must not slow or block startup. [inferred from the `initialize` doc comment] |
-| Failed lake read | Keep the last good soil summary | Clear soil until the next success | Owner decision (functional review): a failed read must not silently silence every soil rule for 5 minutes. |
-| Stopped station feed | Withhold current soil past 72 h, keep reporting `soil_observed_at` | Show the old reading stamped "now"; hide `soil_observed_at` too | Owner decision (functional review, lake staleness): a weeks-old reading would drive today's advice. The lake normally lags about a day, so 72 h allows for that lag. The tenet "withhold rather than invent" applies. |
-| 7-day aggregates when the feed has stopped | Withhold the 7-day averages, rain total and trend past 72 h too | Keep computing them from whatever rows fall in the last 7 days; withhold only past 7 days | Rules read the averages and rain total as this week's weather. Between 72 h and 7 days they describe days-old weather, and a rule silent for lack of data is safer than one acting on it. |
-| Failed forecast fetch | Reuse the last forecast while under 6 h old | Drop immediately; reuse indefinitely | One OWM failure should not silence every forecast rule, but a forecast older than a few hours no longer describes the coming days. [inferred from code comments] |
-| Home Assistant failure | Keep each field's last good value for up to 1 h, then `None` | `None` at once; keep the last value indefinitely; fall back to station air | The over-85°F fertilizer block reads the patio temperature, so dropping it on one failed read would lift the block mid-afternoon. An hour bridges a dropout; beyond that a patio reading no longer describes the yard. |
-| Current ambient source | Home Assistant only; the lake's station air/humidity are not used for `current` | Fall back to station air when HA is missing | [inferred] The patio sensor is the yard's own reading; the 7-day aggregates already use the station. |
-| Refresh concurrency | One `RwLock`, write lock held across the whole refresh | Single-flight future; lock-free snapshot swap | Simplest way to guarantee one refresh at a time and no duplicate external calls; a single-user app tolerates the serialization. [inferred] |
-| Forecast retry after a failure | Wait 5 min after a failed attempt before fetching again | Retry on every request while stale; exponential backoff | Each retry can hold the write lock for the 15 s OWM timeout, so retrying on every request stalls every page during an outage. The last good forecast covers the gap for up to 6 h, and 5 min matches the sensor interval. |
-| When a part counts as fresh | Set the freshness timestamps in the same step that stores the new summary, after every await | Set them as each source finishes | A request dropped mid-refresh must not leave the old summary marked fresh for 5 minutes; with the timestamps set last, an abandoned refresh simply runs again on the next request. |
-| Errors from a refresh | Absorb every source error; always return a summary | Fail the request when a source fails | HLD goal: losing one source degrades only dependent features. [inferred] |
-| Clock for the GDD year-to-date | The lawn's local year and date (the app's `Clock`, resolved from `TZ`) | The UTC year and date; a station-local date from the lake's UTC offset | HLD decision: every date gate and year boundary is a lawn-local calendar day on one configured clock. The UTC year rolls over hours before the lawn's New Year. |
-| Climate-record memo | One in-memory slot, 1 h TTL, not in Postgres | Persist crossings for the current season; no memo | HLD decision: the 15-year read is the expensive one, and the current season must stay live. |
-| Connection probes | Reuse each source's probe result, up or down, for 5 min | Probe on every call; derive status from the last refresh outcome | Dashboard loads, `/health` and `lawn_snapshot` would otherwise call Home Assistant and OWM (spending quota) every time. A probe still tests the connection directly, and a status at most 5 min old is enough for indicator dots. |
-| Stale-soil threshold for display | Backend sends `soil_stale`; banners show it without an age limit of their own | Each banner compares `soil_observed_at` with its own 72 h | One limit in one place: the banner and the withholding of soil data cannot drift apart. |
-| Climate record when a re-read fails | Serve the last memoized record for up to 24 h, with a data note | Fail the caller once the 1 h memo expires; serve the old record indefinitely | The climate record is 15 years of history, so a day-old copy changes little, while failing would blank the Timing page during a brief lake outage. Past a day the current season's observed days are too far behind to present. |
-| Connection-status key | Keep `soildata` for the lake | Rename to `weatherlake` | Owner decision (lake migration): frontend compatibility. |
+| When to fetch | A background schedule on each source's own rhythm | Fetch inside the request that needs the data; fetch on a single fixed interval | HLD decision: the models need an unbroken record, a first page after a quiet spell must not wait on downloads, and the owner's sensors need a history between visits. |
+| Where the schedule runs | A task inside the application process | A separate ingester container; cron calling an endpoint | HLD: an installation is the app and its database. A second container or an external scheduler is one more thing a new owner must run. |
+| Order of work | Sensors, forecast, current hourly, current daily, then backfill newest first, re-checking after each backfill request | Finish the backfill first; run everything in parallel | A first run backfills for minutes; today's conditions and this season's days should appear in the first of them. Parallel fetches would break one-at-a-time per host. |
+| Fetch time within the hour | A random minute offset fixed per installation | The top of the hour | Many installations calling a public file server in the same second is the load pattern a polite client avoids. |
+| Retry after a failure | 5 minutes, 15 minutes, then hourly, per source and product | Retry every loop; a fixed 5 minutes; give up after N tries | A short first retry rides out a blip; hourly is no more than the normal rhythm, so a long outage costs the host nothing extra and recovery is noticed within the hour. |
+| Summary assembly | Read from the record on request, memoized one minute | Rebuilt by the schedule after each fetch and held in memory; no memo | The record is local and the queries small, so a request-time read is always consistent with the record. One minute spares a dashboard load's several handlers from repeating it. |
+| Age limits | Sensors by input (1 h air and humidity, 6 h soil, none for rain), 3 h hourly analysis, 72 h station and daily estimate | One limit for everything; one limit for every sensor; limits inside the record | An air sensor reports every few minutes, so an hour of silence is a fault; soil changes slowly and probes report less often; a rain gauge is silent whenever it is dry. A station legitimately trails by a day or more. How old "current" may be is a judgment about presentation, which belongs with the summary. |
+| Past the age limit | Fall to the next basis in the plan, then withhold | Withhold at once | A station down for a week should hand soil temperature to the estimate, labeled as such, not blank the lawn's advice (HLD: measured where near, estimated where not). |
+| 7-day figures when an input is withheld | Withheld with it | Computed from whatever days exist | Rules read them as this week's weather. |
+| Forecast reuse | The last forecast while under 6 h old | Drop on the first failure; reuse indefinitely | One failed fetch should not silence every forecast rule, but a forecast older than a few hours no longer describes the coming days. |
+| Source status | The outcome of the last scheduled fetch | A separate probe per source, reused for 5 minutes | Every source is already called at least hourly; a probe would be an extra request that says the same thing. |
+| Manual refresh | Wakes the schedule, at most once a minute | Fetch directly in the request; remove the button | The owner who has just fixed a sensor wants to see it. Routing it through the schedule keeps one-at-a-time per host; the floor keeps a held-down button from becoming traffic. |
+| More than one instance | Not supported; harmless if it happens | A database lock electing one scheduler | A self-hosted single-owner app runs one process. The lock is machinery for a case the product does not have. |
+| Climate-record memo | One in-memory slot, 1 h TTL, emptied when the plan changes | No memo; a stored copy | The 15-year resolve is the most expensive read and is requested by several pages; the current season must stay live. |
+| Climate record when a re-read fails | Serve the last memoized record for up to 24 h, with a data note | Fail the caller once the memo expires | Fifteen years of history changes little in a day, while failing would blank the Timing page during a brief database problem. |
+| Stale-soil threshold for display | Backend sends `soil_stale`; banners apply no limit of their own | Each banner compares the stamp with its own limit | One limit in one place: the banner and the withholding cannot drift apart. |
 
 ## Open Questions & Future Decisions
 
-### Resolved
-
-1. ✅ Raw weather is not cached in Postgres; the summary is rebuilt from the lake on each sensor refresh (owner decision, lake migration).
-2. ✅ A failed lake read keeps the last good soil summary; a station feed older than 72 h is not used as current, and its observation time is surfaced (owner decision, functional review).
-
 ### Deferred
 
-1. **Write lock for fresh reads.** Every summary consumer takes the write lock even when nothing is stale (`get_or_refresh` takes `&mut self`), serializing all those handlers. Read-lock holders also do lake I/O while holding the guard (`/historical`, `/seasonal-plan`, `/gdd`) instead of cloning the client, as timing and disease do.
-2. **Vestigial code.** `DataSyncService.pool` is unused (`#[allow(dead_code)]`); `weather_client` is always `Some`, so the lake-not-configured errors (`not_configured(Source::WeatherLake)`) in several handlers (e.g. `backend/src/api/historical.rs`, `backend/src/api/timing.rs`) are unreachable; `initialize` is `async` without awaiting; `get_or_refresh` and `force_refresh` return a `Result` that is never `Err`; the combined reading's `source` is `Cached` even when freshly read.
-3. **No single-flight for the climate record.** Concurrent misses each run the 15-year lake read; the last writer wins.
-4. **The I/O half is untested.** `DataSyncService` (which reads run, the probe calls) has no unit tests; the clients are concrete types. Everything it decides is in `SyncState` and `ProbeCache`, which are tested.
+1. **Sub-hourly station data.** USCRN publishes 5-minute soil values; the schedule fetches hourly files only.
+2. **A fetch that always fails for one station-year** (a corrupt file upstream) is retried hourly without end. Nothing marks a span as unobtainable.
+3. **Refresh waits up to 20 s.** A slow source makes the Refresh button slow; the page could instead return at once and poll.
+4. **No single-flight for the climate record or the summary.** Concurrent misses each read.
+5. **The clock can change while a request is in flight** when the owner changes the location; that request finishes on the old calendar.
 
 ## References
 
-- `backend/src/logic/data_sync.rs`: `DataSyncService` (the reads), `ConnectionStatus`
-- `backend/src/logic/data_sync/sync_state.rs`: `SyncState`, staleness constants; `backend/src/logic/data_sync/probes.rs`: `ProbeCache`
-- `backend/src/state.rs`: `AppState`, `ClimateCache`
-- `backend/src/api/environmental.rs`: GET `/environmental`, POST `/environmental/refresh`
-- `backend/src/api/health.rs`, `backend/src/api/dashboard.rs`: connection status consumers
-- `backend/src/api/timing.rs`: `climate_read` / `climate_record` accessors (Timing windows); `backend/src/api/timing/memo.rs`: `FRESH_FOR`, `LAST_GOOD_FOR`, `last_good_note`
-- `backend/src/datasources/weather.rs`, `backend/src/datasources/weather/latest.rs`, `backend/src/datasources/homeassistant.rs`, `backend/src/datasources/openweathermap.rs`: source contracts (Weather data access)
-- `backend/src/models/environmental.rs`: `EnvironmentalSummary`, `EnvironmentalReading`
-- `docs/high-level-design.md`: idle-cost and degradation goals
+- `docs/high-level-design.md`: the scheduled-fetch decision, polite fetching, graceful degradation.
+- `docs/intent/weather-data/weather-record/`: `due`, `status`, the summary contracts, the basis plan.
+- `docs/intent/weather-data/weather-sources/`: the clients and their cadences.
+- `docs/intent/weather-data/environmental-views/`: the source-status shape and the banners.
+- `docs/intent/timing-windows/`: the climate record's content and its data note.
+- Code: `backend/src/logic/data_sync.rs` and `backend/src/logic/data_sync/` (the summary service and its age rules), `backend/src/state.rs`, `backend/src/api/{environmental,health}.rs`, `backend/src/api/timing/memo.rs`, `backend/src/models/environmental.rs`.

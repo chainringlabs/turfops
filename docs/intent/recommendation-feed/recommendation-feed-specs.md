@@ -8,6 +8,7 @@ Design: [recommendation-feed-design.md](recommendation-feed-design.md). Prefix `
 - [x] **FEED-REC-002**: The system shall order recommendation severities Info < Advisory < Warning < Critical, and every severity comparison in the feed shall use that order.
 - [x] **FEED-REC-003**: When serializing a recommendation, the system shall always include `needs` (an empty list when the advice calls for no product) and shall omit `inventory` when no inventory status is set.
 - [x] **FEED-REC-004**: Wherever the web UI shows a recommendation's severity (Recommendations page cards, the detail pane, dashboard alert cards, the shopping list), it shall show the severity's symbol and label in ink text on a tint of its status color (Info ℹ, Advisory →, Warning ⚠, Critical !), never the color alone and never white text on a fill.
+- [ ] **FEED-REC-005**: A data point that states a weather value shall carry a structured basis (station with name and distance, the owner's sensor with its name, or estimate, with whether it is approximate), copied from the summary or contract its source read, and every surface shall render that basis with the shared basis label.
 
 ## Building the feed
 
@@ -24,8 +25,8 @@ Design: [recommendation-feed-design.md](recommendation-feed-design.md). Prefix `
 - [x] **FEED-PIPE-011**: When building the feed, the system shall read the application log once (newest first, up to 1000 rows) and give that same log to the agronomic rules, landscape-plant tasks, application follow-ups and the timing companions (aeration, fall broadleaf); disease risk and the timing windows shall each read the date range their own pages read (365 and 550 days back), so the feed and those pages judge the same log.
 - [x] **FEED-PIPE-012**: When building the feed, the system shall take one reading of the app clock (`Moment`) and judge every source and stage on it: its `today` for the rules, landscape-plant tasks, application follow-ups and the nitrogen guard, its `now` for the rules' forecast hour windows and the answered-state policy.
 - [x] **FEED-PIPE-014**: When running the inventory pass for the feed, the system shall use every non-archived shelf product as the shelf.
-- [x] **FEED-PIPE-015**: If the disease-risk source fails while building the feed (weather lake or forecast unavailable), then the system shall omit disease recommendations, log a warning, and return the rest of the feed.
-- [x] **FEED-PIPE-016**: If the timing-window source fails while building the feed (weather lake unavailable), then the system shall omit timing-window and aeration recommendations and leave `broadleaf_fall` as the agronomic rules produced it.
+- [ ] **FEED-PIPE-015**: If the disease-risk source fails while building the feed (weather record or forecast unavailable), then the system shall omit disease recommendations, log a warning, and return the rest of the feed.
+- [ ] **FEED-PIPE-016**: If the timing-window source fails while building the feed (weather record unavailable), then the system shall omit timing-window and aeration recommendations and leave `broadleaf_fall` as the agronomic rules produced it.
 - [x] **FEED-PIPE-017**: If no lawn profile exists, then the recommendations and dashboard endpoints shall return 404 without building the feed.
 - [x] **FEED-PIPE-018**: The system shall not add soil-test advice (pH, N-P-K or micronutrient recommendations) to the recommendation feed; the Soil Tests page and the MCP `soil_test_advice` tool are its only surfaces.
 
@@ -61,8 +62,10 @@ Design: [recommendation-feed-design.md](recommendation-feed-design.md). Prefix `
 - [x] **FEED-UI-006**: When the owner clicks Restore on an answered recommendation, the Recommendations page shall send a PATCH setting both `dismissed` and `addressed` to false.
 - [x] **FEED-UI-007**: While the feed has no active recommendations, the Recommendations page shall show "No active recommendations. Your lawn is looking good!"
 - [x] **FEED-UI-008**: The dashboard's Active Alerts shall show the dashboard endpoint's top three recommendations as read-only alert cards (severity badge, category, inventory badge, title, description) with no answer buttons.
-- [x] **FEED-UI-009**: The dashboard shall lay out, in order: the header (profile name, grass type, zone, last-updated time), the stale-soil banner when the summary's `soil_stale` flag is set (SYNC-MERGE-006), the connection indicators, the four gauges, the widget grid, and Active Alerts beside Recent Applications (five rows).
+- [ ] **FEED-UI-009**: The dashboard shall lay out, in order: the header (profile name, grass type, zone, last-updated time), the stale-soil banner when the summary's `soil_stale` flag is set (SYNC-MERGE-006), the source-status line, the four gauges each with its basis label, the widget grid, and Active Alerts beside Recent Applications (five rows).
 - [x] **FEED-UI-010**: While the dashboard tab is visible, the dashboard shall re-fetch every 30 seconds; while it is hidden it shall not poll; when it becomes visible again it shall re-fetch immediately.
 - [x] **FEED-UI-011**: If a dashboard widget's own fetch fails on first load, then the dashboard shall hide that widget and render the rest of the page.
 - [x] **FEED-UI-013**: If a dashboard widget's re-poll fails after it has shown data, then the dashboard shall keep that widget's last good data, marked stale, instead of hiding it.
+- [ ] **FEED-UI-014**: The dashboard's source-status line shall read "All sources current" when every source's last fetch succeeded, shall otherwise name the sources whose last fetch failed, shall show backfill progress while history is loading, and shall link to the Sources page.
+- [ ] **FEED-UI-015**: While the lawn has no location, the dashboard shall show the setup notice (SETUP-FLOW-001) in place of the source-status line, the gauges and the weather-dependent widgets, and shall still show Active Alerts and Recent Applications.
 - [x] **FEED-UI-012**: The Recommendations page shall list active recommendations in the order the feed returns them, without reordering.

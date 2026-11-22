@@ -7,26 +7,49 @@ prefix: WX-VIEW
 
 ## Context and Design Philosophy
 
-This leaf owns the read-only views of measured conditions: the Environmental page
-(`/environmental`), the `GET /api/v1/historical` time series behind its charts, the rendering of
-`GET /api/v1/environmental` (current conditions), the `Gauge` and `TrendChart` components, and
-the contract of the lake's connection probe that `/health` reports. It holds no agronomic
-logic. Each number shown comes from a weather-sources contract or from data sync's cached
-summary.
+This leaf owns the read-only views of conditions: the Environmental page (`/environmental`),
+the `GET /api/v1/historical` time series behind its charts, the rendering of
+`GET /api/v1/environmental` (current conditions), the `Gauge` and `TrendChart` components, the
+way a basis is shown on every page, and the shape of the source status that `/health` reports.
+It holds no agronomic logic. Each number shown comes from a weather-record contract or from
+data sync's cached summary.
 
 Principles:
 
-- **Measured over modeled.** History is the station's record (silver hourly, gold daily GDD),
-  including its gaps. The patio sensor has no history, so ambient and humidity history is the
-  station's.
+- **Always labeled.** No reading, series or card appears without what it rests on. A
+  measurement, an estimate and the owner's sensor never look alike.
 - **One answer everywhere.** The page shows conditions. Questions that a feature component
   answers (pre-emergent, seeding, disease risk) are not restated here with other numbers.
-- **Withhold rather than invent.** A missing value renders as `--` and an empty series as "No
-  data available". Lag is disclosed rather than hidden.
+- **Withhold rather than invent.** A missing value renders as `--`, an input with no source
+  says so, and an empty series is "No data available". Lag is disclosed rather than hidden.
 
 The 10 cm soil-temperature outlook shown on this page (`PredictionChart`, its crossing cards)
 is owned by the soil-temperature-outlook leaf. Data sync owns `/environmental`'s refresh logic
-and the `/health` endpoint itself.
+and the `/health` endpoint itself. The Sources page, where the owner inspects and changes the
+sources, belongs to setup and sources (`docs/intent/setup-sources/`).
+
+## Showing a Basis
+
+One component, `BasisLabel`, is used wherever a weather-dependent value appears, on this page
+and on every other.
+
+| Basis | Label | Mark |
+|---|---|---|
+| Station | "Measured · *station name*, *N* mi" | Solid dot |
+| Owner's sensor | "Your sensor · *sensor name*" | Solid square |
+| Estimate | "Estimated for your location" | Hollow dot |
+| Estimate, approximate | "Estimated for your location · approximate" | Hollow dot |
+| Period on more than one basis | The newest basis, followed by "· mixed" | As the newest |
+
+- The mark and the words always appear together; a basis is never carried by color or line
+  style alone (Web UI convention).
+- Each label links to the Sources page.
+- **In a chart**, measured stretches are drawn solid, estimated stretches dotted in the same
+  hue, and each change of basis is a thin vertical marker. The chart's caption lists the
+  spans in words, and the table view has a basis column. Dashed stays reserved for forecast.
+- **An input with no source** (soil moisture with no station or probe; deep soil on an
+  estimate) shows "No source for this location" with a link to the Sources page, not `--`.
+  `--` means a source exists and has no value now.
 
 ## API Endpoints
 
@@ -34,17 +57,19 @@ and the `/health` endpoint itself.
 |---|---|---|---|
 | GET | `/api/v1/environmental` | Data sync's `get_or_refresh()`: the cached `EnvironmentalSummary`, refreshed when stale (`backend/src/api/environmental.rs`) | Propagates refresh errors (in practice none: source failures degrade inside the refresh) |
 | POST | `/api/v1/environmental/refresh` | `force_refresh()`: refetches every source | same |
-| GET | `/api/v1/historical?range=7d\|30d\|90d` | See below (`backend/src/api/historical.rs`) | 400 for a bad range; 503 with the lake-not-configured sentence when the lake client is missing; 503 with the lake-unreadable sentence (detail logged) for a lake error |
+| GET | `/api/v1/historical?range=7d\|30d\|90d` | See below (`backend/src/api/historical.rs`) | 400 for a bad range; the weather record's outages (location not set, history still loading) as 503 with their own sentences |
 
 ### `/historical`
 
-- **Hourly series.** Weather sources' `fetch_range(now − range, now)` from silver, reversed to
+- **Hourly series.** The weather record's `fetch_range(now − range, now)`, reversed to
   ascending. 7d keeps every hour. 30d and 90d group the hours into 6-hour and 24-hour time
   buckets (aligned to UTC, each point stamped at its bucket's start): precipitation is summed
   and the other series are averaged over the hours that reported them (`series()`). Series:
   10 cm soil temperature, air temperature, RH, 10 cm moisture, precipitation (values ≥ 0). A
   missing value is left out of its series, not zero-filled; a bucket with no value for a
-  series is left out of that series. Default range: 7d.
+  series is left out of that series. A day whose soil is on a daily basis contributes one
+  point at local noon. Default range: 7d.
+- **Basis.** The response carries the record's basis spans for each series.
 - **GDD.** `fetch_daily_gdd` from Jan 1 of the range-start year to today, accumulated with a
   reset each Jan 1 (agronomic rules' `gdd::accumulate_daily_gdd`), then filtered to the range
   and stamped 12:00 UTC. "Today" and the year are the lawn's local date (parent decision):
@@ -52,15 +77,21 @@ and the `/health` endpoint itself.
   into local dates with the app's `Clock`, giving Jan 1 of the local range-start year to
   accumulate from, the first date shown and the last date (the local today).
 
-## Lake Connection Probe
+## Source Status
 
-`WeatherLakeClient::test_connection` (`backend/src/datasources/weather.rs`) runs
-`SELECT 1 FROM <file> LIMIT 1` against the silver and then the gold parquet and returns `true`
-only when both reads succeed. Any error reads as `false`; the probe never fails. Data sync's `check_connections()` reports it under the JSON key
-**`soildata`** in `/health`, the dashboard connection dots and MCP `lawn_snapshot`; the UI
-labels it "Weather lake". The Home Assistant and OpenWeatherMap probes belong to weather
-sources' clients; when and how often the probes run belongs to data sync (whose design records
-that they ignore the staleness limits).
+Connection status is one entry per source in use, not a fixed set of keys:
+
+| Field | Meaning |
+|---|---|
+| `id`, `name`, `kind` | The source as the record names it (station, grid, analysis, sensor, forecast) |
+| `ok` | The source's most recent scheduled fetch succeeded |
+| `last_success`, `last_failure` | From the record's `status()` |
+| `inputs` | The inputs the source is currently the basis for |
+
+The entries come from the record's `status()` and, for the forecast, the outcome of its last
+scheduled fetch. Data sync assembles them for `/health`, the dashboard connection dots and MCP
+`lawn_snapshot`. A source that is reachable but is the basis for nothing is listed with empty
+`inputs`.
 
 ## Environmental Page
 
@@ -74,15 +105,16 @@ that they ignore the staleness limits).
   `/historical` loads separately for the selected range; a failed load clears the trend charts
   and shows its own plain-language error in their place, so a range change never leaves the
   previous range's data under the new selector.
-- **Header.** "Last updated" (`last_updated`), the soil trend, and "Station soil observed …"
-  (`soil_observed_at`, the station's own time for the soil values). When data sync marks the
-  soil stale (`soil_stale`), a banner says when the station's soil data stopped and that soil
-  readings and soil-based advice are paused, worded as on the dashboard.
+- **Header.** "Last updated" (`last_updated`), the soil trend, and "Soil observed …"
+  (`soil_observed_at`, the source's own time for the soil values; for an estimate, the day it
+  is for). When data sync marks the soil stale (`soil_stale`), a banner says when soil data
+  stopped and that soil readings and soil-based advice are paused, worded as on the
+  dashboard.
 - **Gauges.** Four `Gauge`s (`frontend/src/components/Gauge.tsx`, configs in
   `components/gaugeConfigs.ts`, `gaugeLevel`). The bar is green, turns amber at `warn` and red
   at `critical` — and, on a gauge with a dry side, amber below its dry `warn` and red below its
   dry `critical`. A warning or critical state is also said in words beside the value ("High",
-  "Very high", "Dry", "Very dry"), and the numeric value is always shown (`--` when null).
+  "Very high", "Dry", "Very dry"), and the numeric value is always shown (`--` when null). Each gauge carries its `BasisLabel`.
 
 | Gauge | Range | Warn / critical | Dry warn / critical |
 |---|---|---|---|
@@ -91,9 +123,11 @@ that they ignore the staleness limits).
 | Humidity % | 0–100 | 80 / 90 | — |
 | Soil Moisture (10 cm) % (fraction × 100) | 0–50 | 40 / 45 | below 15 / below 10 |
 
-- **Summary.** Four 7-day summary cards (precipitation in inches), a soil profile table for
-  5–100 cm, and **5-Day Forecast** cards for every `daily_summary` day (high/low, RH,
-  precipitation in inches, max `pop`). A day the forecast covers for fewer than 24 hours
+- **Summary.** Four 7-day summary cards (precipitation in inches), a soil profile table with
+  one row per depth that has a source (5 and 10 cm always; 20, 50 and 100 cm only from a
+  station or probe), each with its basis, and **Forecast** cards for the first 7
+  `daily_summary` days with the rest behind "Show more" (high/low, RH, precipitation in
+  inches or "not forecast", max `pop`), headed by the provider's name. A day the forecast covers for fewer than 24 hours
   (`hours_covered`) is marked "partial day".
 - **Soil Temperature Forecast.** The outlook leaf's `PredictionChart` and crossing cards.
 - **Historical Trends.** A 7d / 30d / 90d selector over six `TrendChart`s
@@ -102,7 +136,9 @@ that they ignore the staleness limits).
   `components/environmental/display.ts`): air at 85 °F "Heat stress", RH at 80 % "Humid (80%)"
   and moisture at 0.10 "Drought". Soil temperature, GDD and precipitation have none:
   soil-temperature and GDD milestones are the timing windows' and the outlook's questions, and
-  disease risk comes from the per-disease models.
+  disease risk comes from the per-disease models. Each chart shows its basis as above.
+- **Attribution.** A footer names every source the page drew on, with the credit its terms
+  require.
 
 `frontend/src/utils/units.ts`: `mmToInches` and `formatInches` (25.4 mm per inch). The page is
 the only place precipitation becomes inches.
@@ -111,38 +147,44 @@ the only place precipitation becomes inches.
 
 | Failure | Effect |
 |---|---|
-| Lake unreadable | `/historical` returns 503. The trend section clears its charts and shows the lake-unreadable sentence. The `soildata` dot turns false when either silver or gold is unreadable. Current conditions stay at data sync's last good summary |
-| Home Assistant down | Ambient and humidity gauges show `--`. History is unaffected |
-| OpenWeatherMap down | The 5-Day Forecast cards disappear once data sync's reuse window expires |
+| The record cannot answer `/historical` | 503. The trend section clears its charts and shows the record's sentence. Current conditions stay at data sync's last good summary |
+| A source in use fails | Its status entry turns `ok: false`; values it supplied fall to the next basis or are withheld by the record and data sync, and the labels change with them |
+| No source for an input | "No source for this location" in place of the gauge value, row or chart |
+| Forecast unavailable | The Forecast cards disappear once data sync's reuse window expires |
 | `/soil-temp-forecast` fails | Its section is hidden; the rest of the page renders |
 
 ## Decisions & Alternatives
 
 | Decision | Chosen | Alternatives Considered | Rationale |
 |---|---|---|---|
-| Health key name | Lake connectivity reported as `soildata` | Rename to `lake` / `weather` | Kept for frontend compatibility (owner's lake-migration decision). The UI labels it "Weather lake". |
+| Source status shape | A list with one entry per source in use | Fixed keys per kind of source | Which sources exist depends on the location and the owner's sensors; fixed keys cannot name two stations or an unknown number of sensors. |
+| Basis presentation | One shared label: words plus a mark, linked to the Sources page; dotted line for estimated stretches | A legend per page; color per basis; a single page-level note | Every page shows weather-dependent values, and the HLD requires each to name its basis the same way. A page-level note cannot express a series that changes basis partway. |
+| No source versus no value | Different text | `--` for both | "Nothing measures this here" is a permanent fact the owner can change on the Sources page; "no value right now" is an outage. |
 | Environmental page refresh | 30 s polling, visibility-aware, plus a manual force-refresh | Push or SSE; no polling | Data sync's staleness limits keep polling cheap, and a hidden tab makes no calls. [inferred] |
 | `/historical` point budget | Aggregate longer ranges into 6 h (30d) and 24 h (90d) time buckets: precipitation summed, other series averaged | Return every hour; keep every Nth row | Keeps charts responsive while rain totals stay true and spacing stays even when hours are missing. |
 | Reference lines | Heat stress, Humid (80%), Drought only | Lines for pre-emergent, crabgrass and "disease risk" | One answer everywhere: those questions belong to timing windows and disease risk, at their own depths and models. |
-| Lag disclosure | Soil observation time and the 72 h stale banner, as on the dashboard; partial forecast days labelled | `last_updated` only | `last_updated` is the app's clock; the station's lag is the fact the owner needs (lag carried as data). |
+| Lag disclosure | Soil observation time and the stale banner, as on the dashboard; partial forecast days labelled | `last_updated` only | `last_updated` is the app's clock; the source's lag is the fact the owner needs (lag carried as data). |
 | Gauge warnings | A text label ("High", "Dry") beside the colored bar | Color alone | State is never carried by color alone (Web UI convention). |
 | Moisture gauge | Warns wet (40 / 45 %) and dry (amber < 0.15, red < 0.10) | Wet only | Drought is the more common action; the thresholds are the irrigation rule's. |
-| Lake probe | One-row reads of silver and gold | Gold only; a full query | Silver backs the live reading and `/historical`; a gold-only probe can report a broken lake as connected. One row each keeps it cheap. |
+| Forecast cards | The first 7 days, the rest on request | Every day the provider returns | The default provider returns 16 days; the far days are low-skill and would push the trends off the screen. |
 
 ## Open Questions & Future Decisions
 
-None.
+### Deferred
+
+1. **Whether an estimated "current" soil temperature belongs on a gauge.** It is a daily mean
+   for yesterday or earlier, shown with its day. A gauge implies a live reading.
 
 ## References
 
 - Parent: `docs/intent/weather-data/weather-data-design.md`.
-- `docs/intent/weather-data/weather-sources/`: `fetch_range`, `fetch_daily_gdd`, the summary
-  shape.
+- `docs/intent/weather-data/weather-record/`: `fetch_range`, `fetch_daily_gdd`, `status()`, the
+  summary shape and the basis types.
 - `docs/intent/weather-data/soil-temp-outlook/`: the chart and crossing cards on this page.
 - `docs/intent/data-sync/`: refresh, `check_connections()`, `/health`.
 - `docs/intent/web-ui/`: shell, shared styles, status-palette and table-view conventions.
 - Code: `backend/src/api/{environmental,historical}.rs`, `backend/src/models/historical.rs`,
-  `backend/src/datasources/weather.rs` (`test_connection`), `frontend/src/pages/Environmental.tsx`,
+  `frontend/src/pages/Environmental.tsx`,
   `frontend/src/components/{Gauge,TrendChart}.tsx`, `frontend/src/components/gaugeConfigs.ts`,
   `frontend/src/components/environmental/display.ts`,
   `frontend/src/utils/units.ts`.

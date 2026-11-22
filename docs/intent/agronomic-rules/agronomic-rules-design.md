@@ -23,17 +23,19 @@ Principles, in the HLD's order of precedence:
 
 | Input | Fields the rules read | Producer |
 |---|---|---|
-| `EnvironmentalSummary.soil_temp_7day_avg_f` | 7-day mean of station **10 cm** soil temperature | Weather data access (`datasources/weather.rs` `fetch_summary`) |
-| `.soil_temp_trend` | Rising / Falling / Stable / Unknown. Compares the newest 24 hourly readings with the 24 before; Unknown under 48 readings | Weather data access |
-| `.ambient_temp_7day_avg_f` | 7-day mean air temperature from the station readings | Weather data access |
-| `.current` | live 10 cm soil temperature, `primary_soil_moisture()` (10 cm, else 5 cm, else 20 cm), ambient air from Home Assistant | Data sync (soil omitted when the newest observation is over 72 h old) |
-| `.precipitation_7day_total_mm` | lake 7-day rain total | Weather data access |
-| `.forecast` | OWM daily summaries (local dates, `hours_covered`) and 3-hourly points | Weather data access |
-| `.gdd_base50_ytd` | sum of gold `gdd50` from Jan 1 | Data sync (`fetch_gdd_ytd`) |
+| `EnvironmentalSummary.soil_temp_7day_avg_f` | 7-day mean of **10 cm** soil temperature for the lawn, with its basis (sensor, station, or estimate) | Weather record, through data sync's summary |
+| `.soil_temp_trend` | Rising / Falling / Stable / Unknown. Compares the newest 24 hours with the 24 before, or on a daily basis the newest day with the day before; Unknown without enough of either | Weather record |
+| `.ambient_temp_7day_avg_f` | 7-day mean air temperature for the lawn, with its basis | Weather record |
+| `.current` | live 10 cm soil temperature, `primary_soil_moisture()` (10 cm, else 5 cm, else 20 cm; `None` where the lawn has no station within 50 miles and no probe), ambient air (sensor, station within 10 miles, or the approximate hourly analysis), each with its basis | Data sync (an input is omitted once its source is past its age limit and no other basis stands behind it) |
+| `.precipitation_7day_total_mm` | 7-day rain total for the lawn's point | Weather record |
+| `.forecast` | daily summaries (local dates, `hours_covered`) and points of the provider's slot length; a quantity the provider does not forecast that far is `None` | Weather sources, through data sync |
+| `.gdd_base50_ytd` | sum of daily `gdd50` from Jan 1 | Weather record (`fetch_gdd_ytd`) |
 | `LawnProfile` | `grass_type`, `lawn_size_sqft` | profile |
 | `history` | the newest 1000 applications for the profile (`RULE_HISTORY_LIMIT`) | Recommendation feed |
 
-"Today" is the lawn's local date, from the `TZ` zone that deployment sets to the lawn's timezone. The rules receive it, with the instant it belongs to, as the `Moment` the feed passes (`at.today`, `at.now`), so they are pure functions of their arguments and any date can be tested; the nitrogen guard receives the same `today`, and `/gdd`, the nitrogen budget endpoint's cut-off and data sync's YTD GDD input take it from the app's `Clock` (`backend/src/clock.rs`), resolved once from the same `TZ`. Every date gate and year boundary uses it. Forecast day helpers take that date as an argument (`next_days(today, n)`, `max_temp_next_days(today, n)`), so the heat-stress and irrigation rules count days from the lawn's today. `GrubControlRule::evaluate_on(today, …)` is the only rule with an injectable date; the others are tested only on the day the suite runs.
+**Basis on data points.** A rule states a value it read as a data point; the point carries that value's basis, so a recommendation says "Soil temperature (10 cm) 58 °F · estimated for your location" or "· measured at *station*, 12 mi". A rule's thresholds and severities do not depend on the basis.
+
+"Today" is the lawn's local date, in the timezone of the lawn's location. The rules receive it, with the instant it belongs to, as the `Moment` the feed passes (`at.today`, `at.now`), so they are pure functions of their arguments and any date can be tested; the nitrogen guard receives the same `today`, and `/gdd`, the nitrogen budget endpoint's cut-off and data sync's YTD GDD input take it from the app's `Clock` (`backend/src/clock.rs`), the same clock. Every date gate and year boundary uses it. Forecast day helpers take that date as an argument (`next_days(today, n)`, `max_temp_next_days(today, n)`), so the heat-stress and irrigation rules count days from the lawn's today. `GrubControlRule::evaluate_on(today, …)` is the only rule with an injectable date; the others are tested only on the day the suite runs.
 
 **Grass-type gate.** TurfOps serves cool-season lawns. `GrassType::is_cool_season()` (`models/lawn_profile.rs`) is true for tall fescue, Kentucky bluegrass, perennial ryegrass, fine fescue and `Mixed` (a cool-season blend). Warm-season lawns are unsupported, and what the rules do for one is not intent.
 
@@ -94,7 +96,7 @@ The calendar window is May 15–Jul 4. GDD widens it: from Apr 1 the window is o
 
 ### Fertilizer block
 
-Cool-season only, needs `current`. Two independent checks: ambient air > 85°F (Home Assistant; skipped when absent), and soil moisture < 0.10 (drought) or > 0.40 (saturated). Any hit emits `fertilizer_block`. The severity is Critical when air > 90°F or moisture < 0.05, otherwise Warning. Its presence puts the feeding recommendations on hold (see Nitrogen Guard).
+Cool-season only, needs `current`. Two independent checks: ambient air > 85°F (skipped when absent), and soil moisture < 0.10 (drought) or > 0.40 (saturated; skipped when the lawn has no soil moisture). Any hit emits `fertilizer_block`. The severity is Critical when air > 90°F or moisture < 0.05, otherwise Warning. Its presence puts the feeding recommendations on hold (see Nitrogen Guard).
 
 ### Fall fertilization
 
@@ -108,10 +110,13 @@ Cool-season only, Sep 1–Nov 30, needs the soil average. A *feeding* is an appl
 
 ### Weather rules
 
-- **Rain delay.** Checks the forecast's 3-hourly points within 12 h, then 24 h, then 48 h, judging each window by its highest probability and its *total* amount (wash-off depends on how much falls, not on one slot). A window with under 0.1 mm in total and no slot at 50% or more is skipped: a modest chance with no forecast amount is noise. Within 12 h, ≥ 70% or ≥ 2.5 mm → Critical. Within 24 h, ≥ 50% or ≥ 2.5 mm → Warning. Within 48 h, ≥ 30% or ≥ 5 mm → Advisory. The first level that matches wins.
-- **Irrigation.** Needs both the forecast and soil moisture. Silent at moisture ≥ 0.20, or when the 5-day forecast *amount* exceeds 2.5 mm (probability alone never cancels it). Severity is Critical below 0.10, Warning below 0.15, otherwise Advisory. It declares an optional wetting-agent need, which never puts the recommendation on the shopping list.
+- **Rain delay.** Checks the forecast's points within 12 h, then 24 h, then 48 h, judging each window by its highest probability and its *total* amount (wash-off depends on how much falls, not on one slot). A window with under 0.1 mm in total and no slot at 50% or more is skipped: a modest chance with no forecast amount is noise. Within 12 h, ≥ 70% or ≥ 2.5 mm → Critical. Within 24 h, ≥ 50% or ≥ 2.5 mm → Warning. Within 48 h, ≥ 30% or ≥ 5 mm → Advisory. The first level that matches wins.
+- **Irrigation.** Needs the forecast. Silent when the forecast *amount* over the next 5 days exceeds 2.5 mm (probability alone never cancels it; the sum is over the days that carry an amount and needs at least 3 of them).
+  - *With soil moisture:* silent at moisture ≥ 0.20. Severity is Critical below 0.10, Warning below 0.15, otherwise Advisory.
+  - *Without soil moisture* (no station within 50 miles and no probe): judged on rain. Fires only while the grass is growing (7-day mean air ≥ 50°F) and the 7-day rain total is under 12.5 mm (½ in): Warning under 5 mm, otherwise Advisory, never Critical. The text says it is judged on rainfall because nothing measures soil moisture at this lawn, and that a probe would replace it.
+  - Either way it declares an optional wetting-agent need, which never puts the recommendation on the shopping list.
 - **Heat stress.** Cool-season only. Uses the maximum daily high over today plus the next 3 local days. Severity is Advisory from 85°F, Warning from 90°F and Critical from 95°F. "Hot days" counts the consecutive days from the start, ignoring a leftover partial day that is cooler.
-- **Application window.** Considers the first 5 daily summaries and judges only full days (`is_full_day`). A day is *good* when its mean temperature is ≥ 50°F with a high ≤ 85°F, the day before is dry (or, for the first summary, lake 7-day rain is under 25 mm) and the day itself and the next are dry. Dry means under 2.5 mm and under 50% probability. Wind and humidity add to the score but are not required. The highest-scoring good day is announced as Info. With no good day, there is no recommendation.
+- **Application window.** Considers the first 5 daily summaries and judges only full days (`is_full_day`). A day is *good* when its mean temperature is ≥ 50°F with a high ≤ 85°F, the day before is dry (or, for the first summary, the 7-day rain total is under 25 mm) and the day itself and the next are dry. Dry means under 2.5 mm and under 50% probability. Wind and humidity add to the score but are not required. The highest-scoring good day is announced as Info. With no good day, there is no recommendation.
 - **Mowing height.** Cool-season only. Uses the 7-day ambient average: above 85°F → Warning (heat-stress height), above 75°F → Advisory (summer height), at or above 50°F → Info (spring/fall height), below 50°F → none.
 
 ## Nitrogen Guard
@@ -176,11 +181,11 @@ Annual targets (`models/nitrogen_budget.rs` `annual_n_target`, lb N / 1000 sq ft
 
 ## GDD Accumulation and the Crabgrass Model
 
-GDD per day is the gold layer's precomputed `gdd50`, which uses the same formula as `max((max+min)/2 − 50, 0)`. The app only sums it.
+GDD per day is `gdd50 = max((max + min) / 2 − 50, 0)` on the lawn's resolved daily maximum and minimum air temperature, computed by the weather record. This component sums it.
 
-- **For the rules:** data sync sets `gdd_base50_ytd` from `fetch_gdd_ytd(today)`, with `today` the lawn's local date from the app's `Clock`. That function sums gold rows from Jan 1 of `today`'s year through `today` and returns `None` when no rows exist. On a read error the value is left unset and a warning is logged. The rules and `/gdd` therefore agree on the year, including on the evening of Dec 31.
+- **For the rules:** data sync sets `gdd_base50_ytd` from `fetch_gdd_ytd(today)`, with `today` the lawn's local date from the app's `Clock`. That function sums the daily values from Jan 1 of `today`'s year through `today` and returns `None` when no rows exist. On a read error the value is left unset and a warning is logged. The rules and `/gdd` therefore agree on the year, including on the evening of Dec 31.
 - **For the endpoint:** `logic/gdd.rs` `accumulate_daily_gdd` builds a running total that resets at each calendar year (rows must be sorted ascending). `build_gdd_summary` takes the last cumulative value as `current_gdd_total`. The Environmental history endpoint reuses `accumulate_daily_gdd` for its GDD series.
-- Gold days with `gdd50` NULL are skipped, so a gap in the lake lowers the total without any signal.
+- A day with no maximum or minimum has no `gdd50` and is skipped, so a gap lowers the total without any signal.
 
 `crabgrass_model(gdd)` (`logic/gdd.rs`) maps the YTD total to a `CrabgrassStatus`:
 
@@ -215,9 +220,11 @@ Both widgets render on the Dashboard (`frontend/src/pages/Dashboard.tsx`). The d
 
 | Missing input | Effect |
 |---|---|
-| Lake / soil average (`None`), including station data over 72 h old (data sync then withholds the 7-day figures and the trend) | Spring N, broadleaf, grub, fall fertilization silent; irrigation loses the lake rain total; spring broadleaf loses the trend |
-| Live soil reading (stale > 72 h) | Grub silent even if the 7-day average exists; fertilizer block keeps only the air check; irrigation silent |
-| Home Assistant air | Fertilizer block keeps the soil-moisture checks |
+| Soil average (`None`): no source within its age limit (data sync then withholds the 7-day figures and the trend) | Spring N, broadleaf, grub, fall fertilization silent; spring broadleaf loses the trend |
+| Live soil reading withheld | Grub silent even if the 7-day average exists |
+| Soil moisture absent (no station within 50 miles, no probe) or withheld | Fertilizer block keeps only the air check; irrigation is judged on rain |
+| 7-day rain total (`None`) | Irrigation without soil moisture is silent |
+| Ambient air (`None`) | Fertilizer block keeps the soil-moisture checks; irrigation without soil moisture is silent |
 | Forecast | Rain delay, irrigation, heat stress, application window silent; the guard can no longer hold on heat |
 | GDD (`None`) | Spring N stays on soil temperature only; broadleaf spring uses March only; grub uses the calendar window only with no peak-hatch escalation |
 | Trend Unknown/Stable | Spring broadleaf silent |
@@ -227,18 +234,20 @@ Both widgets render on the Dashboard (`frontend/src/pages/Dashboard.tsx`). The d
 | Decision | Chosen | Alternatives Considered | Rationale |
 |---|---|---|---|
 | Rule shape | Pure functions over summary, profile and log, at most one recommendation each | Rules that query their own data | Testable on fixed inputs and identical for every caller; a missing input degrades cleanly (HLD decision). |
-| GDD in rules | Additive only: opens earlier, escalates, adds notes; `None` falls back to calendar + soil | GDD-gated rules | Lake outages or a short record must not silence seasonal advice. [inferred] |
+| GDD in rules | Additive only: opens earlier, escalates, adds notes; `None` falls back to calendar + soil | GDD-gated rules | An outage or a short record must not silence seasonal advice. [inferred] |
 | Grub window upper bound | Close the GDD extension at 1000 | Open-ended once GDD ≥ 500 | YTD GDD never falls, so without a bound the window would stay open until Dec 31 (`grub_control.rs` doc comment). [inferred] |
 | Feeding vs. blocks | One guard pass over every recommendation marked as a feeding, after all sources and before inventory and answered state; a block or Warning+ heat stress holds the whole recommendation, the budget caps only its nitrogen, restating the amount everywhere the source stated it; the guard alone writes "N budget remaining" | Each feeding rule checking weather itself; a guard over rule output only; the budget withdrawing the whole recommendation | Each source judges its own window and sees no other source. One pass over the whole feed guarantees "feed" never sits beside "avoid fertilizer" and no feeding exceeds the budget, whichever source produced it. Under a block or heat stress no fertilizer of any kind should go down, while the budget limits nitrogen only, so phosphorus or potassium the soil lacks still stands. One author for the budget point keeps one figure per recommendation. Running before inventory keeps a target-reached feeding off the shopping list; running before answered state keeps a dismissed block in force. |
 | How the guard finds feedings | Each source marks a recommendation as a feeding when it builds it | A fixed list of feeding ids in the guard; inferring from the Fertilizer category or a Fertilizer need | The same id can carry feeding and non-feeding advice: `disease_red_thread` says "feed the lawn" while the lawn is nitrogen-hungry and "stay the course" once fed, and `soil_test_npk` may ask for P or K only. Only the source knows which form it built. A category or need test would also catch plant Fertilizing tasks and the May cutoff, and an id list misses every new source. |
 | Amounts in feeding advice | State lb N/1,000 sq ft, the lawn total and the May maximum; never a label rate or a pesticide rate | No amounts at all; typical label rates | Nutrient amounts are agronomy and do not depend on the product, and the budget cannot be expressed without them. How much of a product to apply is set by its label (HLD non-goal). |
-| Clock | The lawn's local date (`TZ` = the lawn's zone) from the app's `Clock`, passed into the rules as one `Moment`, for every date gate and year boundary | The UTC date; each rule reading `chrono::Local` itself (untestable out of season) | Window days, the feeding season and the budget year are lawn-local calendar days; one configured clock gives every component the same day (HLD decision). |
+| Clock | The lawn's local date from the app's `Clock`, passed into the rules as one `Moment`, for every date gate and year boundary | The UTC date; each rule reading `chrono::Local` itself (untestable out of season) | Window days, the feeding season and the budget year are lawn-local calendar days; one clock gives every component the same day (HLD decision). |
+| Rules on estimated inputs | The same thresholds and severities; the data point carries the basis | Wider bands or lower severities on an estimate | The rules read levels over a week, where the soil estimate's daily error of about 3 °F averages down; a second threshold set would be a second, unverified agronomy. The owner is told what the number rests on (HLD: always labeled). |
+| Irrigation with no soil moisture | Judged on the 7-day rain total and the forecast, during growth only, capped at Warning | Silent; an estimated soil moisture | HLD decision: soil moisture is never estimated, and rules that use it fall back to rainfall and the forecast. Half an inch in a week is half of what a growing cool-season lawn uses, and rain alone cannot justify Critical. |
 | N rules and the budget | Feedings are capped to the remaining annual budget and become "target reached" at zero | A fixed fall program regardless of budget | The fixed fall program overshoots a low-N grass's target; recorded as the owner-approved default in project memory. |
 | Budget accounting | Only `turf_nitrogen_lbs()` dated on or before today; target = the grass type's recommended value | Counting plant fertilizer; estimating unrecorded analyses; counting future-dated entries | Plant fertilizer is not on the lawn; an unrecorded analysis cannot be counted without inventing a number; a future-dated entry has not been applied, and the endpoint and the guard must show the same remaining figure. |
 | What counts as a feeding in the log | `Application::is_feeding()` (a turf Fertilizer application with N% unrecorded or above 0), dated on or before today, for spring and fall alike | Any Fertilizer row | Plant fertilizer and potash-only products put no nitrogen on the lawn; one definition keeps spring and fall consistent. |
 | Feeding product need | A Fertilizer with nitrogen above 0 or unrecorded | Any Fertilizer | A 0-0-x product on the shelf cannot deliver the feeding, so it must not show the feeding as on hand. |
 | Lawn total without a lawn size | Omitted; the per-1,000 sq ft amount stands | Assume 5,000 sq ft | Withhold rather than invent: a total for an unknown size is a made-up number. |
-| `/gdd` with no weather lake | Data-unavailable error | Empty history, total 0 | A zero total reads as real data (PreGermination) and invents a crabgrass status. |
+| `/gdd` when the weather record cannot answer | Data-unavailable error | Empty history, total 0 | A zero total reads as real data (PreGermination) and invents a crabgrass status. |
 | Lawn type | Cool-season lawns only; `GrassType::Mixed` is a cool-season blend and gets every rule | A warm-season program | TurfOps serves one cool-season lawn (HLD non-goal: warm-season lawns are unsupported). |
 | Fall broadleaf vs. seeding | The rule emits; Timing windows reconciles against the log | A user toggle; the rule reading the seeding window | Owner decision: fall broadleaf follows the log; seeding logic stays in one component. |
 | Pre-emergent, seeding, aeration | Not rules; owned by Timing windows | 10 cm soil-temperature rules | One answer everywhere: they must agree with the 5 cm windows (HLD tenet). |
@@ -261,7 +270,7 @@ Both widgets render on the Dashboard (`frontend/src/pages/Dashboard.tsx`). The d
 
 ### Deferred
 1. Grub ids carry the year (`grub_control_<year>`, `grub_control.rs:122,177`), while the other rule ids rely on answered-state expiry. Grub and broadleaf "already applied" checks ignore `is_turf()`.
-2. Gold days with `gdd50` NULL are dropped (`datasources/weather.rs:217`), so a gap silently lowers YTD GDD and the crabgrass status.
+2. Days with no daily air are skipped, so a gap silently lowers YTD GDD and the crabgrass status.
 3. Spring broadleaf is silent whenever the trend is Unknown (under 48 readings) or Stable (`broadleaf_herbicide.rs:71`). Fall broadleaf checks no trend, though its doc comment says "falling" (`broadleaf_herbicide.rs:14-15,80-86`). The application window's doc comment lists wind and humidity as requirements, but they only add to the score.
 4. Application window: equal scores pick the *last* good day (`max_by_key`), and a final summary with no next day is assumed dry (`application_window.rs:52-55,168-175`).
 5. Irrigation can say "no significant rain … for 0 days": `dry_days` stops at the first day with ≥ 2.5 mm or ≥ 50% probability, while the cancel test uses only the 5-day amount (`irrigation_forecast.rs:59-66,86-90`).
