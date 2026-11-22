@@ -4,11 +4,11 @@ Design: [disease-ui-design.md](disease-ui-design.md). Parent: [disease-risk](../
 
 ## Pages
 
-- [x] **DIS-UI-PAGE-001**: The `/disease-risk` page shall show, in order, the station name, every data note, a short explainer that native scores are not comparable and there is no blended score, and one row per disease (name, "score label · model name", a compact risk meter, a tier badge) linking to `/disease-risk/:slug`.
+- [ ] **DIS-UI-PAGE-001**: The `/disease-risk` page shall show, in order, the shared basis label for hourly air and humidity, every data note, a short explainer that native scores are not comparable and there is no blended score, and one row per disease (name, "score label · model name", a compact risk meter, a tier badge) linking to `/disease-risk/:slug`.
 - [x] **DIS-UI-PAGE-002**: While the disease-risk response lists no diseases, the `/disease-risk` page shall show the first data note, or "Not enough recent weather data to score disease risk." when there is none.
-- [x] **DIS-UI-PAGE-003**: The `/disease-risk/:slug` page shall show the station name, the data notes, a "← All diseases" link and the disease's detail view; if the slug is not in the response, then it shall show "No risk data for …" with a link back.
+- [ ] **DIS-UI-PAGE-003**: The `/disease-risk/:slug` page shall show the shared basis label, the data notes, a "← All diseases" link and the disease's detail view; if the slug is not in the response, then it shall show "No risk data for …" with a link back.
 - [x] **DIS-UI-PAGE-004**: While the disease-risk request is loading, the disease pages shall show "Loading disease risk…".
-- [x] **DIS-UI-PAGE-005**: If the disease-risk request fails, then the disease pages shall show a plain-language error that says what went wrong and what to do (no lawn profile → set one up in Settings; weather lake unavailable or not configured → say so), never raw status codes, JSON or internal detail.
+- [ ] **DIS-UI-PAGE-005**: If the disease-risk request fails, then the disease pages shall show a plain-language error that says what went wrong and what to do (no lawn profile → set one up in Settings; location not set or the weather record unreadable → the server's sentence), never raw status codes, JSON or internal detail.
 
 ## Detail and management
 
@@ -24,6 +24,7 @@ Design: [disease-ui-design.md](disease-ui-design.md). Parent: [disease-risk](../
 - [x] **DIS-UI-CHART-002**: When history raised a disease's headline tier, the tier badge shall show the raised tier while the risk meter and daily bars stay on the weather-only scale.
 - [x] **DIS-UI-CHART-003**: The daily risk chart shall draw one bar per day on the model's native scale, clamped to its bounds, in the day's tier color, with dashed tier-threshold lines, forecast bars faded, today's bar outlined, a tooltip reading Partial day, Forecast or Observed (Partial taking precedence), and a legend explaining fading and outline.
 - [x] **DIS-UI-CHART-004**: The daily risk chart shall offer a "View as table" listing each day's date, score, tier (symbol and label) and source.
+- [ ] **DIS-UI-CHART-005**: Where a tier or a day's risk is approximate, the tier badge and that day's chart bar shall carry an "approx." mark in words, the table view shall have a column saying so, and the tier's color shall be unchanged.
 
 ## Dashboard widget
 

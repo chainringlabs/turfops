@@ -275,7 +275,7 @@ A failed fetch shows `describeError(e)` (Web UI's human-readable errors): with n
 |---|---|
 | Location not set, history still loading, or the record unreadable | `/timing-windows` returns 503 with the record's sentence. The feed adds no timing recommendations, no aeration companion and no herbicide reconciliation. The plan keeps its own activities. |
 | Soil estimated for the location | Windows are evaluated on the estimate and every soil date is marked estimated with its typical error. Dormant seeding is not offered. A data note says so. |
-| A station or probe drops out mid-season | The estimate, anchored to the last measurements, continues the series; later crossings are marked estimated and a data note gives the date of the change. |
+| A station or probe drops out mid-season | Days it has not reported stay empty while it is within its age limit (the lag case). Once it is past that limit the estimate, anchored to the last measurements, continues the series; later crossings are marked estimated and a data note gives the date of the change. |
 | Newest soil day > 5 days old | Only confirmed crossings count. Other boundaries follow the calendar (a passed median counts as passed). A data note says so. |
 | Inside the record's lag | A typical date the record does not yet reach stays an estimate, not overdue. A forecast crossing in the lag is dated today. |
 | No forecast, or neither a fit nor an estimate | No forecast points: nothing is OpeningSoon from the forecast. A data note covers the missing-forecast case. |

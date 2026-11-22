@@ -75,8 +75,7 @@ sentinels are dropped rather than averaged in.
 ### One clock
 
 "Today", every date gate and every year boundary use the lawn's local date: the app's `Clock`
-(`backend/src/clock.rs`), in the timezone of the lawn's location; `TZ`, when set, overrides
-it. Observations are stored in UTC. Hourly observations and forecast slots are
+(`backend/src/clock.rs`), in the timezone that follows from the lawn's location. Observations are stored in UTC. Hourly observations and forecast slots are
 bucketed into lawn-local calendar days, daylight-saving aware, each by the lawn-local date of its own
 time. A source that publishes only daily values is stored under that source's own day. No
 source publishes a "today" of its own.

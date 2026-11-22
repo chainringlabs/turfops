@@ -36,7 +36,7 @@ Principles:
 | USDA SCAN | Station catalog; the same hourly inputs where a station has the sensors | Keyless AWDB REST API | Hourly; units named per element | Yes |
 | PRISM daily grid | Daily air maximum, minimum and precipitation at a point | Keyless RCC-ACIS `GridData`, grid 21 | Daily, about 4 km, through yesterday; °F and inches | Yes |
 | NRCC interpolated grid | The same, as the fallback for days PRISM lacks | RCC-ACIS `GridData`, grid 1 | Daily, through today | Yes |
-| Open-Meteo | The hourly analysis (air, humidity, rain for past hours); the default forecast; the point's elevation and timezone; place search for setup | Keyless JSON APIs | Hourly; 93 past days and 16 forecast days | Yes |
+| Open-Meteo | The hourly analysis (air, humidity, rain for past hours); the default forecast; the point's elevation; place search for setup | Keyless JSON APIs | Hourly; 93 past days and 16 forecast days | Yes |
 | Owner sensors: Home Assistant | The mapped entities' states, and the list of entities for setup | `GET {HA_URL}/api/states` with a bearer token | Instantaneous | No |
 | Owner sensors: posted readings | Readings sent to TurfOps by any hub or script | `POST /api/v1/sensor-readings` with a bearer token | Instantaneous | No |
 | National Weather Service | An alternative forecast | Keyless `api.weather.gov` | Hourly, about 6.5 days; rain amounts about 3 days | No |
@@ -58,8 +58,9 @@ flags as failed quality control is dropped the same way.
 
 ### Time
 
-Every instant is UTC. An hourly row is stamped with the hour it describes, as the source
-defines it. A daily row keeps the source's own day; the record maps it to the lawn's days.
+Every instant is UTC. An hourly row is stamped with the start of the hour it describes. A
+source that stamps the end of the hour (USCRN) or reports in a station's local standard time
+(SCAN) is converted by its client. A daily row keeps the source's own day; the record maps it to the lawn's days.
 
 ### Requests
 
@@ -105,12 +106,16 @@ the outcome of scheduled fetches (data sync).
 
 ### USCRN
 
-- **Catalog:** the network's station list: WBAN number, name, state, latitude, longitude,
-  elevation, and operating status. Only stations in the contiguous United States are kept.
-  Which depths a station reports is learned from its data.
+- **Catalog:** the network's station list (`stations.tsv`): WBAN number, state, location and
+  name, latitude, longitude, elevation in feet, status, operation and network. The list also
+  carries other networks; only rows whose network is USCRN, in the contiguous United States,
+  are kept. Which depths a station reports is learned from its data.
 - **Hourly (`hourly02`):** air temperature (the hour's average, with the hour's maximum and
   minimum), precipitation, relative humidity (dropped when its flag is not 0), and soil
-  temperature and moisture at the five depths.
+  temperature and moisture at the five depths. The file's UTC time is the end of the observed
+  hour, so each row is stamped one hour earlier.
+- **Lag:** the network publishes hourly but can run two days behind; the yearly file and the
+  network's hourly update feed end at the same hour.
 - **Daily (`daily01`):** air maximum, minimum and mean, precipitation, and soil temperature at
   5 and 10 cm. Used for calibration stations only.
 - **Span:** one station-year per request. A year the station did not operate is a 404, which
@@ -119,11 +124,13 @@ the outcome of scheduled fetches (data sync).
 ### SCAN
 
 - **Catalog:** the AWDB station list filtered to the SCAN network in the contiguous United
-  States, with the elements each station reports.
+  States, with elevation in feet, the station's fixed UTC offset, its first date of record,
+  and the elements each station reports with their depths and units.
 - **Hourly:** air temperature, relative humidity, precipitation increment, and soil
   temperature and moisture at the sensor depths nearest 5, 10, 20, 50 and 100 cm (SCAN's
   standard depths are 2, 4, 8, 20 and 40 inches, which are those five). Units are read from
-  the response and converted; soil moisture arrives in percent.
+  the response and converted: temperatures arrive in °F, soil moisture and humidity in
+  percent, precipitation in inches.
 - **Span:** up to one station-year per request.
 
 ### PRISM and NRCC (RCC-ACIS)
@@ -132,8 +139,9 @@ the outcome of scheduled fetches (data sync).
   15-year backfill of one point is one request.
 - Temperatures arrive in °F; precipitation in inches, converted to mm. The missing marker
   (−999) drops the value.
-- The response reports the grid cell's own coordinates; the client returns them so the record
-  can show where the value is for.
+- Asked for it, the response reports the grid cell's own latitude and longitude; the client
+  returns them so the record can show where the value is for. It does not report the cell's
+  elevation.
 - The two grids are one client with a grid parameter. NRCC is requested only for days PRISM
   returned nothing.
 
@@ -142,8 +150,8 @@ the outcome of scheduled fetches (data sync).
 - **Hourly analysis:** past hours' air temperature, relative humidity and precipitation at the
   point, from the forecast API's past days (up to 92) at first start and hourly thereafter.
   Soil variables are never requested: the reanalysis soil scored worse than the soil estimate.
-- **Point facts:** every response carries the model grid's elevation and, when asked, the
-  point's IANA timezone. The client returns both.
+- **Point facts:** every response carries the model grid's elevation in metres, which the
+  client returns in feet, the unit the station catalogs use.
 - **Place search:** a name or postal code to a list of candidate places with coordinates, for
   setup. The typed text is sent to Open-Meteo and nothing else is.
 - **Forecast:** see "Forecast" below.
@@ -158,15 +166,19 @@ mapping is made in the app and stored there.
 
 - **Home Assistant.** The client lists entities with their units and device classes so setup
   can offer them, and reads the mapped ones on schedule. A reading is the entity's state, its
-  unit of measurement, and its `last_updated` time. A state that is not a number
-  (`unavailable`, `unknown`) is no reading. A reading whose `last_updated` is unchanged since
+  unit of measurement, and the time it was last reported: `last_reported`, which moves each
+  time the device reports even when the value is unchanged, or `last_updated` where a Home
+  Assistant version does not provide it. A state that is not a number
+  (`unavailable`, `unknown`) is no reading. A reading whose reported time is unchanged since
   the previous read is not stored again.
 - **Posted readings.** `POST /api/v1/sensor-readings` accepts one or more readings: sensor
   name, value, unit, and optionally the time observed (default: now). The route exists only
   when `SENSOR_TOKEN` is set and requires it as a bearer token. A reading for a sensor that is
   not mapped, in a unit the input does not accept, outside the plausibility range, or dated
-  more than 5 minutes in the future is rejected with a 400 naming the problem; the rest of the
-  batch is stored.
+  more than 5 minutes in the future is rejected with a message naming the problem and the rest
+  of the batch is stored. The answer is 200, listing what was stored and what was rejected,
+  when anything was stored, and 400 when nothing was, so a sender that retries on an error
+  never re-sends readings that were accepted.
 - **Units** are converted from what the sensor declares: °C or °F; mm or inches; percent or
   fraction for soil moisture.
 - **Rain** is mapped as one of two kinds. A *counter* reports a running total; the amount is
@@ -211,14 +223,15 @@ and landscape plants:
 
 | Setting | From |
 |---|---|
-| Home Assistant address and token | `HA_URL` / `HA_TOKEN` when set, which fixes them; otherwise what the owner entered in setup |
-| OpenWeatherMap key | `OWM_API_KEY` when set; otherwise what the owner entered |
+| Home Assistant address and token | The app's stored connection (setup and sources) |
+| OpenWeatherMap key | The app's stored key |
 | Token for posted readings | `SENSOR_TOKEN`; the route is not mounted without it |
 | Forecast provider, sensor mappings | The app's stored settings |
 | The lawn's location | The lawn profile |
 
-An empty environment value means not set. A credential entered in the app is stored
-write-only: no response, log line or error ever carries it. The station and grid clients take
+`HA_URL`, `HA_TOKEN` and `OWM_API_KEY` are read once, on a start that finds nothing stored for
+them, and copied into the app's stored settings; after that they are ignored. A stored
+credential is write-only: no response, log line or error ever carries it. The station and grid clients take
 a station id or a point as an argument and read no setting at all.
 
 ## Failure and Degradation
@@ -227,7 +240,7 @@ a station id or a point as an argument and read no setting at all.
 |---|---|
 | Host unreachable, timeout, 5xx | An outage of that source |
 | 404 for a station-year file | Empty success |
-| Body parses but lacks the span asked for | An outage; nothing partial is returned |
+| Body parses but has a hole inside the span asked for | An outage; nothing partial is returned. Missing days at the end of a grid span are not yet published, not a hole |
 | A value is a sentinel, flagged or implausible | That value `None`, the row kept |
 | Home Assistant entity not numeric | No reading for that sensor; the others are read |
 | Home Assistant unreachable | An outage of the owner's sensors (Home Assistant) |
@@ -238,7 +251,7 @@ a station id or a point as an argument and read no setting at all.
 | Decision | Chosen | Alternatives Considered | Rationale |
 |---|---|---|---|
 | Shape of a client | One per source, each returning rows in the record's units | One generic "provider" interface with per-source configuration | The sources share almost nothing: yearly fixed-width files, a REST API with per-element units, a grid POST. A common return type is the only abstraction that holds. |
-| USCRN access | The per-station yearly files | The network's update feed of all stations per hour | A lawn needs one to six stations. The yearly file serves backfill and updates with one parser, and a conditional request makes an unchanged file free. |
+| USCRN access | The per-station yearly files | The network's update feed of all stations per hour | A lawn needs one to six stations. The yearly file serves backfill and updates with one parser, is no staler than the feed, and a conditional request makes an unchanged file free. |
 | Station history product | `hourly02` for basis stations, `daily01` for calibration stations | Hourly for all; daily for all | The record's coverage rule needs hours for a basis station. Calibration needs only daily soil, at a fortieth of the download. |
 | Hourly analysis provider | Open-Meteo's forecast API past days | Open-Meteo's reanalysis archive; airport observations (IEM) | Against measured stations the forecast API's past hours counted humid hours within 2.9 h a day and agreed 84 % of the time, the archive 3.4 h and 80 %, a nearby airport 3.1 to 4.0 h. One keyless request serves any point. |
 | Soil from Open-Meteo | Never requested | Use it where no station is near | Its rising 55 °F crossing scored 4 \| 21 days with a 4-day early bias against 2 \| 13 for the soil estimate. |
@@ -247,7 +260,7 @@ a station id or a point as an argument and read no setting at all.
 | A quantity a provider lacks | `None` | Zero | "No rain forecast" and "rain not forecast this far out" lead to different advice. |
 | Provider not usable | Forecast off, reason shown | Fall back to the default provider | The owner chose a provider; answering from another without saying so breaks "every answer names its basis". |
 | Posted readings | A bearer-guarded route, mounted only with `SENSOR_TOKEN` | Open to the local network; MQTT; a plug-in per hub | The product must not require Home Assistant (HLD tenet: the product stands alone), and an HTTP POST is what every hub and script can make. A write route with no guard would let anything on the network alter the lawn's record. |
-| Home Assistant reading time | The entity's `last_updated` | The server clock at read time | A stuck sensor otherwise looks current forever. |
+| Home Assistant reading time | The entity's `last_reported`, else `last_updated` | The server clock at read time; `last_updated` alone | A stuck sensor otherwise looks current forever. `last_updated` moves only when the value changes, so a rain counter in a dry week or a steady soil probe would look dead. |
 | Home Assistant units | Read from the entity | A unit setting per entity | The entity already declares it; a setting can only disagree with it. |
 | Rain from a sensor | Declared as counter or amount at mapping | Guess from the readings | The two look alike until a reset or a dry week; a wrong guess doubles or zeroes the rain. |
 | Retries | None inside a client | Retry with back-off in each client | One place (data sync) knows the schedule and what else is due; a client that retries hides an outage and multiplies requests on a struggling host. |

@@ -58,7 +58,8 @@ Rules that hold for every table:
   soil moisture a fraction from 0 to 1. Clients convert and drop sentinels before handing rows
   over; the record stores nothing it would have to interpret later.
 - **Hourly rows are keyed by source and UTC hour; writes are upserts that replace the row.**
-  Station networks revise recent hours after quality control, and a re-fetch must win.
+  Station networks revise recent hours after quality control, and a re-fetch must win,
+  including where it blanks a value published earlier.
 - **Daily rows keep the source's own day.** PRISM's day ends at 12:00 UTC. The record applies
   the mapping to lawn-local days on read (see "Daily sources and the lawn's day").
 - **Daily values of an hourly source are computed on read**, by bucketing its hours into
@@ -98,7 +99,8 @@ a station, or the catalog refresh changes a station in use:
 3. The input's estimate source, if it has one.
 
 Distance is great-circle miles between the lawn and the station. The lawn's elevation is the
-one the hourly analysis reports for the point. A pinned station replaces the default stations
+one the hourly analysis reports for the point. Until that is known the plan is built without
+the elevation rule, and it is rebuilt when the elevation arrives. A pinned station replaces the default stations
 for that input at any distance and is labeled with its true distance.
 
 Without a location the plan is empty and every contract answers with a "location not set"
@@ -114,6 +116,14 @@ Resolution answers: for this input on this lawn-local day, which source speaks?
 |---|---|
 | Hourly | It has at least 12 valid hourly values of the input on that day |
 | Daily | It has a value for that day |
+
+**A day a source has not reached yet is left empty, not filled from below.** Stations trail
+real time by a day or two. A source is *pending* for a day when its newest value is within its
+age limit (data sync's, by kind of source) and falls on that day or an earlier one. While a
+higher-ranked source is pending for a day, no lower-ranked source supplies that day: the input
+is empty there. A lower-ranked source fills a day only when every source above it either
+covers too little of a day it has already passed, or is past its age limit. Rain is the one
+exception (below).
 
 **The day in progress and the live reading** go, per input, to the highest-ranked source whose
 newest value is within the age limit data sync sets for that kind of source. Under that limit
@@ -169,7 +179,7 @@ Names and shapes are the ones consumers already use. Each gains its basis as abo
 |---|---|---|---|
 | `fetch_latest` | `Option<EnvironmentalReading>`: each input's current value and its stamp | Live-reading rule, per input | data sync (via `fetch_summary`) |
 | `fetch_range(start, end)` | Hourly `EnvironmentalReading`s, newest first | Per day, each input from the source that covers the day; a day on a daily basis yields one reading at local noon | `fetch_summary`, `/historical` |
-| `fetch_summary(now)` | `EnvironmentalSummary`: `current`; 7-day means of 10 cm soil, air and humidity; 7-day rain total; soil trend | The 7 local days ending now. A day on a daily basis counts as 24 equal hours | data sync |
+| `fetch_summary(now)` | `EnvironmentalSummary`: `current`; 7-day means of 10 cm soil, air and humidity; 7-day rain total; soil trend | The 168 hours ending at `now`. A day on a daily basis contributes its value for each of its hours that fall inside those 168 | data sync |
 | `fetch_daily_soil_temp_averages` | `(date, soil_temp_10_f)` | Resolved 10 cm soil per complete day | seasonal plan |
 | `fetch_daily_paired_averages` | `(date, air_mean_f, soil_temp_10_f)` for days with both | Daily air mean and resolved 10 cm soil | soil-temperature outlook |
 | `fetch_daily_gdd(start, end)` | `(date, max_f, min_f, gdd50)` | Resolved daily maximum and minimum; `gdd50 = max((max + min) / 2 − 50, 0)` | `/historical`, the GDD endpoint |
@@ -203,10 +213,11 @@ interrupted by a restart resumes where the held span ends.
 Recent spans are re-fetched to pick up revisions: a station's last 3 days on each fetch, and
 PRISM's last 7 days daily.
 
-Until an input's wanted span is held, contracts that read long history (`fetch_climate_record`,
+Until every source in an input's plan holds its wanted span, contracts that read long history (`fetch_climate_record`,
 `fetch_daily_soil_temp_averages`, `fetch_daily_paired_averages`) answer with a "history still
-loading" outage naming the progress. Contracts over recent days answer as soon as their own
-window is held.
+loading" outage naming the progress. Waiting for every source keeps typical dates from appearing on the estimate and
+then moving when a station's history lands. Contracts over recent days answer as soon as
+their own window is held.
 
 When the plan changes, sources that left it stop being fetched and new ones start with an empty
 held span. Rows of a station or grid point no longer in the plan are deleted once the sources
@@ -220,7 +231,7 @@ change.
 | No location | Every contract: "location not set" outage |
 | A source cannot be reached | Nothing is written; held data keeps answering. Data sync's age limits decide when the live reading falls to the next basis or is withheld |
 | A station's probe drops hours | Days with at least 12 valid hours stay measured; the others fall to the next source in the plan for that input, and the basis spans show it |
-| A station stops reporting | Its days end; later days come from the next source. For soil that is the anchored estimate; for soil moisture, nothing |
+| A station stops reporting | Its days end. Days after its last one stay empty until it is past its age limit, then come from the next source. For soil that is the anchored estimate; for soil moisture, nothing |
 | PRISM unavailable | Daily air and rain come from the NRCC grid and the hourly analysis for the days missing, replaced when PRISM returns |
 | The hourly analysis unavailable, no station within 10 mi, no sensor | No hourly air or humidity: disease inputs stop at the last day held; daily air, soil and rain are unaffected |
 | Backfill incomplete | Long-history contracts: "history still loading" outage |
@@ -243,6 +254,9 @@ change.
 | PRISM temperature's day | Left on PRISM's day | Shift the maximum to the previous day | Freeze dates and GDD were scored unshifted (1 \| 9 and 2 \| 5 days). The minimum falls near dawn of the labeled day. |
 | Sensor readings | Stored raw for 7 days and folded into hourly rows | Hourly rows only; raw kept forever | The live reading needs the newest instant, the models need hours. A sensor reporting each minute would otherwise write half a million rows a year per input. |
 | Location change | Rebuild the plan; delete the old point's station and grid rows once their replacements are backfilled; keep sensor rows | Keep every location's data | The record describes one lawn. Old points would be dead weight no contract reads. A sensor is the owner's and travels with them. |
+| Seven-day figures | The 168 hours ending now | The 7 local days ending now | A rule reading the rain total in the morning should see a full week, not six days and a morning. |
+| A revised value that is now blank | Replaces the held value | Keep the earlier value | The network withdrew the reading; keeping it would preserve a value its own quality control rejected. |
+| A day the station has not reported yet | Empty until the station reports it or passes its age limit | Fill it from the estimate at once | The estimate would be shown for a day or two and then replaced by the measurement, so a crossing dated on Monday could move on Wednesday, and one surface could call a day estimated while another showed the station as current. |
 | Long history while loading | A "history still loading" outage | Answer from the years held so far | Typical dates from three of fifteen years would be shown with the confidence of fifteen (HLD tenet: withhold rather than invent). |
 | Disease inputs in °C | Kept in °C at the contract, converted from stored °F | Change the contract to °F | The disease models' published constants are in °C; the contract keeps the shape its consumer was verified on. |
 

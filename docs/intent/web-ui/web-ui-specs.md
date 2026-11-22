@@ -6,7 +6,7 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 
 ## Shell and routing
 
-- [x] **UI-SHELL-001**: The web UI shall render every route inside one layout route, so the sidebar persists across navigation, with these routes: `/` (Dashboard), `/applications`, `/inventory`, `/landscape`, `/calendar`, `/environmental`, `/recommendations`, `/disease-risk`, `/disease-risk/:slug`, `/timing`, `/soil-tests`, `/seasonal-plan`, `/settings`, and a `*` wildcard.
+- [ ] **UI-SHELL-001**: The web UI shall render every route inside one layout route, so the sidebar persists across navigation, with these routes: `/` (Dashboard), `/applications`, `/inventory`, `/landscape`, `/calendar`, `/environmental`, `/recommendations`, `/disease-risk`, `/disease-risk/:slug`, `/timing`, `/soil-tests`, `/seasonal-plan`, `/sources`, `/setup`, `/settings`, and a `*` wildcard.
 - [x] **UI-SHELL-002**: When the browser is on a path no route matches, the web UI shall show "Page Not Found" inside the layout with a "Go to Dashboard" link to `/`.
 - [x] **UI-SHELL-003**: The web UI shall load each page as its own lazily imported chunk and show "Loading..." while a page chunk loads.
 - [x] **UI-SHELL-004**: If rendering any page throws (a failed page-chunk load included), then the web UI's error boundary shall replace the app with "Something went wrong" and a "Return to Dashboard" button that clears the error and does a full navigation to `/`.
@@ -16,9 +16,9 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 
 ## Navigation
 
-- [x] **UI-NAV-001**: The web UI sidebar shall be a navigation landmark labelled "Main navigation" with the "TurfOps" wordmark and twelve links in this order: Dashboard, Applications, Inventory, Landscape, Calendar, Environmental, Recommendations, Disease Risk, Seed & Pre-Em Timing, Soil Tests, Seasonal Plan, Settings.
+- [ ] **UI-NAV-001**: The web UI sidebar shall be a navigation landmark labelled "Main navigation" with the "TurfOps" wordmark and thirteen links in this order: Dashboard, Applications, Inventory, Landscape, Calendar, Environmental, Recommendations, Disease Risk, Seed & Pre-Em Timing, Soil Tests, Seasonal Plan, Sources, Settings.
 - [x] **UI-NAV-002**: The web UI sidebar shall mark the active link by bold weight as well as color and background, and shall mark the Dashboard link active only on `/` itself.
-- [x] **UI-NAV-003**: While the browser viewport is too narrow for the 220 px web UI sidebar beside the page (phone width), the web UI shall collapse the sidebar into a narrow-screen layout that gives the page the full width and keeps all twelve nav links reachable from a menu control inside the "Main navigation" landmark.
+- [ ] **UI-NAV-003**: While the browser viewport is too narrow for the 220 px web UI sidebar beside the page (phone width), the web UI shall collapse the sidebar into a narrow-screen layout that gives the page the full width and keeps all thirteen nav links reachable from a menu control inside the "Main navigation" landmark.
 
 ## Dashboard data loading
 
@@ -38,8 +38,8 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 ## Human-readable errors
 
 - [x] **UI-ERR-001**: When an `/api/v1` handler fails, the API shall respond with the JSON body `{"error": "<message>"}` and status 404 (not found), 400 (invalid data), 409 (duplicate application-log entry), 503 (data source unavailable) or 500 (anything else).
-- [x] **UI-ERR-002**: If an `/api/v1` request fails for an internal reason (configuration, database, I/O or parse error), then the API shall log the detail and respond 500 with the error message "Something went wrong on the server. Try again; the details are in the server log."; a weather-lake query failure is instead the lake's 503 (WX-SRC-LAKE-014).
-- [x] **UI-ERR-003**: The API's `error` message shall be written for the owner and shall not contain upstream response bodies, raw LLM output, URLs or internal error text (OpenRouter, OpenWeatherMap, Home Assistant or lake details); that detail shall go to the log only.
+- [ ] **UI-ERR-002**: If an `/api/v1` request fails for an internal reason (configuration, database, I/O or parse error), then the API shall log the detail and respond 500 with the error message "Something went wrong on the server. Try again; the details are in the server log.".
+- [ ] **UI-ERR-003**: The API's `error` message shall be written for the owner and shall not contain upstream response bodies, raw LLM output, URLs or internal error text (OpenRouter, forecast-provider, Home Assistant or weather-source details); that detail shall go to the log only.
 - [x] **UI-ERR-004**: When an API request returns a non-2xx status, the API client shall raise an error that carries the HTTP status (for page logic) and the `error` message unwrapped from the `{"error": …}` body, never the raw body text.
 - [x] **UI-ERR-005**: Every error message the web UI shows (pages, widgets and forms) shall be plain language saying what went wrong and, where there is one, what to do, and shall never show raw JSON, a bare HTTP status code, a stack trace, a file path or an upstream service's response body.
 - [x] **UI-ERR-006**: When a profile-scoped API request returns 404 because no lawn profile exists, the web UI shall say the lawn profile is not set up and point the owner to Settings.
@@ -48,6 +48,7 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 - [x] **UI-ERR-009**: When an API request returns 400 or 409, the web UI shall show the server's `error` message as written, with no status prefix.
 - [x] **UI-ERR-010**: When an API request returns 500, the web UI shall say that something went wrong on the server and to try again, without the response body.
 - [x] **UI-ERR-011**: The web UI's error boundary shall not show the exception's message text, only "Something went wrong" and the Return to Dashboard action.
+- [ ] **UI-ERR-012**: When a page's weather request fails because the lawn has no location, the page shall show the shared setup notice (SETUP-FLOW-001) in place of its weather content, not an error message.
 
 ## Shared type mirror
 
@@ -62,7 +63,7 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 - [x] **UI-UTIL-002**: Wherever the web UI displays a calendar date (`YYYY-MM-DD`) from the API, it shall show that same calendar day, parsing it on the local calendar or splitting the string, never as UTC midnight.
 - [x] **UI-UTIL-003**: Wherever the web UI shows precipitation, it shall convert the API's millimetres to inches in the browser (25.4 mm per inch), formatted to two decimals with "in" by default.
 - [x] **UI-UTIL-004**: When the web UI shows a recommendation category, it shall split the PascalCase variant into words ("DiseasePressure" → "Disease Pressure").
-- [x] **UI-UTIL-005**: When the date in the web UI's application or soil-test form is later than the server's today (the lawn-local date under `TZ`, not the browser's clock), the form shall warn that the date is in the future, without blocking the save.
+- [x] **UI-UTIL-005**: When the date in the web UI's application or soil-test form is later than the server's today (the lawn-local date from the app clock, not the browser's clock), the form shall warn that the date is in the future, without blocking the save.
 - [x] **UI-UTIL-006**: The web UI shall define its calendar-date display helpers (formatting an API `YYYY-MM-DD` date, or its day of month, without a timezone shift) once in `utils/dates.ts`, and pages and feature type modules shall import them rather than define their own.
 
 ## Presentation conventions

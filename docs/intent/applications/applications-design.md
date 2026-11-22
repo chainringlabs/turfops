@@ -32,7 +32,7 @@ The system is single-lawn. Every handler resolves "the" profile as the lowest-id
 | `irrigation_type` | `IrrigationType?` | `InGround` · `Hose` · `None`. Stored and shown, but no logic reads it. |
 | `latitude`, `longitude` | f64? each | The lawn's location, set and cleared together. Must lie in the contiguous United States (latitude 24.5 to 49.5, longitude −125 to −66.9). The weather record resolves stations and the grid point from it. Stored to 4 decimal places (about 10 m). |
 | `place_name` | text? | What the owner searched for or typed, shown beside the coordinates. Never sent anywhere. |
-| `timezone` | text? | IANA zone name for the location, derived when the location is set; not editable. The app's `Clock` runs in it unless `TZ` overrides. |
+| `timezone` | text? | IANA zone name for the location, derived when the location is set; not editable. The app's `Clock` runs in it. |
 
 **The location is the lawn's one weather setting.** Without it the profile is valid and the log works, and every weather-dependent surface directs the owner to setup.
 
@@ -67,7 +67,7 @@ A grass type stored in the DB that cannot be parsed reads back as `TallFescue` w
 | Method | Path | Behavior |
 |---|---|---|
 | GET | `/api/v1/profile` | The profile; 404 `No lawn profile found` if the table is empty. |
-| PUT | `/api/v1/profile` | Partial update. An absent field is left alone. For `soil_type` / `irrigation_type`, `""` clears the field. For `lawn_size_sqft`, a value ≤ 0 clears it. An unknown enum value returns 400. The response re-reads the row so `updated_at` comes from the DB. When no profile exists, the same request creates it, with any omitted field filled as startup seeding does (`Main Lawn`, `TallFescue`, `7a`, optional fields unset). `latitude` and `longitude` must arrive together; one without the other, or a point outside the contiguous United States, is a 400 saying so. A changed location sets `timezone`, replaces the app's clock, has the weather record rebuild its basis plan, and wakes the fetch schedule, in that order, before the response. |
+| PUT | `/api/v1/profile` | Partial update. An absent field is left alone. For `soil_type` / `irrigation_type`, `""` clears the field. For `lawn_size_sqft`, a value ≤ 0 clears it. An unknown enum value returns 400. The response re-reads the row so `updated_at` comes from the DB. When no profile exists, the same request creates it, with any omitted field filled as startup seeding does (`Main Lawn`, `TallFescue`, `7a`, optional fields unset). `latitude` and `longitude` must arrive together; one without the other, or a point outside the contiguous United States, is a 400 saying so. A changed location sets `timezone`, replaces the app's clock with one in that zone, has the weather record rebuild its basis plan, and wakes the fetch schedule, in that order, before the response. |
 
 ## Application Log
 

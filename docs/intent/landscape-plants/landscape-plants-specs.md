@@ -2,7 +2,7 @@
 
 Design: [landscape-plants-design.md](landscape-plants-design.md). Prefix `PLANT`. Facets: `DATA` (plant model and stored plan), `API` (plants endpoints), `AI` (shared OpenRouter client), `PROMPT` (plant care-plan prompt and schema), `WIN` (maintenance windows and completion), `REC` (plant task recommendations), `WATER` (watering hold-back), `PLAN` (seasonal-plan activities), `UI` (Landscape page).
 
-A **care plan** is the LLM-written list of maintenance **tasks** cached on a plant; each task has a type, a yearly **window** given as "MM-DD" start and end strings, a frequency, a description, a severity and an optional zone note. "Today" below is the lawn's local date from the app clock (governed by `TZ`). A **plant-linked application** is a log entry whose `plant_id` is that plant (plant-scoped application types and the link are owned by Applications).
+A **care plan** is the LLM-written list of maintenance **tasks** cached on a plant; each task has a type, a yearly **window** given as "MM-DD" start and end strings, a frequency, a description, a severity and an optional zone note. "Today" below is the lawn's local date from the app clock. A **plant-linked application** is a log entry whose `plant_id` is that plant (plant-scoped application types and the link are owned by Applications).
 
 ## Plant model and stored plan
 
@@ -78,9 +78,9 @@ A **care plan** is the LLM-written list of maintenance **tasks** cached on a pla
 
 ## Watering hold-back
 
-- [x] **PLANT-WATER-001**: While forecast rain over the OpenWeatherMap points timed within the next 48 hours (the first point being the current weather) totals at least 2.5 mm, the landscape-plant source shall not emit Watering task recommendations.
-- [x] **PLANT-WATER-002**: While the weather lake's 7-day precipitation total is at least 25 mm, the landscape-plant source shall not emit Watering task recommendations.
-- [x] **PLANT-WATER-003**: While the station's current soil moisture (10 cm, else 5 cm, else 20 cm) is at least 0.20, the landscape-plant source shall not emit Watering task recommendations.
+- [ ] **PLANT-WATER-001**: While forecast rain over the forecast points timed within the next 48 hours (the first point being the current slot) totals at least 2.5 mm, the landscape-plant source shall not emit Watering task recommendations.
+- [ ] **PLANT-WATER-002**: While the environmental summary's 7-day precipitation total is at least 25 mm, the landscape-plant source shall not emit Watering task recommendations.
+- [ ] **PLANT-WATER-003**: While the lawn's current soil moisture (10 cm, else 5 cm, else 20 cm) is present and at least 0.20, the landscape-plant source shall not emit Watering task recommendations; where the lawn has no soil moisture, only the two rain signals shall be judged.
 - [x] **PLANT-WATER-004**: The watering hold-back shall use the same rain and soil-moisture threshold constants as the lawn irrigation rule (owned by Agronomic rules), not a separate plant set.
 - [x] **PLANT-WATER-005**: If a watering signal (forecast rain, 7-day rain or soil moisture) is unavailable, then the landscape-plant source shall treat it as not holding the reminder back, so with no weather data a Watering task recommendation still fires.
 - [x] **PLANT-WATER-006**: When the landscape-plant source emits a Watering task recommendation, it shall add data points for whichever of 7-day rain, forecast rain and soil moisture are known, with rain shown in inches.

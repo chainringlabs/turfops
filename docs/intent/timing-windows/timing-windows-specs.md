@@ -2,7 +2,7 @@
 
 Design: [timing-windows-design.md](timing-windows-design.md). Method: `docs/timing-windows.md`. Prefix `TIME`. Areas: `ENG` (window engine and the `/timing-windows` response), `LOG` (seed vs. pre-emergent exclusivity), `FEED` (timing recommendations and companions), `PLAN` (seasonal-plan activities), `UI` (Timing page and dashboard widget).
 
-"Soil" below is the station's daily mean **5 cm** soil temperature. "Smoothed soil" is its trailing 5-day calendar mean (needs ≥ 4 of the 5 days). A "crossing" holds when the smoothed soil reaches a threshold in its direction (rising ≥, falling ≤) and stays there.
+"Soil" below is the lawn's daily mean **5 cm** soil temperature as the weather record resolves it: "measured" on a day whose basis is the owner's sensor or a station, "estimated" on a day that rests on the soil estimate (`WX-EST`). "Observed" means a day the record holds, measured or estimated, as opposed to a forecast day. "Datable" is the soil estimate's answer for a threshold and direction at 5 cm for this lawn (WX-EST-DATE-001). "Smoothed soil" is its trailing 5-day calendar mean (needs ≥ 4 of the 5 days). A "crossing" holds when the smoothed soil reaches a threshold in its direction (rising ≥, falling ≤) and stays there.
 
 ## Window engine
 
@@ -17,9 +17,9 @@ Design: [timing-windows-design.md](timing-windows-design.md). Method: `docs/timi
 ### Series and the soil forecast
 
 - [x] **TIME-ENG-006**: When building a season's soil series, the system shall append forecast soil points after the observed points and then apply the trailing 5-day smoothing, leaving a gap wherever fewer than 4 of the 5 days exist.
-- [x] **TIME-ENG-007**: When forecasting soil for the timing windows, the system shall fit the air→soil regression on the 30 days ending at the last soil observation, drive it with one continuous air series (station daily mean air preferred over forecast (high + low) / 2, gaps of up to 7 days linearly interpolated), shift every prediction by the model's error on the last observed day, and keep only days after that day.
-- [x] **TIME-ENG-008**: If there is no soil observation, no forecast, or no usable regression fit, then the timing windows shall have no forecast soil points.
-- [x] **TIME-ENG-009**: The timing windows shall use only full forecast days (`full_days()`), never a partial first or last day.
+- [ ] **TIME-ENG-007**: When forecasting soil for the timing windows, the system shall drive the forecast with one continuous air series (the record's daily mean air preferred over forecast (high + low) / 2, gaps of up to 7 days linearly interpolated); while the last soil day is measured and at least 14 of the last 30 days are, it shall fit the air→soil regression on the measured days among the 30 ending at the last soil observation, shift every prediction by the model's error on the last observed day, and keep only days after that; otherwise it shall take the soil estimate's forward series at 5 cm over that air series.
+- [ ] **TIME-ENG-008**: If there is no soil observation, no forecast, or neither a usable regression fit nor a soil estimate, then the timing windows shall have no forecast soil points.
+- [ ] **TIME-ENG-009**: The timing windows shall use only full forecast days (`full_days()`), never a partial first or last day, and no more than the first 10 of them.
 
 ### Sustained crossings
 
@@ -27,12 +27,12 @@ Design: [timing-windows-design.md](timing-windows-design.md). Method: `docs/timi
 - [x] **TIME-ENG-011**: When detecting a soil crossing, the system shall confirm a run once it holds for 5 observed days, never counting forecast days toward confirmation.
 - [x] **TIME-ENG-012**: When detecting a soil crossing, the system shall keep an unconfirmed run only if it is still in progress on the last day of the series.
 - [x] **TIME-ENG-013**: If the smoothed soil is already past the threshold on the scan's first day, then the system shall date the crossing's run from that day.
-- [x] **TIME-ENG-014**: When a run's first day immediately follows a hole in the data (other than the scan's first day), the system shall flag the crossing `after_gap`.
+- [x] **TIME-ENG-014**: When a run's first day immediately follows a hole in the data (a day with no soil value, measured or estimated) (other than the scan's first day), the system shall flag the crossing `after_gap`.
 
 ### Climatology and typical dates
 
-- [x] **TIME-ENG-015**: The system shall use as history years the complete calendar years before the current year that have at least 300 days of soil data, up to 15 years.
-- [x] **TIME-ENG-016**: The system shall treat a day with gold air minimum ≤ 32°F as a freeze, the last freeze in January–June as the last spring freeze, and the first freeze on or after Aug 1 as the first fall freeze.
+- [ ] **TIME-ENG-015**: The system shall use as history years the complete calendar years before the current year that have at least 300 days of soil data, measured or estimated, up to 15 years.
+- [ ] **TIME-ENG-016**: The system shall treat a day whose resolved daily air minimum is ≤ 32°F as a freeze, the last freeze in January–June as the last spring freeze, and the first freeze on or after Aug 1 as the first fall freeze.
 - [x] **TIME-ENG-017**: The system shall count a past year's first fall freeze only when at least 90% of days from Sep 15 to that freeze have an air minimum, and a last spring freeze only when at least 90% of days from that freeze to May 31 do.
 - [x] **TIME-ENG-018**: The system shall count a season's GDD boundary as reached on the day running GDD (base 50°F) reaches the target, only when at least 80% of the days elapsed in that year have a GDD value.
 - [x] **TIME-ENG-019**: When dating a boundary in a history year, the system shall use the confirmed soil crossing (dropping it when flagged `after_gap`), that year's own sound first fall freeze minus the buffer, or that year's GDD date; for an earliest-of boundary it shall use the earliest option and drop the year when any option is missing.
@@ -48,9 +48,9 @@ Design: [timing-windows-design.md](timing-windows-design.md). Method: `docs/timi
 - [x] **TIME-ENG-026**: The system shall resolve a before-first-freeze boundary for the current season from the median of the history years' freeze-anchored dates, as Typical, passed once that date is on or before today, never from this year's or a forecast freeze.
 - [x] **TIME-ENG-027**: When a GDD boundary has been reached this season, the system shall resolve it as Observed and passed; otherwise it shall resolve it from its typical date.
 - [x] **TIME-ENG-028**: When resolving an earliest-of boundary, the system shall take the earliest-dated passed option that is not Tentative, else the earliest-dated Tentative option, else the earliest-dated unpassed option, else an undated unpassed boundary, so a confirmed close is never downgraded by an earlier tentative one.
-- [x] **TIME-ENG-029**: When resolving a boundary from its typical date, the system shall use the median as a not-passed estimate while the median is ahead or while the data is fresh and the station has not yet reported a day past the median.
+- [x] **TIME-ENG-029**: When resolving a boundary from its typical date, the system shall use the median as a not-passed estimate while the median is ahead or while the data is fresh and the record does not yet hold a soil day past the median.
 - [x] **TIME-ENG-030**: When resolving a boundary from its typical date with the scan range ended or the data stale, the system shall use the median as passed.
-- [x] **TIME-ENG-031**: If a boundary's typical date has passed, the data is fresh and the station has reported past it, and no crossing has occurred, then the system shall mark the boundary overdue with no date and not passed.
+- [x] **TIME-ENG-031**: If a boundary's typical date has passed, the data is fresh and the record holds a soil day past it, and no crossing has occurred, then the system shall mark the boundary overdue with no date and not passed.
 - [x] **TIME-ENG-032**: If a boundary has no history years, then the system shall leave it undated.
 
 ### Window states and text
@@ -64,14 +64,20 @@ Design: [timing-windows-design.md](timing-windows-design.md). Method: `docs/timi
 ### Inputs, today and the response
 
 - [x] **TIME-ENG-038**: The system shall memoize the 15-year climate record in memory for one hour and store nothing derived from it in Postgres.
-- [x] **TIME-ENG-039**: The timing windows shall use the server's local date (the app clock, governed by `TZ`) as "today" for every date gate, season year and history window, including the start year of the climate record.
-- [x] **TIME-ENG-040**: When `GET /api/v1/timing-windows` is called, the system shall return generated-at time, today, station, the latest smoothed 5 cm soil with its as-of date, freeze statistics, every window with its state, headline, detail, four boundary views (label, typical statistics, date, source, passed, days held), done date, conflict and guidance, the season context, the soil series, the history years, and data notes.
-- [x] **TIME-ENG-041**: If `GET /api/v1/timing-windows` is called with no lawn profile, then the system shall return 404; with no weather lake configured, 503.
+- [x] **TIME-ENG-039**: The timing windows shall use the lawn's local date (the app clock) as "today" for every date gate, season year and history window, including the start year of the climate record.
+- [ ] **TIME-ENG-040**: When `GET /api/v1/timing-windows` is called, the system shall return generated-at time, today, the basis of 5 cm soil and of daily air (today's, and their spans over the current year), the latest smoothed 5 cm soil with its as-of date, freeze statistics, every window with its state, headline, detail, four boundary views (label, typical statistics with the count of estimated years, date, source, passed, days held, whether the date is estimated and, when it is, its typical error in days), done date, conflict and guidance, the season context, the soil series, the history years, and data notes.
+- [ ] **TIME-ENG-041**: If `GET /api/v1/timing-windows` is called with no lawn profile, then the system shall return 404; when the weather record returns the location-not-set or history-still-loading outage, 503 with that outage's sentence.
 - [x] **TIME-ENG-042**: The season context shall report 7-day soil and 30-day air anomalies against the same calendar window in the history years (each needing ≥ 70% coverage and ≥ 3 baseline years), one summary sentence preferring soil, and forecast alerts for the first low ≤ 32°F and the count of highs ≥ 90°F; anomalies shall never shift a date.
-- [x] **TIME-ENG-043**: The soil series shall cover every day of the current calendar year with this year observed, forecast, last year, and the typical year (mean of the history years, needing ≥ 3 years), all smoothed and rounded to 0.1°F.
+- [ ] **TIME-ENG-043**: The soil series shall cover every day of the current calendar year with this year observed, forecast, last year, and the typical year (mean of the history years, needing ≥ 3 years), all smoothed and rounded to 0.1°F, with each day's this-year and last-year value flagged when estimated.
 - [x] **TIME-ENG-044**: The response shall include a data note when soil data is stale or absent, when there are fewer than 5 history years, and when there is no forecast.
-- [x] **TIME-ENG-045**: If refreshing the environmental data (forecast) fails while computing the timing windows, then the system shall evaluate the windows without the forecast and add the no-forecast data note instead of failing the request.
+- [ ] **TIME-ENG-045**: If the summary carries no forecast while computing the timing windows, then the system shall evaluate the windows without the forecast and add the no-forecast data note instead of failing the request.
 - [x] **TIME-ENG-046**: When the climate record served is the last good read rather than a fresh one (SYNC-MEMO-002), the response shall include a data note saying so and when it was read.
+- [ ] **TIME-ENG-047**: The system shall treat a soil run as estimated when any of its first 5 observed days is estimated, and as measured otherwise.
+- [ ] **TIME-ENG-048**: When an estimated soil run's threshold and direction are datable, the system shall resolve and date the boundary as it would for a measured run, mark the result estimated, and attach the estimate's scored median error in days.
+- [ ] **TIME-ENG-049**: When an estimated soil run's threshold and direction are not datable, the system shall treat the boundary as having no usable run, this season and in every history year.
+- [ ] **TIME-ENG-050**: If a window has a soil boundary that is not datable and no history year dates that boundary from a measured run, then the system shall leave that window out of the response and add a data note naming the window and saying the lawn's soil basis cannot date it.
+- [ ] **TIME-ENG-051**: A boundary's typical statistics shall count how many of the history years that produced a date did so from an estimated run.
+- [ ] **TIME-ENG-052**: The response shall include a data note when the current season's soil is estimated, giving the estimate's typical error, and a data note giving the date when the soil's basis changed during the current year.
 
 ## Seed vs. pre-emergent exclusivity
 
@@ -83,7 +89,7 @@ Design: [timing-windows-design.md](timing-windows-design.md). Method: `docs/timi
 ## Timing recommendations and companions
 
 - [x] **TIME-FEED-001**: When adding timing recommendations to the feed, the system shall emit them for Primary windows only: OpeningSoon at Info; Open or Ideal at Advisory (fall pre-emergent at Info); Closing at Warning (fall pre-emergent at Advisory); spring pre-emergent Closed with its close dated within the last 21 days at Warning; any other state emits nothing.
-- [x] **TIME-FEED-002**: Each timing recommendation shall have the id `timing_<window>_<season_year>`, category PreEmergent or Overseeding, the title "name — headline", the detail as description, the guidance as suggested action, and data points for the 5 cm mean, Opens, Ideal until and Closes.
+- [ ] **TIME-FEED-002**: Each timing recommendation shall have the id `timing_<window>_<season_year>`, category PreEmergent or Overseeding, the title "name — headline", the detail as description, the guidance as suggested action, and data points for the 5 cm mean with its basis, Opens, Ideal until and Closes, each date marked estimated when it is.
 - [x] **TIME-FEED-003**: When emitting a fall seeding recommendation, the system shall add a seed-amount note with seed per 1,000 sq ft and, when the lawn profile records a lawn size, the total seed for that size.
 - [x] **TIME-FEED-009**: If the lawn profile records no lawn size, then the fall seeding recommendation's seed-amount note shall state seed per 1,000 sq ft only, never a total for an assumed size.
 - [x] **TIME-FEED-004**: When emitting a pre-emergent window recommendation for a window that is not Closed, the system shall declare a Herbicide · PreEmergent need; when emitting a seeding window recommendation, a Seed need for the lawn's species (Mixed accepts Kentucky bluegrass, tall fescue, perennial ryegrass or fine fescue).
@@ -99,16 +105,16 @@ Design: [timing-windows-design.md](timing-windows-design.md). Method: `docs/timi
 - [x] **TIME-PLAN-003**: The system shall omit a plan activity whose window is blocked by the log (aeration with seeding), or whose open or close has no typical date.
 - [x] **TIME-PLAN-004**: The system shall list in `owned_ids` every seasonal-plan id the timing windows answer for, including blocked ones, so the plan removes their 10 cm versions.
 - [x] **TIME-PLAN-005**: When the plan's fall overseeding activity is built, it shall carry the same seed amount per 1,000 sq ft as the fall seeding recommendation.
-- [x] **TIME-PLAN-006**: If the weather lake is unavailable or there are no timing activities, then the timing plan builder shall return nothing, so the seasonal plan keeps its own activities.
+- [ ] **TIME-PLAN-006**: If the weather record cannot answer or there are no timing activities, then the timing plan builder shall return nothing, so the seasonal plan keeps its own activities.
 - [x] **TIME-PLAN-007**: When building timing activities for the season being lived now, the system shall evaluate the windows with the same inputs as the Timing page, forecast included, so each activity's status matches the window's state on the page.
 
 ## Timing page and dashboard widget
 
-- [x] **TIME-UI-001**: The Timing page shall show, in order: data notes; tiles for the 5 cm 5-day mean with its as-of date, the last spring freeze median with "as late as" p90, and the first fall freeze median with this year's freeze if seen, else "as early as" p10; the context summary with forecast alerts; Primary window cards sorted by urgency (Closing, Ideal, Open, OpeningSoon, NotYet, Done, Blocked, Closed); the soil season chart; Secondary and Optional cards under "Other seeding options"; and a collapsible "How this is calculated".
+- [ ] **TIME-UI-001**: The Timing page shall show, in order: data notes; tiles, each with the shared basis label, for the 5 cm 5-day mean with its as-of date, the last spring freeze median with "as late as" p90, and the first fall freeze median with this year's freeze if seen, else "as early as" p10; the context summary with forecast alerts; Primary window cards sorted by urgency (Closing, Ideal, Open, OpeningSoon, NotYet, Done, Blocked, Closed); the soil season chart; Secondary and Optional cards under "Other seeding options"; and a collapsible "How this is calculated".
 - [x] **TIME-UI-002**: Wherever the UI shows a window state, it shall show the state's symbol and label on a tint of its status color with ink text, never the color alone.
-- [x] **TIME-UI-003**: Each window card shall show the name and season year, headline, state badge, conflict message, detail, timeline, a trigger table (trigger, typical median with earliest–latest and year count, this season with source and "held N of 5 days"), typical-date confidence, and guidance.
+- [ ] **TIME-UI-003**: Each window card shall show the name and season year, headline, state badge, conflict message, detail, timeline, a trigger table (trigger, typical median with earliest–latest and year count, this season with source, "held N of 5 days" and, for an estimated date, "estimated" with its typical error), typical-date confidence, and guidance.
 - [x] **TIME-UI-004**: When a boundary has no date but has a typical date, the window card shall read "Later than usual — not yet seen", never a date.
 - [x] **TIME-UI-005**: The window timeline shall draw one blue ramp (earliest–latest on record, typical open → close, the ideal stretch), a Today marker, and an aria-label giving the typical dates, and shall be hidden when the open or close typical date is missing.
-- [x] **TIME-UI-006**: The soil season chart shall draw this year in `#2a78d6` solid, the forecast in the same hue dashed and joined to the last observed day, last year in `#eb6834`, and the typical year neutral dotted, with 10°F ticks, the fall thresholds from July and the spring thresholds before, a default range of 75 days before to 60 days after today with a full-year toggle, and a table view.
+- [ ] **TIME-UI-006**: The soil season chart shall draw this year in `#2a78d6` solid, the forecast in the same hue dashed and joined to the last observed day, last year in `#eb6834`, the typical year as a thin neutral line, estimated stretches of this year and last year dotted in their own hue with a marker at each change of basis, with 10°F ticks, the fall thresholds from July and the spring thresholds before, a default range of 75 days before to 60 days after today with a full-year toggle, and a table view.
 - [x] **TIME-UI-007**: The dashboard timing widget shall list the Primary windows sorted by urgency with headline and state badge, linking to `/timing`.
-- [x] **TIME-UI-008**: If the timing-windows fetch fails, then the Timing page shall show a plain-language error that says what went wrong and what to do (no lawn profile → set one up in Settings; weather lake unavailable or not configured → say so), never raw status codes, JSON or internal detail.
+- [ ] **TIME-UI-008**: If the timing-windows fetch fails, then the Timing page shall show a plain-language error that says what went wrong and what to do (no lawn profile → set one up in Settings; location not set or weather history still loading → the server's sentence), never raw status codes, JSON or internal detail.

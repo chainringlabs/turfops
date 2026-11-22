@@ -110,7 +110,9 @@ Assembly, in order:
 
    | Kind of source | Current while no older than |
    |---|---|
-   | Owner's sensor | 1 hour |
+   | Owner's sensor: air temperature, humidity | 1 hour |
+   | Owner's sensor: soil temperature, soil moisture | 6 hours |
+   | Owner's sensor: rain | No limit |
    | Hourly analysis | 3 hours |
    | Station | 72 hours |
    | Daily estimate (soil estimate, grid) | 72 hours after the end of the day it is for |
@@ -162,7 +164,7 @@ Status is one entry per source in use, in the shape the environmental views defi
 | A station stops reporting | Its inputs stay current for 72 h, then fall to the next basis (the estimate for soil temperature; nothing for soil moisture). `soil_stale` only if no basis is left | Automatic when it resumes |
 | The grid cannot be reached | Daily air, rain and the estimate stay current for 72 h after their last day, then are withheld | Retried on the lengthening interval |
 | The hourly analysis cannot be reached | Approximate air and humidity withheld after 3 h where no sensor or near station supplies them | As above |
-| Home Assistant unreachable or an entity not numeric | That sensor's inputs fall to the next basis after 1 h | Next 5-minute read |
+| Home Assistant unreachable or an entity not numeric | That sensor's input falls to the next basis once its age limit passes; rain keeps its last totals | Next 5-minute read |
 | The forecast provider fails | The last forecast is kept while under 6 h old | As above |
 | The database cannot be read | The previous summary for up to 5 minutes, then empty weather fields | Next request |
 | Backfill incomplete | The summary is unaffected: it needs only recent days | The schedule continues |
@@ -185,7 +187,7 @@ Status is one entry per source in use, in the shape the environmental views defi
 | Fetch time within the hour | A random minute offset fixed per installation | The top of the hour | Many installations calling a public file server in the same second is the load pattern a polite client avoids. |
 | Retry after a failure | 5 minutes, 15 minutes, then hourly, per source and product | Retry every loop; a fixed 5 minutes; give up after N tries | A short first retry rides out a blip; hourly is no more than the normal rhythm, so a long outage costs the host nothing extra and recovery is noticed within the hour. |
 | Summary assembly | Read from the record on request, memoized one minute | Rebuilt by the schedule after each fetch and held in memory; no memo | The record is local and the queries small, so a request-time read is always consistent with the record. One minute spares a dashboard load's several handlers from repeating it. |
-| Age limits | 1 h sensor, 3 h hourly analysis, 72 h station and daily estimate | One limit for everything; limits inside the record | A sensor is at the lawn and reports every few minutes, so an hour of silence is a fault; a station legitimately trails by a day or more. How old "current" may be is a judgment about presentation, which belongs with the summary. |
+| Age limits | Sensors by input (1 h air and humidity, 6 h soil, none for rain), 3 h hourly analysis, 72 h station and daily estimate | One limit for everything; one limit for every sensor; limits inside the record | An air sensor reports every few minutes, so an hour of silence is a fault; soil changes slowly and probes report less often; a rain gauge is silent whenever it is dry. A station legitimately trails by a day or more. How old "current" may be is a judgment about presentation, which belongs with the summary. |
 | Past the age limit | Fall to the next basis in the plan, then withhold | Withhold at once | A station down for a week should hand soil temperature to the estimate, labeled as such, not blank the lawn's advice (HLD: measured where near, estimated where not). |
 | 7-day figures when an input is withheld | Withheld with it | Computed from whatever days exist | Rules read them as this week's weather. |
 | Forecast reuse | The last forecast while under 6 h old | Drop on the first failure; reuse indefinitely | One failed fetch should not silence every forecast rule, but a forecast older than a few hours no longer describes the coming days. |

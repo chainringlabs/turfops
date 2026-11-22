@@ -51,7 +51,7 @@ The estimate is daily. It has no hourly form.
 | Situation | Fitted on |
 |---|---|
 | No station is the basis for soil temperature at the lawn | The five nearest USCRN stations that have at least 1,000 days of soil at that depth, pooled |
-| A station is the basis for soil temperature and has at least 1,000 days of soil at that depth | That station alone |
+| A station (USCRN or SCAN) is the basis for soil temperature and has at least 1,000 days of soil at that depth | That station alone, and the series is computed from the grid's air at that station's point |
 
 - **Each station's soil is paired with the grid's air at that station's point**, not with the
   station's own air sensor, so the model learns the relation between the driver it will be
@@ -64,6 +64,13 @@ The estimate is daily. It has no hourly form.
   a refit.
 - **Recent days** are recomputed whenever the grid revises their air (the record re-fetches the
   grid's last 7 days daily), and the 30 days after a revised day with them.
+
+- **Choosing the five** before their data is held: the five nearest by the catalog's years of
+  operation. Any that turn out to have fewer than 1,000 days are replaced by the next nearest.
+- **Whose air drives the series.** With no basis station the model runs on the grid's air at
+  the lawn's point. Where it fills a basis station's gaps it runs on the air at that station's
+  point, because it is standing in for that station's readings, not describing a different
+  place.
 
 Calibration stations are fetched as daily values only. They are never a basis for the lawn.
 
@@ -167,6 +174,7 @@ rule changes. It is not part of the test suite: it needs the network and several
 | Source of estimated soil | A regression on gridded air, fitted to nearby stations | A reanalysis soil product (Open-Meteo, ERA5-Land); copying the nearest station's dates | Reanalysis dated rising 55 °F 4 \| 18 to 4 \| 21 days with a 4-day early bias; the regression 2 \| 13. Copying a station's dates is 5 \| 17 by 60–100 miles and 8 \| 22 beyond. |
 | Calibration set without a basis station | The five nearest stations, pooled | The nearest one; every station pooled | Nearest-one scored 3 \| 16 on rising 55 °F and all-pooled worse than five; five averages out one odd site while staying regional. |
 | Calibration with a basis station | That station alone | The five nearest, as elsewhere | A model fitted to the station it fills scored 1 \| 8 on rising 55 °F at 5 cm against 2 \| 13 for the pooled fit, and the gaps being filled are in that station's own series. |
+| Air behind a gap-filling series | The grid at the basis station's point | The grid at the lawn's point | The missing readings are the station's. Air from a lawn 30 miles away would put a step at each edge of the gap, and the station-alone accuracy was scored on the station's own point. |
 | Air paired with station soil | The grid's air at the station's point | The station's own air sensor | The model is driven by grid air at the lawn; fitting it to a different air measurement would build the grid's bias into every estimate. |
 | Seasonal term | One day-of-year sine and cosine | Air terms only; separate spring and autumn models | Removes a 3 to 5 day late bias on the 10 cm warming crossings and cuts the daily error by 0.5 °F, with two coefficients. Separate models add a seam between seasons. |
 | Depths | 5 cm and 10 cm | 5 cm only; all five station depths | These are the depths the timing windows, seasonal plan and outlook read. Deeper soil drives no advice. |
@@ -180,6 +188,8 @@ rule changes. It is not part of the test suite: it needs the network and several
 
 ### Deferred
 
+1. **Calibration on a SCAN station alone is unscored.** The station-alone figures come from
+   USCRN stations.
 1. **Nearest-one and all-stations calibration were scored without the day-of-year terms**
    only. The choice of five rests on that comparison.
 2. **The anchoring rules are unscored.** The 7-day edge and the 30-day decay are reasoned, not
