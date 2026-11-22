@@ -25,6 +25,33 @@ pub async fn stub_http(status: u16, body: &'static str) -> String {
     format!("http://{addr}")
 }
 
+/// Like `stub_http`, and also hands back the request it received (request line, headers
+/// and body as sent), so a test can check what a client asked for.
+pub async fn stub_http_seeing(
+    status: u16,
+    body: &'static str,
+    extra_headers: &'static str,
+) -> (String, tokio::sync::oneshot::Receiver<String>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let (seen, request) = tokio::sync::oneshot::channel();
+    tokio::spawn(async move {
+        if let Ok((mut socket, _)) = listener.accept().await {
+            let mut buf = vec![0u8; 64 * 1024];
+            let read = socket.read(&mut buf).await.unwrap_or(0);
+            let _ = seen.send(String::from_utf8_lossy(&buf[..read]).into_owned());
+            let response = format!(
+                "HTTP/1.1 {status} Upstream\r\nContent-Type: text/plain\r\n{extra_headers}\
+                 Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let _ = socket.write_all(response.as_bytes()).await;
+            let _ = socket.shutdown().await;
+        }
+    });
+    (format!("http://{addr}"), request)
+}
+
 /// The production module tree: every file reachable from `main.rs` through `mod` items
 /// that are not gated on `test`. Test modules and test helpers are left out by how they are
 /// declared, whatever their file names.

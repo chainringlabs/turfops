@@ -108,8 +108,10 @@ the outcome of scheduled fetches (data sync).
 
 - **Catalog:** the network's station list (`stations.tsv`): WBAN number, state, location and
   name, latitude, longitude, elevation in feet, status, operation and network. The list also
-  carries other networks; only rows whose network is USCRN, in the contiguous United States,
-  are kept. Which depths a station reports is learned from its data.
+  carries the reference network's regional networks (`USRCRN`, `Alabama-USRCRN`), which
+  publish the same products from the same instruments, and stations abroad and closed. Rows
+  of any of the three networks that are in the contiguous United States and operating are
+  kept; the accuracy figures were scored on that set. Which depths a station reports is learned from its data.
 - **Hourly (`hourly02`):** air temperature (the hour's average, with the hour's maximum and
   minimum), precipitation, relative humidity (dropped when its flag is not 0), and soil
   temperature and moisture at the five depths. The file's UTC time is the end of the observed
@@ -125,7 +127,9 @@ the outcome of scheduled fetches (data sync).
 
 - **Catalog:** the AWDB station list filtered to the SCAN network in the contiguous United
   States, with elevation in feet, the station's fixed UTC offset, its first date of record,
-  and the elements each station reports with their depths and units.
+  and the elements each station reports with their depths and units. The API refuses a
+  request for every element of every station, so the list is asked for narrowed to the
+  hourly elements the record has inputs for.
 - **Hourly:** air temperature, relative humidity, precipitation increment, and soil
   temperature and moisture at the sensor depths nearest 5, 10, 20, 50 and 100 cm (SCAN's
   standard depths are 2, 4, 8, 20 and 40 inches, which are those five). Units are read from
@@ -277,6 +281,8 @@ a station id or a point as an argument and read no setting at all.
    freeze 8 | 30 days.
 2. **The newest day's rain** comes from the hourly analysis, which caught 58 % of wet weeks in
    testing against PRISM's 88 %. It is replaced within a day or two.
+3. **Whether a SCAN hourly precipitation value describes the hour before its time or the
+   hour after is unverified.** Station rain is in no basis plan, so nothing rests on it yet.
 3. **SCAN was not scored against USCRN.** Its sensors and siting differ; it is used only where
    no USCRN station is within the cut-off.
 4. **Open-Meteo's free tier is for non-commercial use.** A hosted or commercial TurfOps would

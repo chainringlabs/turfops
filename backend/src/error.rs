@@ -143,6 +143,16 @@ fn outage_message(source: Source, outage: &Outage) -> String {
             "The assistant couldn't identify this product just now. Pick a category to save \
              it by hand, or try again in a few minutes."
         }
+        // @spec WX-SRC-ERR-001
+        (SoilStation, _) => {
+            "The weather station network can't be reached right now. Readings TurfOps \
+             already holds are still used; newer ones will arrive when it answers."
+        }
+        // @spec WX-SRC-ERR-001
+        (Grid, _) => {
+            "The daily temperature and rain grid can't be reached right now. Days TurfOps \
+             already holds are still used; newer ones will arrive when it answers."
+        }
         (SoilOutlook, _) => {
             "Not enough recent station data to project soil temperature. Try again once the \
              station has reported a few more days."
@@ -168,6 +178,10 @@ pub enum Source {
     ProfileRefresh,
     /// The 10 cm soil-temperature outlook.
     SoilOutlook,
+    /// A measured station network (USCRN, SCAN).
+    SoilStation,
+    /// The daily air-temperature and rain grid (PRISM, NRCC).
+    Grid,
 }
 
 /// Why a source cannot answer.
