@@ -105,40 +105,42 @@ Anchored values are labeled as estimates like any other.
 A crossing is datable when it was scored and its median error is smaller than the median
 spread of that crossing between years at the same station; that is, when the estimate beats
 the calendar. The test is applied to the calibration in use, so `datable` can differ between a
-lawn with no soil station and a lawn whose station's gaps are being filled. Scored at 113 USCRN stations with no soil measurement from the target station
-used (median | 80th percentile absolute error, days):
+lawn with no soil station and a lawn whose station's gaps are being filled. Scored with no soil measurement from the target station used (median | 80th percentile
+absolute error, days):
 
-| Depth | Crossing | Estimate | Calibrated on the station itself | Between years | Datable |
-|---|---|---|---|---|---|
-| 5 cm | Rising 45 °F | 2 \| 12 | 1 \| 7 | 5 \| 14 | Yes |
-| 5 cm | Rising 50 °F | 2 \| 12 | 1 \| 7 | 5 \| 12 | Yes |
-| 5 cm | Rising 55 °F | 2 \| 13 | 1 \| 8 | 6 \| 13 | Yes |
-| 5 cm | Rising 65 °F | 5 \| 17 | 2 \| 10 | 6 \| 14 | Yes |
-| 5 cm | Falling 75 °F (from Aug 15) | 1 \| 11 | 0 \| 6 | 2 \| 9 | Yes |
-| 5 cm | Falling 70 °F | 2 \| 15 | 1 \| 8 | 4 \| 12 | Yes |
-| 5 cm | Falling 65 °F | 3 \| 13 | 1 \| 7 | 5 \| 11 | Yes |
-| 5 cm | Falling 55 °F | 3 \| 10 | 2 \| 7 | 6 \| 11 | Yes |
-| 5 cm | Falling 40 °F (from Nov 1) | 4 \| 12 | 3 \| 11 | 4 \| 10 | Only when calibrated on the station itself |
-| 10 cm | Rising 50 °F | 3 \| 12 | 1 \| 6 | 5 \| 13 | Yes |
-| 10 cm | Rising 55 °F | 3 \| 13 | 2 \| 7 | 6 \| 13 | Yes |
-| 10 cm | Rising 60 °F | 4 \| 15 | 2 \| 9 | 6 \| 13 | Yes |
-| 10 cm | Rising 65 °F | 5 \| 17 | 2 \| 10 | 6 \| 13 | Yes |
-| 10 cm | Rising 75 °F | 8 \| 20 | 3 \| 13 | 6 \| 14 | Only when calibrated on the station itself |
-| 10 cm | Falling 65 °F | 3 \| 14 | 1 \| 6 | 5 \| 11 | Yes |
-| 10 cm | Falling 55 °F | 3 \| 10 | 2 \| 6 | 5 \| 10 | Yes |
-| 10 cm | Falling 50 °F | 3 \| 11 | 2 \| 8 | 6 \| 10 | Yes |
-| 10 cm | Falling 45 °F | 4 \| 12 | 3 \| 10 | 6 \| 11 | Yes |
+| Depth | Crossing | Estimate | Bias | Calibrated on the station itself | Between years | Datable |
+|---|---|---|---|---|---|---|
+| 5 cm | Rising 45 °F | 2 \| 11 | -2.6 | 1 \| 7 | 4 \| 12 | Yes |
+| 5 cm | Rising 50 °F | 2 \| 12 | -1.8 | 1 \| 7 | 5 \| 12.5 | Yes |
+| 5 cm | Rising 55 °F | 2 \| 13 | -1.8 | 1 \| 8 | 5.5 \| 13 | Yes |
+| 5 cm | Rising 65 °F | 5 \| 17 | +1.1 | 2 \| 10 | 6 \| 13 | Yes |
+| 5 cm | Falling 75 °F | 1 \| 11 | -1.3 | 1 \| 6 | 2 \| 9 | Yes |
+| 5 cm | Falling 70 °F | 2 \| 15 | +0.0 | 1 \| 8 | 4.5 \| 12 | Yes |
+| 5 cm | Falling 65 °F | 3 \| 13 | +2.4 | 1 \| 8 | 5 \| 11.5 | Yes |
+| 5 cm | Falling 55 °F | 2 \| 10 | +3.3 | 2 \| 7 | 5.5 \| 11 | Yes |
+| 5 cm | Falling 40 °F | 3.5 \| 12 | +5.3 | 2.5 \| 11 | 5 \| 12 | Yes |
+| 10 cm | Rising 50 °F | 3 \| 14 | -2.4 | 2 \| 8 | 6.5 \| 14.5 | Yes |
+| 10 cm | Rising 55 °F | 3 \| 14 | -1.7 | 2 \| 7 | 6 \| 13.5 | Yes |
+| 10 cm | Rising 60 °F | 4 \| 15 | -0.4 | 2 \| 9 | 6 \| 13 | Yes |
+| 10 cm | Rising 65 °F | 4 \| 15 | +2.0 | 2 \| 7 | 6.5 \| 13 | Yes |
+| 10 cm | Rising 75 °F | 7 \| 19 | +4.1 | 2 \| 10 | 5.5 \| 12 | Only when calibrated on the station itself |
+| 10 cm | Falling 65 °F | 3 \| 14 | +2.0 | 1 \| 7 | 5.5 \| 12 | Yes |
+| 10 cm | Falling 55 °F | 3 \| 10 | +2.9 | 2 \| 6 | 5 \| 10.5 | Yes |
+| 10 cm | Falling 50 °F | 3 \| 11 | +3.6 | 2 \| 8 | 5.5 \| 10.5 | Yes |
+| 10 cm | Falling 45 °F | 4 \| 12 | +5.1 | 2.5 \| 10 | 5.5 \| 11.5 | Yes |
 
-The 5 cm rows use the timing windows' rule (5-day mean held 5 days); the 10 cm rows use the
-7-day mean held 5 days. The "Estimate" column is the five-nearest fit, which is what a lawn
-with no soil station gets; the next column is the fit that fills gaps in a station's own
-record. The daily error of the series is 3.5 °F (root mean square) at 5 cm and 3.1 °F at 10 cm
-from the five-nearest fit, and 2.7 °F and 2.3 °F calibrated on the station itself.
+The figures are the scoring tool's (`backend/src/logic/soil_estimate/scores.json`), from 114
+USCRN stations over 2012–2025. Each crossing is dated by its consumer's own rule: at 5 cm the
+timing windows' 5-day mean held 5 days within the window's scan range, at 10 cm the seasonal
+plan's 7-row mean held 5 days. "Estimate" is the five-nearest fit, which is what a lawn with
+no soil station gets; the next column is the fit that fills gaps in a station's own record.
+Bias is the mean signed error of the five-nearest fit; positive means the estimate dates the
+crossing late. The daily error of the series is 3.5 °F (root mean square) at 5 cm and 3.1 °F
+at 10 cm from the five-nearest fit, and 2.6 °F and 2.2 °F calibrated on the station itself.
 
-The estimate tends to date the late-autumn crossings late: falling 55 °F at 5 cm by 3.5 days
-on average and falling 45 °F at 10 cm by 5.3. Rising 75 °F at 10 cm fails from the five-nearest fit on more than its
-error: in about one station-year in five the measured soil crossed and the estimate never did.
-Falling 40 °F at 5 cm is no better than the calendar from that fit.
+The estimate tends to date the late-autumn crossings late: falling 40 °F at 5 cm and falling
+45 °F at 10 cm by about 5 days on average. Rising 75 °F at 10 cm is the one crossing the
+five-nearest fit dates worse than the calendar.
 
 Without the day-of-year terms the 10 cm warming crossings ran 3 to 5 days late and the daily
 error was 0.5 °F larger at both depths.

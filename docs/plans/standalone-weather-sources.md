@@ -285,6 +285,12 @@ Daily error (RMSE): 3.5 °F at 5 cm and 3.1 °F at 10 cm from the nearest five; 
 2.3 °F self-trained. From the nearest five, every crossing but 10 cm rising 75 °F and 5 cm falling 40 °F beats the
 between-year spread at the median; self-trained, all do.
 
+These are the research scripts' figures. The official figures are the scoring tool's
+(`backend/src/logic/soil_estimate/scores.json`), which dates each crossing with the consuming
+component's own code. They agree to within a day except where a consumer's scan range differs
+from the script's: scanned through January 31 as the dormant-seeding window does, 5 cm
+falling 40 °F scores 3.5 | 12 against a between-year spread of 5 | 12, and is datable.
+
 ### Are PRISM's recent days as good as its settled history?
 
 Grid minus station, daily values as served on 2026-11-21, against the same calendar days of
