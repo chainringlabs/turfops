@@ -2,3 +2,4 @@
 //! is `db::weather_queries`; nothing here reads the database or an outside source.
 
 pub mod plan;
+pub mod resolve;
