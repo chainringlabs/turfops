@@ -81,7 +81,23 @@ pub(crate) fn is_application_duplicate(constraint: Option<&str>) -> bool {
 fn outage_message(source: Source, outage: &Outage) -> String {
     use Outage::*;
     use Source::*;
+    // @spec DEPLOY-HTTP-013
+    if let HistoryLoading { held, wanted } = outage {
+        return format!(
+            "Weather history is still loading ({held} of {wanted} years), so typical dates \
+             aren't available yet. Current conditions and the forecast already are."
+        );
+    }
     match (source, outage) {
+        // @spec DEPLOY-HTTP-012
+        (_, LocationNotSet) => {
+            "TurfOps doesn't know where your lawn is yet, so weather, timing and disease \
+             information are unavailable. Set the location in Setup."
+        }
+        (WeatherRecord, _) => {
+            "The stored weather can't be read right now, so weather, timing and disease \
+             information are unavailable. Try again in a few minutes."
+        }
         (WeatherLake, NotConfigured | Disabled) => {
             "The weather data lake isn't configured, so soil, disease, timing and history \
              data are unavailable. Set DATALAKE_ROOT and restart TurfOps."
@@ -185,6 +201,8 @@ pub enum Source {
     ProfileRefresh,
     /// The 10 cm soil-temperature outlook.
     SoilOutlook,
+    /// The stored weather for the lawn, as a whole.
+    WeatherRecord,
     /// A measured station network (USCRN, SCAN).
     SoilStation,
     /// The daily air-temperature and rain grid (PRISM, NRCC).
@@ -204,6 +222,13 @@ pub enum Outage {
     Down(String),
     /// It answered, but there is too little data to work with.
     NotEnoughData,
+    /// The lawn has no location, so there is no weather to speak of.
+    LocationNotSet,
+    /// The first-run download of past years has not finished.
+    HistoryLoading {
+        held: u32,
+        wanted: u32,
+    },
 }
 
 impl TurfOpsError {
@@ -276,6 +301,22 @@ impl TurfOpsError {
                 outage,
             },
             other => other,
+        }
+    }
+
+    /// The lawn has no location.
+    pub fn location_not_set() -> Self {
+        TurfOpsError::Unavailable {
+            origin: Source::WeatherRecord,
+            outage: Outage::LocationNotSet,
+        }
+    }
+
+    /// Past years are still being downloaded: `held` of `wanted` are in.
+    pub fn history_loading(held: u32, wanted: u32) -> Self {
+        TurfOpsError::Unavailable {
+            origin: Source::WeatherRecord,
+            outage: Outage::HistoryLoading { held, wanted },
         }
     }
 

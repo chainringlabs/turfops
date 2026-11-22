@@ -128,7 +128,9 @@ real time by a day or two. A source is *pending* for a day when its newest value
 age limit (data sync's, by kind of source) and falls on that day or an earlier one. While a
 higher-ranked source is pending for a day, no lower-ranked source supplies that day: the input
 is empty there. A lower-ranked source fills a day only when every source above it either
-covers too little of a day it has already passed, or is past its age limit. Rain is the one
+covers too little of a day it has already passed, or is past its age limit. Only a sensor or a
+station is waited for in this way. A grid or the hourly analysis that is late is filled from
+the next estimate at once, which is what the NRCC grid behind PRISM is for. Rain is the other
 exception (below).
 
 **The day in progress and the live reading** go, per input, to the highest-ranked source whose
