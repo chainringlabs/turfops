@@ -6,8 +6,8 @@ Design: [soil-estimate-design.md](soil-estimate-design.md). Parent: [weather-dat
 
 ## The regression and its series
 
-- [ ] **WX-EST-MODEL-001**: The system shall estimate daily soil temperature at 5 cm and at 10 cm with one ordinary-least-squares model per depth, whose terms are the means of daily air over the 1, 3, 7, 14 and 30 days ending on the estimated day, the sine and the cosine of the day of year over a 365.25-day period, and a constant.
-- [ ] **WX-EST-MODEL-002**: A trailing mean of daily air shall be usable when at least 80 % of its days have a value, and a day on which any of the five trailing means is not usable shall have no estimate.
+- [x] **WX-EST-MODEL-001**: The system shall estimate daily soil temperature at 5 cm and at 10 cm with one ordinary-least-squares model per depth, whose terms are the means of daily air over the 1, 3, 7, 14 and 30 days ending on the estimated day, the sine and the cosine of the day of year over a 365.25-day period, and a constant.
+- [x] **WX-EST-MODEL-002**: A trailing mean of daily air shall be usable when at least 80 % of its days have a value, and a day on which any of the five trailing means is not usable shall have no estimate.
 - [ ] **WX-EST-MODEL-003**: The system shall write the estimate to the weather record as a daily source named "Soil estimate", one value per depth per day in °F rounded to 0.1, for every day on which the record holds the daily air the model needs at the point of WX-EST-MODEL-006.
 - [ ] **WX-EST-MODEL-004**: When the weather record's daily air at the point the estimate is computed from changes for a day, the system shall recompute the estimate for that day and the 30 days after it.
 - [ ] **WX-EST-MODEL-006**: The system shall compute the estimate from the grid's daily air at the lawn's point while the model is fitted on the five nearest stations, and from the grid's daily air at the basis station's point while the model is fitted on that station alone.
@@ -38,16 +38,16 @@ Design: [soil-estimate-design.md](soil-estimate-design.md). Parent: [weather-dat
 
 ## Which crossings may be dated
 
-- [ ] **WX-EST-DATE-001**: `datable(depth, threshold, direction)` shall answer yes only when the scoring data file holds a score for that depth, threshold and direction under the calibration the lawn's model uses (five nearest stations, or the basis station alone) and that score's median error is smaller than the same crossing's median spread between years.
-- [ ] **WX-EST-DATE-002**: `datable` shall return, with a yes, the scored median and 80th-percentile error in days.
-- [ ] **WX-EST-DATE-003**: `datable` shall answer no for any crossing the scoring data file does not hold.
+- [x] **WX-EST-DATE-001**: `datable(depth, threshold, direction)` shall answer yes only when the scoring data file holds a score for that depth, threshold and direction under the calibration the lawn's model uses (five nearest stations, or the basis station alone) and that score's median error is smaller than the same crossing's median spread between years.
+- [x] **WX-EST-DATE-002**: `datable` shall return, with a yes, the scored median and 80th-percentile error in days.
+- [x] **WX-EST-DATE-003**: `datable` shall answer no for any crossing the scoring data file does not hold.
 
 ## The scoring tool and its data file
 
-- [ ] **WX-EST-SCORE-001**: The repository shall contain a scoring tool that, from public USCRN daily data and the grid's daily air at each station's point, fits each station's model on its five nearest neighbours and on the station alone, dates each crossing a consuming component dates by that component's own rule, and writes for each crossing and each calibration the median and 80th-percentile absolute error in days, the mean signed error, and the median and 80th-percentile spread between years.
-- [ ] **WX-EST-SCORE-002**: The scoring tool shall use no soil measurement from the target station when it scores the five-nearest calibration.
+- [x] **WX-EST-SCORE-001**: The repository shall contain a scoring tool that, from public USCRN daily data and the grid's daily air at each station's point, fits each station's model on its five nearest neighbours and on the station alone, dates each crossing a consuming component dates by that component's own rule, and writes for each crossing and each calibration the median and 80th-percentile absolute error in days, the mean signed error, and the median and 80th-percentile spread between years.
+- [x] **WX-EST-SCORE-002**: The scoring tool shall use no soil measurement from the target station when it scores the five-nearest calibration.
 - [ ] **WX-EST-SCORE-003**: The application shall embed the scoring tool's data file at build time and shall read every estimate accuracy figure it shows, and every `datable` answer, from that file.
-- [ ] **WX-EST-SCORE-004**: The scoring tool shall not run as part of the test suite.
+- [x] **WX-EST-SCORE-004**: The scoring tool shall not run as part of the test suite.
 
 ## Degradation
 
