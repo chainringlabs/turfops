@@ -70,13 +70,13 @@ Design: [weather-record-design.md](weather-record-design.md). Parent: [weather-d
 ## Backfill, what is due, status
 
 - [x] **WX-REC-FILL-001**: The record shall keep, for each source and product, the span it wants, the span it holds, and the times of the last attempt, the last success and the last failure.
-- [ ] **WX-REC-FILL-002**: `due(now)` shall report each fetch needed to bring a held span up to its wanted span and each product whose source's cadence says new data may exist, with spans not yet held reported newest first.
+- [x] **WX-REC-FILL-002**: `due(now)` shall report, for each fetched source in the plan, a current fetch when its product's cadence says new data may exist, and a backfill fetch for each calendar year of its wanted span it does not yet hold, with every current fetch before any backfill and backfill newest first; it shall report no fetch for a sensor or for the soil estimate.
 - [x] **WX-REC-FILL-003**: When a fetch succeeds, the record shall write its rows and extend the held span in one step; when a fetch fails, the record shall record the failure and leave the held span unchanged.
-- [ ] **WX-REC-FILL-004**: `due(now)` shall report, with each station fetch, a re-read of that station's last 3 days, and with each daily grid fetch, a re-read of the grid's last 7 days.
-- [ ] **WX-REC-FILL-005**: `status()` shall report, for each source in use, its name and kind, the inputs it is in the plan for, its last success and last failure, and the span held against the span wanted.
-- [ ] **WX-REC-FILL-006**: When the plan is rebuilt, the record shall stop reporting fetches for sources that left it and shall start each new source with an empty held span.
-- [ ] **WX-REC-FILL-007**: When the plan is rebuilt, the record shall delete the rows of a station or grid point that left the plan once every source that replaced it holds its wanted span, and shall delete no sensor rows.
-- [ ] **WX-REC-FILL-008**: The record shall refresh the station catalog from the networks' station lists monthly.
+- [x] **WX-REC-FILL-004**: `due(now)` shall report, with each station fetch, a re-read of that station's last 3 days, and with each daily grid fetch, a re-read of the grid's last 7 days.
+- [x] **WX-REC-FILL-005**: `status()` shall report, for each source in use, its name and kind, the inputs it is in the plan for, its last success and last failure, and the span held against the span wanted.
+- [x] **WX-REC-FILL-006**: When the plan is rebuilt, the record shall stop reporting fetches for sources that left it and shall start each new source with an empty held span.
+- [x] **WX-REC-FILL-007**: When asked to clear out, the record shall delete every source that is not in the plan, with its rows, once every fetched source in the plan holds its wanted span, and shall delete no sensor and no calibration source.
+- [x] **WX-REC-FILL-008**: `due(now)` shall report a network's station catalog for refresh when the record holds no station of that network or last refreshed it 30 or more days ago, and the record shall answer the same question on its own for a lawn that has no plan yet.
 
 ## Outages
 

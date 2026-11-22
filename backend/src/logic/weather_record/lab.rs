@@ -84,7 +84,8 @@ impl Lab {
         // Every source starts with its history in hand; a test of the backfill undoes it.
         for source in sources::all(&pool).await.unwrap() {
             let from = NaiveDate::from_ymd_opt(2011, 1, 1).unwrap();
-            fetch_state::want(&pool, source.id, "history", from)
+            let product = super::due::product_of(&source).map_or("history", |p| p.as_str());
+            fetch_state::want(&pool, source.id, product, from)
                 .await
                 .unwrap();
             sqlx::query(

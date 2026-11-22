@@ -106,3 +106,16 @@ pub async fn stations(pool: &PgPool) -> Result<Vec<(i64, Station)>> {
         .filter_map(StationRow::into_station)
         .collect())
 }
+
+/// When each network's catalog was last refreshed. A network with no stations is absent.
+// @spec WX-REC-FILL-008
+pub async fn refreshed(pool: &PgPool) -> Result<Vec<(Network, chrono::DateTime<chrono::Utc>)>> {
+    let rows: Vec<(String, chrono::DateTime<chrono::Utc>)> =
+        sqlx::query_as("SELECT network, max(refreshed_at) FROM weather_station GROUP BY network")
+            .fetch_all(pool)
+            .await?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|(network, at)| Some((Network::parse(&network)?, at)))
+        .collect())
+}

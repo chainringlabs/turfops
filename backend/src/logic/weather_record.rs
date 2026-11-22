@@ -3,6 +3,8 @@
 
 pub mod daily;
 pub mod disease;
+pub mod due;
+pub mod fill;
 pub mod hourly;
 pub mod live;
 pub mod plan;
@@ -15,6 +17,8 @@ pub mod summary;
 mod daily_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod disease_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod fill_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod history_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
