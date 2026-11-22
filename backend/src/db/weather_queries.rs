@@ -3,6 +3,7 @@
 
 pub mod catalog;
 pub mod fetch_state;
+pub mod plan;
 pub mod rows;
 pub mod sensors;
 pub mod sources;
@@ -11,5 +12,7 @@ pub mod sources;
 mod db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod fetch_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod plan_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod rows_db_tests;
