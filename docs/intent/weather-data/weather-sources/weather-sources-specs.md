@@ -48,10 +48,10 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 
 ## Open-Meteo
 
-- [ ] **WX-SRC-OM-001**: The hourly-analysis fetch shall return, for one point, each past hour's air temperature, relative humidity and precipitation for up to 92 days back.
-- [ ] **WX-SRC-OM-002**: No Open-Meteo request shall ask for a soil temperature or soil moisture variable.
-- [ ] **WX-SRC-OM-003**: The hourly-analysis fetch shall return the elevation Open-Meteo reports for the point, in feet.
-- [ ] **WX-SRC-OM-004**: The place search shall return, for a typed name or postal code, the candidate places in the United States with their name, state, latitude and longitude, sending the typed text and nothing else.
+- [x] **WX-SRC-OM-001**: The hourly-analysis fetch shall return, for one point, each past hour's air temperature, relative humidity and precipitation for up to 92 days back.
+- [x] **WX-SRC-OM-002**: No Open-Meteo request shall ask for a soil temperature or soil moisture variable.
+- [x] **WX-SRC-OM-003**: The hourly-analysis fetch shall return the elevation Open-Meteo reports for the point, in feet.
+- [x] **WX-SRC-OM-004**: The place search shall return, for a typed name or postal code, the candidate places in the United States with their name, state, latitude and longitude, sending the typed text and nothing else.
 
 ## Home Assistant
 
