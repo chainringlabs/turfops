@@ -1,52 +1,61 @@
 # Data Sync — EARS Specs
 
-Design: [data-sync-design.md](data-sync-design.md). Prefix `SYNC`. Facets: `REFRESH` (staleness limits and demand-driven refresh), `MERGE` (assembling the cached environmental summary), `FAIL` (failures, last-good values, the 72 h soil cut-off, forecast reuse, retry), `CONN` (connection checks and `/health`), `MEMO` (the shared climate-record slot in runtime state).
+Design: [data-sync-design.md](data-sync-design.md). Prefix `SYNC`. Facets: `SCHED` (the fetch schedule), `REFRESH` (startup and the clock), `MERGE` (assembling the summary), `AGE` (how old a value may be and still be current), `FAIL` (failures and degradation), `CONN` (source status and `/health`), `MEMO` (the shared climate-record slot).
 
-"The summary" is data sync's one in-memory `EnvironmentalSummary`. Its "sensor part" is the lake's live soil reading, 7-day aggregates and soil trend, the Home Assistant ambient reading and year-to-date GDD; its "forecast part" is the OpenWeatherMap forecast. A "sensor refresh" re-reads the sensor part; a "forecast refresh" re-fetches the forecast. The live reading per sensor and each source's query contract are owned by Weather sources (`WX-SRC-*`); the `/environmental` endpoints' contract is WX-VIEW-API-001.
+"The schedule" is the one background task that calls source clients and writes what they return to the weather record. "A fetch" is one call to one client for one product and span. "The summary" is the `EnvironmentalSummary` data sync returns. "Current data" is every product except backfill: the owner's sensors, the forecast, the stations' and the hourly analysis's newest hours, and the grids' and calibration stations' newest days. The record's contracts are `WX-REC-*`; the clients' are `WX-SRC-*`; the `/environmental` endpoints' contract is WX-VIEW-API-001.
 
-## Demand-driven refresh
+## The fetch schedule
 
-- [x] **SYNC-REFRESH-001**: The system shall run no background task, scheduler or poller for the weather lake, Home Assistant or OpenWeatherMap, and shall contact them only while serving a request that needs current conditions or connection status.
-- [x] **SYNC-REFRESH-002**: Data sync shall treat the summary's sensor part as stale 5 minutes after its last sensor refresh and its forecast part as stale 30 minutes after its last successful forecast fetch, and shall treat a part that has never been refreshed as stale.
-- [x] **SYNC-REFRESH-003**: When a request needs current conditions and neither part of the summary is stale, data sync shall return the cached summary without contacting any source.
-- [x] **SYNC-REFRESH-004**: When a request needs current conditions and one part of the summary is stale, data sync shall refresh only that part's sources and keep the other part as cached.
-- [x] **SYNC-REFRESH-005**: The handlers for `/environmental`, `/dashboard`, `/recommendations`, `/inventory/shopping-list`, `/soil-temp-forecast`, `/disease-risk`, `/timing-windows` and `/seasonal-plan` (the last for the feed it assembles to judge the current season's rule states, PLAN-ACT-021), and the MCP tools that call them, shall obtain current conditions only through data sync's refresh-on-demand; no other handler shall trigger a refresh.
-- [x] **SYNC-REFRESH-006**: While a refresh is in progress, data sync shall make every other request that may refresh wait for it and then reuse its result, so simultaneous requests (including the concurrent parts of the MCP `lawn_snapshot` tool) cause at most one read of each source.
-- [x] **SYNC-REFRESH-007**: When the server starts, data sync shall set up its source clients without contacting any source, so a source that is down does not delay startup.
-- [x] **SYNC-REFRESH-008**: Data sync shall mark the summary's sensor or forecast part as refreshed only once the summary built by that refresh has been stored, so a refresh abandoned partway (for example, the request is dropped while a source read is pending) leaves the part stale rather than leaving the previous summary counted as fresh.
-- [x] **SYNC-REFRESH-009**: Data sync shall take "now" from the app clock for every judgment it makes (which part is stale, when a failed fetch may be retried, how old a probe or the station's observation is, and where the lake's 7-day window ends), never from the system time.
+- [ ] **SYNC-SCHED-001**: The system shall run one background schedule, started after the database is reachable and migrated, that once a minute, and at once when woken, asks the weather record what is due and runs those fetches.
+- [ ] **SYNC-SCHED-002**: The schedule shall run fetches one at a time, and shall write each fetch's rows and outcome to the weather record before starting the next.
+- [ ] **SYNC-SCHED-003**: The schedule shall run due fetches in this order: the owner's sensors, the forecast, current hourly data, current daily data, then backfill.
+- [ ] **SYNC-SCHED-004**: The schedule shall run backfill newest year first and, within a year, the lawn's own sources before calibration sources, and after each backfill fetch shall run any current data that has become due before the next backfill fetch.
+- [ ] **SYNC-SCHED-005**: The schedule shall run hourly and daily fetches at a minute of the hour chosen at random when the installation first gets a location and kept thereafter.
+- [ ] **SYNC-SCHED-006**: If a fetch fails, then the schedule shall log the client's detail, record the failure against that source and product, and try that product again after 5 minutes, then after 15 minutes, then once an hour until a fetch of it succeeds.
+- [ ] **SYNC-SCHED-007**: A failed fetch shall not delay or cancel the fetches of any other source or product.
+- [ ] **SYNC-SCHED-008**: When the lawn's location, a pinned station, a sensor mapping, the Home Assistant connection or the forecast provider changes, the system shall wake the schedule.
+- [ ] **SYNC-SCHED-009**: When `POST /api/v1/environmental/refresh` is called, the system shall wake the schedule to fetch all current data regardless of cadence, unless it did so less than a minute ago, wait up to 20 seconds for those fetches, and return the summary.
+- [ ] **SYNC-SCHED-010**: When the process is told to stop, the schedule shall start no further fetch and shall end once the fetch in progress finishes or times out.
+- [ ] **SYNC-SCHED-011**: While the lawn has no location, the schedule shall make no outside request.
+- [ ] **SYNC-SCHED-012**: The schedule shall hold no lock that a request for the summary needs while a fetch is in progress.
+
+## Startup and the clock
+
+- [ ] **SYNC-REFRESH-007**: When the server starts, the system shall build its source clients and begin serving requests without waiting for any outside source, so a source that is down does not delay startup.
+- [x] **SYNC-REFRESH-009**: Data sync shall take "now" from the app clock for every judgment it makes (which fetch may be retried, how old a value or a forecast is, where the summary's 7-day window ends), never from the system time.
 
 ## Assembling the summary
 
-- [x] **SYNC-MERGE-001**: When a sensor refresh reads the lake successfully, data sync shall take the 7-day means, the 7-day precipitation total, the soil trend and the live soil reading from that read, and set `soil_observed_at` to the lake reading's observation time.
-- [x] **SYNC-MERGE-002**: When a sensor refresh builds the summary's current reading, data sync shall take soil temperatures (5–100 cm), soil moistures and precipitation from the lake's live reading, and ambient temperature and humidity from Home Assistant only, never from the station's air temperature or humidity.
-- [x] **SYNC-MERGE-003**: When a sensor refresh completes, data sync shall stamp the current reading's `timestamp` and the summary's `last_updated` with the time of the refresh, leaving the station's observation time only in `soil_observed_at`.
-- [x] **SYNC-MERGE-004**: When a sensor refresh runs, data sync shall re-read year-to-date GDD into the summary along with the sensor part (the value itself is specified by RULE-GDD-002).
-- [x] **SYNC-MERGE-005**: When a forecast fetch succeeds, data sync shall put that forecast in the summary and keep it as the last good forecast.
-- [x] **SYNC-MERGE-006**: When a sensor refresh completes, data sync shall set the summary's `soil_stale` flag to true when `soil_observed_at` is more than 72 hours old (the SYNC-FAIL-004 limit) and to false when it is within 72 hours or absent, so every web UI stale-soil banner reads this flag and the 72-hour limit is defined only in data sync.
+- [ ] **SYNC-MERGE-003**: Data sync shall stamp the summary's `last_updated` with the time the summary was assembled, leaving observation times only on the values they belong to and in `soil_observed_at`.
+- [ ] **SYNC-MERGE-006**: Data sync shall set the summary's `soil_stale` flag to true when the 10 cm soil temperature is withheld because every source in its plan is past its age limit, and to false otherwise, so every web UI stale-soil banner reads this flag and applies no limit of its own.
+- [ ] **SYNC-MERGE-007**: Data sync shall assemble the summary from the weather record's `fetch_summary(now)` and `fetch_gdd_ytd(today)` and the newest forecast the schedule fetched, carrying each value's basis through unchanged.
+- [ ] **SYNC-MERGE-008**: Data sync shall reuse an assembled summary for requests made within one minute of its assembly, and shall discard it when the basis plan changes or a fetch of current data completes.
+- [ ] **SYNC-MERGE-009**: Data sync shall set `soil_observed_at` to the observation time of the 10 cm soil temperature in use, and leave it empty when there is none.
+
+## How old a value may be
+
+- [ ] **SYNC-AGE-001**: Data sync shall treat an input's source as current while its newest value is no older than: for the owner's sensor, 1 hour for air temperature and humidity, 6 hours for soil temperature and soil moisture, and without limit for rain; 3 hours for the hourly analysis; 72 hours for a station; and 72 hours after the end of the day it is for, for a daily estimate.
+- [ ] **SYNC-AGE-002**: While the highest-ranked source for an input is past its age limit, the summary shall take that input from the next source in the plan that is within its own limit.
+- [ ] **SYNC-AGE-003**: While no source in an input's plan is within its age limit, the summary shall leave that input's current value empty and leave empty the 7-day figure built on it, reporting the soil trend as `Unknown` when the input is 10 cm soil temperature.
+- [ ] **SYNC-AGE-004**: The summary shall never carry a current value from a source past its age limit.
 
 ## Failures and degradation
 
-- [x] **SYNC-FAIL-001**: If any source fails during a refresh, then data sync shall log a warning and still return a summary, so no caller of a refresh (including `GET /api/v1/environmental` and `POST /api/v1/environmental/refresh`) receives a data-source error from it.
-- [x] **SYNC-FAIL-002**: If the lake read fails during a sensor refresh, then data sync shall keep the previous summary's soil reading, 7-day aggregates, soil trend and `soil_observed_at` rather than clear them.
-- [x] **SYNC-FAIL-003**: If the year-to-date GDD read fails during a sensor refresh, then data sync shall leave GDD empty when the lake read succeeded, and keep the previous GDD when the lake read also failed.
-- [x] **SYNC-FAIL-004**: While the lake's newest observation (`soil_observed_at`) is more than 72 hours old, data sync shall leave the current reading's soil temperatures, soil moistures and precipitation empty, keep reporting `soil_observed_at`, and log a warning, whether that observation came from this refresh's read or was carried forward after failed reads.
-- [x] **SYNC-FAIL-005**: If a Home Assistant read of ambient temperature or humidity fails (or returns no value) during a sensor refresh, then data sync shall keep that field's last good Home Assistant value in the current reading while that value was read less than 1 hour ago, and leave the field empty once it is 1 hour old or when Home Assistant is not configured.
-- [x] **SYNC-FAIL-006**: If a forecast fetch fails or OpenWeatherMap is not configured, then data sync shall serve the last good forecast in the summary only while it was fetched less than 6 hours ago, and no forecast otherwise.
-- [x] **SYNC-FAIL-007**: The summary data sync returns shall never carry a forecast fetched 6 or more hours ago, including when only the forecast part was refreshed and its fetch failed.
-- [x] **SYNC-FAIL-008**: If a source fails during a refresh, then data sync shall retry it on a later request: a failed lake, GDD or Home Assistant read at the next sensor refresh (5 minutes), and a failed OpenWeatherMap forecast fetch at the first request that needs current conditions 5 minutes or more after the failed attempt, never on every request while the forecast part stays stale.
-- [x] **SYNC-FAIL-009**: While the lake's newest observation (`soil_observed_at`) is more than 72 hours old, data sync shall also leave the summary's 7-day averages (10 cm soil, station air temperature, station humidity) and 7-day precipitation total empty and report the soil trend as `Unknown`, so rules that use them stay silent rather than act on stale weather.
+- [ ] **SYNC-FAIL-001**: If any source fails, then data sync shall still return a summary, so no caller (including `GET /api/v1/environmental` and `POST /api/v1/environmental/refresh`) receives a data-source error from it.
+- [ ] **SYNC-FAIL-006**: If a forecast fetch fails or the chosen provider cannot be used, then data sync shall serve the last forecast fetched in the summary only while it was fetched less than 6 hours ago, and no forecast otherwise.
+- [x] **SYNC-FAIL-007**: The summary data sync returns shall never carry a forecast fetched 6 or more hours ago.
+- [ ] **SYNC-FAIL-010**: If the weather record cannot be read while assembling the summary, then data sync shall return the previous summary while it was assembled less than 5 minutes ago, and otherwise a summary whose weather fields are empty.
+- [ ] **SYNC-FAIL-011**: While the lawn has no location, the summary's weather fields shall be empty.
 
-## Connection status and health
+## Source status and health
 
-- [x] **SYNC-CONN-001**: When data sync reports connection status, it shall report `soildata` (the weather lake, probed per WX-VIEW-PROBE-001), `homeassistant` (`GET {HA_URL}/api/` with the bearer token answers 2xx) and `openweathermap` (an OpenWeatherMap current-weather request answers 2xx), reporting `false` for an unconfigured source or a failed probe and never failing itself.
-- [x] **SYNC-CONN-002**: When connection status is requested, data sync shall leave the summary and its staleness timers unchanged.
-- [x] **SYNC-CONN-003**: When `GET /api/v1/health` is called, the system shall respond with `status`, `version`, `database`, the connection status under `datasources`, and `mcp` (`enabled` when `/mcp` is mounted, else `disabled`).
+- [ ] **SYNC-CONN-001**: When data sync reports source status, it shall report one entry per source in use in the shape of WX-VIEW-STATUS-001, taking whether a source is up from the outcome of its most recent scheduled fetch, and reporting a source never yet fetched as pending.
+- [ ] **SYNC-CONN-002**: Reporting source status shall make no outside request and shall leave the summary unchanged.
+- [ ] **SYNC-CONN-003**: When `GET /api/v1/health` is called, the system shall respond with `status`, `version`, `database`, the source status under `sources` with each source's history held against wanted, and `mcp` (`enabled` when `/mcp` is mounted, else `disabled`).
 - [x] **SYNC-CONN-004**: `GET /api/v1/health` shall report `status` `ok` and `database` true when the database answers `SELECT 1` within 2 seconds, and `degraded` and false otherwise, and shall not let an external source's outage change `status`.
-- [x] **SYNC-CONN-005**: `GET /api/v1/dashboard` (as `connections`) and the MCP `lawn_snapshot` tool (as `data_sources`) shall include the connection status, checked after their summary is refreshed.
-- [x] **SYNC-CONN-006**: When connection status is requested, data sync shall reuse each source's (weather lake, Home Assistant, OpenWeatherMap) last probe result, up or down, while it is less than 5 minutes old and probe only the configured sources whose result is older or missing, so `/health`, dashboard loads and the MCP `lawn_snapshot` tool do not call the upstreams on every request.
+- [ ] **SYNC-CONN-005**: `GET /api/v1/dashboard` (as `sources`) and the MCP `lawn_snapshot` tool (as `data_sources`) shall include the source status.
 
 ## Climate-record slot
 
-- [x] **SYNC-MEMO-001**: The system shall keep one in-process climate-record slot, empty at startup, shared by every caller of the climate record (timing windows, the seasonal plan's timing activities, the MCP `weather_history` tool), measuring a record's age from when its lake read completed (the one-hour memo itself is TIME-ENG-038).
-- [x] **SYNC-MEMO-002**: If re-reading the climate record from the lake fails, then the system shall leave the slot unchanged and serve the last memoized record while its lake read completed less than 24 hours ago, marked as from the last good read so the Timing page shows a data note saying so, and return the error to the caller only when no such record exists.
+- [ ] **SYNC-MEMO-001**: The system shall keep one in-process climate-record slot, empty at startup and emptied when the basis plan changes, shared by every caller of the climate record (timing windows, the seasonal plan's timing activities, the MCP `weather_history` tool), measuring a record's age from when its read completed (the one-hour memo itself is TIME-ENG-038).
+- [ ] **SYNC-MEMO-002**: If re-reading the climate record fails, then the system shall leave the slot unchanged and serve the last memoized record while its read completed less than 24 hours ago, marked as from the last good read so the Timing page shows a data note saying so, and return the error to the caller only when no such record exists.

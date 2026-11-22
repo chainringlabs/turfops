@@ -30,6 +30,13 @@ The system is single-lawn. Every handler resolves "the" profile as the lowest-id
 | `soil_type` | `SoilType?` | `Clay` · `Loam` · `Sandy` · `SiltLoam` · `ClayLoam` · `SandyLoam`. Read by soil-test advice and timing companions. |
 | `lawn_size_sqft` | f64? | Used to scale agronomic amounts (nitrogen, seed per 1,000 sq ft) to the lawn in feeding and seeding advice (the consumers fall back to a default). |
 | `irrigation_type` | `IrrigationType?` | `InGround` · `Hose` · `None`. Stored and shown, but no logic reads it. |
+| `latitude`, `longitude` | f64? each | The lawn's location, set and cleared together. Must lie in the contiguous United States (latitude 24.5 to 49.5, longitude −125 to −66.9). The weather record resolves stations and the grid point from it. Stored to 4 decimal places (about 10 m). |
+| `place_name` | text? | What the owner searched for or typed, shown beside the coordinates. Never sent anywhere. |
+| `timezone` | text? | IANA zone name for the location, derived when the location is set; not editable. The app's `Clock` runs in it. |
+
+**The location is the lawn's one weather setting.** Without it the profile is valid and the log works, and every weather-dependent surface directs the owner to setup.
+
+**Timezone** is looked up from the coordinates with a zone map compiled into the application, so setting a location never depends on an outside service and always yields a zone.
 
 `GrassType::is_cool_season()` is true for the four cool-season species **and `Mixed`**. A mixed lawn is a cool-season blend (fescue / bluegrass / rye), the usual seed mix. It therefore gets the cool-season rules, seeding windows and disease models. Warm-season types (`Bermuda`, `Zoysia`, `StAugustine`) are the only ones that return false. The enum accepts them, but warm-season lawns are unsupported (HLD Non-Goals): no behavior for them is designed. Consumers own what "cool-season" gates.
 
@@ -47,6 +54,9 @@ At startup `ensure_default_profile` (`backend/src/main.rs`) creates one row from
 | `LAWN_SOIL_TYPE` | unset | warns, left unset |
 | `LAWN_SIZE_SQFT` | unset | warns, left unset |
 | `LAWN_IRRIGATION_TYPE` | unset | warns, left unset |
+| `LAWN_LATITUDE`, `LAWN_LONGITUDE` | unset | Either missing, unparseable or outside the contiguous United States: warns naming it, location left unset. Never defaults to 0, 0 |
+
+The location alone is also seeded into an existing profile that has none, so an installation that predates it comes up located. `OWM_LATITUDE` / `OWM_LONGITUDE` are read in place of the `LAWN_` pair when only they are set. Once the profile holds a location the variables are ignored.
 
 Every warning names the variable and the value it could not parse, so a typo in the compose file is visible in the log rather than a silently missing field. A bad value never stops the profile from being created.
 
@@ -57,7 +67,7 @@ A grass type stored in the DB that cannot be parsed reads back as `TallFescue` w
 | Method | Path | Behavior |
 |---|---|---|
 | GET | `/api/v1/profile` | The profile; 404 `No lawn profile found` if the table is empty. |
-| PUT | `/api/v1/profile` | Partial update. An absent field is left alone. For `soil_type` / `irrigation_type`, `""` clears the field. For `lawn_size_sqft`, a value ≤ 0 clears it. An unknown enum value returns 400. The response re-reads the row so `updated_at` comes from the DB. When no profile exists, the same request creates it, with any omitted field filled as startup seeding does (`Main Lawn`, `TallFescue`, `7a`, optional fields unset). |
+| PUT | `/api/v1/profile` | Partial update. An absent field is left alone. For `soil_type` / `irrigation_type`, `""` clears the field. For `lawn_size_sqft`, a value ≤ 0 clears it. An unknown enum value returns 400. The response re-reads the row so `updated_at` comes from the DB. When no profile exists, the same request creates it, with any omitted field filled as startup seeding does (`Main Lawn`, `TallFescue`, `7a`, optional fields unset). `latitude` and `longitude` must arrive together; one without the other, or a point outside the contiguous United States, is a 400 saying so. A changed location sets `timezone`, replaces the app's clock with one in that zone, has the weather record rebuild its basis plan, and wakes the fetch schedule, in that order, before the response. |
 
 ## Application Log
 
@@ -104,7 +114,7 @@ JSON omits `plant_id`, `follow_up_date`, `frac_classes` and `product_id` when nu
 
 An application date may be in the future (a planned entry); consumers that judge what has happened already bound their reads by today (disease history uses `≤ today`).
 
-The row carries no weather. The weather lake holds the station's conditions for every day, so anything that wants the conditions on an application date reads the lake by that date; a per-row copy would only duplicate it, and an entry logged after the fact would capture the wrong day's weather.
+The row carries no weather. The weather record holds the lawn's conditions for every day, so anything that wants the conditions on an application date reads the lake by that date; a per-row copy would only duplicate it, and an entry logged after the fact would capture the wrong day's weather.
 
 ## Persistence
 
@@ -267,7 +277,7 @@ The page edits the profile: name and USDA zone are required, plus grass type, so
 | Duplicate key | `(profile, type, date, normalised product name)`, split turf / plant (plant adds `plant_id`); violation → 409 with guidance | `(profile, type, date)` unique; no uniqueness | Two products of one type on one day (tank mix, starter + second product) is a legitimate log; only a true double-submit should collide, and it should say so rather than 500. |
 | Product name comparison in the key | Case-insensitive, trimmed, inner whitespace collapsed | Exact match; include `product_id` | A double-submit typed slightly differently is still a double-submit, and inventory already matches log names this way; two components disagreeing on "same product" would confuse the owner. |
 | Duplicate-message scope | Only `applications_unique_turf` / `applications_unique_plant` map to the duplicate message | Map every unique violation to it | Another table's unique index (a plant delete, a future constraint) would otherwise report a misleading "identical entry is already logged". |
-| Dates | Follow-up "today" is the server's local date (`TZ` = the lawn's timezone); the form defaults to the browser-local date | UTC date; station-local date from the lake's offset; the browser date as the system clock | Every agronomic date is a lawn-local calendar day, and one configured clock gives every component the same day. A UTC date is a day ahead in the evening and makes fresh entries look future-dated. The browser default is a convenience that matches the server date when both share a timezone. |
+| Dates | Follow-up "today" is the lawn's local date (the app's `Clock`); the form defaults to the browser-local date | UTC date; station-local date from the lake's offset; the browser date as the system clock | Every agronomic date is a lawn-local calendar day, and one configured clock gives every component the same day. A UTC date is a day ahead in the evening and makes fresh entries look future-dated. The browser default is a convenience that matches the server date when both share a timezone. |
 | Shelf link shape | Nullable `product_id` FK `ON DELETE SET NULL` plus `product_name` copied at log time | `product_id` only; name only | History must survive a product rename or delete, and the duplicate key stays on the name. Owner decision (product inventory plan). |
 | Product/type compatibility | `ProductCategory::accepts` gates both the picker and the API (400) | Allow any product under any type | Prevents logging a herbicide as a fungicide, which would corrupt protection and rotation. Owner decision (product inventory plan). |
 | Stock automation on logging | Offer "mark In stock?" only when the picked product is `Out` | Auto-decrement or auto-set; no prompt | No quantity tracking by owner decision. Logging use of an Out product implies it was rebought. |
@@ -280,7 +290,7 @@ The page edits the profile: name and USDA zone are required, plus grass type, so
 | Type and scope filter placement | Both SQL `WHERE` before LIMIT/OFFSET | Filter the fetched page in memory | A rare type, or the landscape entries, would hide behind a season of lawn entries and show an empty page. |
 | Follow-up completion | Cleared by an application of the same type and plant scope dated after the original and from 7 days before the follow-up date | Any later entry; explicit "done" toggle; same product required | Infers completion from the log rather than a toggle, but only an entry in the follow-up's own window is the planned re-application. |
 | Rescheduled follow-up | Changing or clearing the follow-up date deletes the stored answer | Keep the answer (it never expires) | A dismissal answered the old date; the new date is a new commitment that should surface. |
-| Weather on an entry | None stored; read the lake by date | Snapshot columns filled at log time | The lake already holds every day's conditions; a snapshot taken when the entry is typed records the wrong day for a back-dated entry. |
+| Weather on an entry | None stored; read the weather record by date | Snapshot columns filled at log time | The weather record already holds every day's conditions; a snapshot taken when the entry is typed records the wrong day for a back-dated entry. |
 | Marking a deleted plant's entries | A `plant_name` column written in the same transaction as the plant delete | A boolean flag; keeping `plant_id` with no FK; deleting the entries | The name keeps the history readable ("Viburnum (deleted)"), a dangling id would break joins and the FK, and deleting the entries loses history. |
 | Rows that collide under a tightened duplicate key | The migration renames later rows (` (#id)`) | Fail the migration; delete the duplicates | Owner decision: a migration must never stop the server over data the owner can edit later, and must never delete it. |
 | Numeric validation | 400 for negative rate or coverage and N/P/K above 100; future dates allowed | No checks; reject future dates | Impossible values would corrupt nitrogen accounting; a future date is a legitimate planned entry and consumers already bound by today. |
@@ -291,6 +301,11 @@ The page edits the profile: name and USDA zone are required, plus grass type, so
 | Follow-up answered state | No expiry for `application_followup_<id>`; returns on escalation | Episode expiry like other recs | The id already names one event. Owner-decided escalation + expiry policy (recommendation feed). |
 | Profile creation | Seeded once from `LAWN_*` at startup; `PUT /profile` creates the profile when none exists; no delete | GET/PUT update only; full profile CRUD; env always authoritative | Single lawn; Settings becomes the source of truth after first boot, and every page sends the owner there when no profile exists, so saving Settings must be able to create one. |
 | `Mixed` grass | Cool-season | Neither cool nor warm | A mixed lawn is a cool-season blend, and treating it as neither silenced the rules, windows and disease models for the most common lawn. Owner decision. |
+
+| Where the location lives | On the lawn profile | A separate settings table; environment only | It is a fact about the lawn, the profile is the one row every handler already resolves, and it must change without a restart (HLD: choices about the lawn are made in the app). |
+| Timezone source | A zone map compiled into the application | The hourly-analysis service's answer for the point; a setting the owner types | The clock dates every answer in the app; it should not depend on a request succeeding, and a typed zone can contradict the location. |
+| Location bounds | Reject points outside the contiguous United States | Accept any point and degrade | No station, grid or estimate exists there (HLD non-goal); accepting the point would produce an app with no weather and no explanation. |
+| Location precision | 4 decimal places | Full precision | The grid cell is about 4 km; more digits describe the owner's house, not the weather. |
 
 ## Open Questions & Future Decisions
 
@@ -306,7 +321,7 @@ The page edits the profile: name and USDA zone are required, plus grass type, so
 2. **Feed reads only the newest 1000 entries** (`RULE_HISTORY_LIMIT`, `api/recommendation_feed.rs:19`), ordered by date with no id tie-break (`db/queries.rs:104`). Follow-ups older than that are never evaluated, though the 90-day stale window makes this unlikely to matter.
 3. **`irrigation_type` is unused by any logic.** `usda_zone` reaches only LLM prompts. Keep both as descriptive data, or wire them in?
 4. **`/frac-classes` ownership.** It serves this component's form, but it exposes disease risk's curated resolver. Decide which LLD owns the endpoint.
-5. **Browser and server dates can differ.** If the browser is in a different timezone from the server's `TZ`, the form's default date (and the +2/+4/+6 week shortcuts) can be a day off the server's "today" around midnight. Harmless in the single-owner setup; the form could default from a server-supplied date instead.
+5. **Browser and server dates can differ.** If the browser is in a different timezone from the lawn's, the form's default date (and the +2/+4/+6 week shortcuts) can be a day off the server's "today" around midnight. Harmless in the single-owner setup; the form could default from a server-supplied date instead.
 
 ## References
 

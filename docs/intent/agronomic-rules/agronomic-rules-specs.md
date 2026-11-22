@@ -2,7 +2,7 @@
 
 Design: [agronomic-rules-design.md](agronomic-rules-design.md). Prefix `RULE`. Facets: `ENG` (rule contract and engine), `SPRING` (spring nitrogen), `BROAD` (broadleaf herbicide), `GRUB` (grub control), `BLOCK` (fertilizer block), `FALL` (fall fertilization), `WX` (rain delay, irrigation, heat stress, application window, mowing height), `GUARD` (nitrogen guard), `BUDGET` (annual nitrogen budget), `GDD` (growing degree days and the crabgrass model), `UI` (dashboard widgets).
 
-"Soil average" below is the environmental summary's 7-day mean of station 10 cm soil temperature. "Live soil" is the current 10 cm reading, absent when the newest station observation is over 72 h old.
+"Soil average" below is the environmental summary's 7-day mean of the lawn's 10 cm soil temperature. "Live soil" is the current 10 cm reading, absent when data sync withholds it. Each may be measured or estimated; the summary carries the basis. "Soil moisture" is absent wherever the lawn has no station within 50 miles and no probe.
 
 ## Rule contract and engine
 
@@ -21,6 +21,7 @@ Design: [agronomic-rules-design.md](agronomic-rules-design.md). Prefix `RULE`. F
 - [x] **RULE-ENG-013**: For the `spring_herbicide` plan activity, the rules shall report Done when the broadleaf herbicide rule's spring check finds a PostEmergent application dated January through April of the current year; Due when the feed carries `broadleaf_spring`; Passed from May 1 on, or in April when year-to-date GDD is above 150 or missing (the spring window can no longer open); Unknown in March or April when the soil average is missing; otherwise Not yet.
 - [x] **RULE-ENG-014**: For the `fall_herbicide` plan activity, the rules shall report Done when the broadleaf herbicide rule's fall check finds a PostEmergent application dated September through December of the current year; Due when the feed carries `broadleaf_fall`; Passed after October 31; Unknown from September 20 through October 31 when the soil average is missing; otherwise Not yet.
 - [x] **RULE-ENG-015**: For the `grub_preventative` plan activity, the rules shall report Done when the grub control rule's check finds a GrubControl or Insecticide application dated from April 1 of the current year; Due when the feed carries `grub_control_<year>` or `grub_control_late_<year>`; Passed after July 4 when the GDD-extended window is not open; Unknown while the grub window is open and the soil average or live soil is missing; otherwise Not yet.
+- [ ] **RULE-ENG-016**: When a rule states a weather value as a data point, the data point shall carry that value's basis as the environmental summary gives it, and the rule's thresholds and severity shall not depend on the basis.
 
 ## Spring nitrogen
 
@@ -69,13 +70,16 @@ Design: [agronomic-rules-design.md](agronomic-rules-design.md). Prefix `RULE`. F
 ## Weather rules
 
 - [x] **RULE-WX-001**: The rain delay rule shall judge the forecast points within 12, then 24, then 48 hours by their highest precipitation probability and their total amount, skipping a window whose total is under 0.1 mm and whose highest probability is under 50%, and shall emit `rain_delay` at Critical when the 12-hour window reaches 70% or 2.5 mm; otherwise at Warning when the 24-hour window reaches 50% or 2.5 mm; otherwise at Advisory when the 48-hour window reaches 30% or 5 mm.
-- [x] **RULE-WX-002**: When both the forecast and soil moisture are present, soil moisture is below 0.20, and the 5-day forecast precipitation amount is at most 2.5 mm, the irrigation rule shall emit `irrigation_forecast`, at Critical below 0.10, Warning below 0.15, otherwise Advisory.
+- [ ] **RULE-WX-002**: When the forecast and soil moisture are both present, soil moisture is below 0.20, and the forecast precipitation amount over the next 5 days is at most 2.5 mm, the irrigation rule shall emit `irrigation_forecast`, at Critical below 0.10, Warning below 0.15, otherwise Advisory.
 - [x] **RULE-WX-003**: The irrigation rule shall let only the forecast precipitation amount, never its probability alone, cancel the alert.
 - [x] **RULE-WX-004**: When the irrigation rule emits a recommendation, it shall declare an optional Surfactant need, which never puts the recommendation on the shopping list.
 - [x] **RULE-WX-005**: When the highest daily high over today and the next three local days reaches 85°F, the heat stress rule shall emit `heat_stress_forecast`, at Advisory from 85°F, Warning from 90°F and Critical from 95°F.
-- [x] **RULE-WX-006**: When at least one of the first five daily forecast summaries is a good full day (mean ≥ 50°F, high ≤ 85°F, under 2.5 mm and under 50% precipitation on that day and the day after, and the same on the day before — or, for the first summary, under 25 mm of rain in the lake's 7-day total), the application window rule shall announce the highest-scoring good day as `application_window` at Info; with no good day it shall emit nothing.
+- [ ] **RULE-WX-006**: When at least one of the first five daily forecast summaries is a good full day (mean ≥ 50°F, high ≤ 85°F, under 2.5 mm and under 50% precipitation on that day and the day after, and the same on the day before — or, for the first summary, under 25 mm of rain in the 7-day rain total), the application window rule shall announce the highest-scoring good day as `application_window` at Info; with no good day it shall emit nothing.
 - [x] **RULE-WX-007**: The application window rule shall judge only full forecast days, never a partial first or last day.
 - [x] **RULE-WX-008**: When the 7-day ambient average is above 85°F the mowing height rule shall emit `mowing_height` at Warning (heat-stress height); above 75°F at Advisory (summer height); at or above 50°F at Info (spring/fall height); below 50°F it shall emit nothing.
+- [ ] **RULE-WX-009**: When the forecast is present, soil moisture is absent, the 7-day ambient average is at least 50°F, the 7-day rain total is under 12.5 mm, and the forecast precipitation amount over the next 5 days is at most 2.5 mm, the irrigation rule shall emit `irrigation_forecast` at Warning when the 7-day rain total is under 5 mm and otherwise at Advisory, never at Critical, with text saying it is judged on rainfall because nothing measures soil moisture at the lawn.
+- [ ] **RULE-WX-010**: If soil moisture is absent and the 7-day ambient average or the 7-day rain total is missing, then the irrigation rule shall emit nothing.
+- [ ] **RULE-WX-011**: The irrigation rule shall sum the forecast precipitation amount over the forecast days among the next 5 that carry an amount, and shall emit nothing when fewer than 3 of them do.
 
 ## Nitrogen guard
 
@@ -101,13 +105,13 @@ Design: [agronomic-rules-design.md](agronomic-rules-design.md). Prefix `RULE`. F
 
 ## Growing degree days and the crabgrass model
 
-- [x] **RULE-GDD-001**: The system shall take each day's GDD (base 50°F) from the weather lake's gold `gdd50` value and only sum it, never recompute it.
-- [x] **RULE-GDD-002**: When supplying year-to-date GDD to the rules, the system shall sum gold `gdd50` from Jan 1 of the server's local current year through the server's local today.
+- [ ] **RULE-GDD-001**: The system shall take each day's GDD (base 50°F) from the weather record's `gdd50`, computed there as the greater of zero and the mean of the day's resolved maximum and minimum air temperature minus 50°F, and shall only sum it.
+- [ ] **RULE-GDD-002**: When supplying year-to-date GDD to the rules, the system shall sum daily `gdd50` from Jan 1 of the lawn's local current year through the lawn's local today.
 - [x] **RULE-GDD-003**: When accumulating a GDD history, the system shall reset the running total at each calendar year.
 - [x] **RULE-GDD-004**: The crabgrass model shall report PreGermination below 75 GDD, ApproachingGermination from 75 to below 150, GerminationLikely from 150 to below 200, and PostGermination at 200 or more, with a germination threshold of 200.
 - [x] **RULE-GDD-005**: The crabgrass model shall be informational only; no recommendation shall read it.
 - [x] **RULE-GDD-006**: When `GET /api/v1/gdd` is called, the system shall return the year's running GDD history, its current total and the crabgrass model for the requested year (default: the server's local current year), through today for the current year and Jan 1–Dec 31 for other years; if the year cannot be represented, then it shall return 400.
-- [x] **RULE-GDD-007**: If no weather lake is configured, then `GET /api/v1/gdd` shall return a data-unavailable error instead of a zero total and a PreGermination status.
+- [ ] **RULE-GDD-007**: If the weather record cannot answer (the location is not set, or the read fails), then `GET /api/v1/gdd` shall return a data-unavailable error instead of a zero total and a PreGermination status.
 
 ## Dashboard widgets
 

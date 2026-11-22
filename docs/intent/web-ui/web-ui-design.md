@@ -27,7 +27,7 @@ Every page is a `React.lazy` import, so each page (and the chart library, which 
 
 ## Route Table and Ownership
 
-All routes are children of one layout route (`<Route element={<Layout/>}>`), so the sidebar persists across navigation. There are 14 routes plus a wildcard (`frontend/src/App.tsx`).
+All routes are children of one layout route (`<Route element={<Layout/>}>`), so the sidebar persists across navigation. There are 16 routes plus a wildcard (`frontend/src/App.tsx`).
 
 | Path | Page module | Nav label | Owning component |
 |---|---|---|---|
@@ -43,6 +43,8 @@ All routes are children of one layout route (`<Route element={<Layout/>}>`), so 
 | `/timing` | `pages/Timing.tsx` | Seed & Pre-Em Timing | timing-windows (TIME) |
 | `/soil-tests` | `pages/SoilTests.tsx` | Soil Tests | soil-tests (SOIL) |
 | `/seasonal-plan` | `pages/SeasonalPlan.tsx` | Seasonal Plan | seasonal-plan (PLAN) |
+| `/sources` | `pages/Sources.tsx` | Sources | setup-sources (SETUP) |
+| `/setup` | `pages/Setup.tsx` | (no nav item; reached from the setup notice and the Sources page) | setup-sources (SETUP) |
 | `/settings` | `pages/Settings.tsx` | Settings | applications (APP) — lawn profile form |
 | `*` | `NotFound` in `App.tsx` | — | web-ui |
 
@@ -65,9 +67,9 @@ The dashboard has no single feature owner, so the shell owns its composition (`p
 
 ## Navigation Shell
 
-`components/Layout.tsx` is, on a wide screen, a fixed 220 px dark sidebar (`#1a202c`) with the "TurfOps" wordmark and a `NAV_ITEMS` list of 12 `NavLink`s, plus a scrolling `<main>` that renders the `<Outlet/>`. The active link gets a darker background, green text (`#68d391`) and bold weight, so the active state is carried by weight as well as colour. `end` is set only on `/`, so the Dashboard link is not active on every route. Nav order is the sidebar order in the table above (minus the `:slug` and wildcard routes). The nav has `aria-label="Main navigation"`.
+`components/Layout.tsx` is, on a wide screen, a fixed 220 px dark sidebar (`#1a202c`) with the "TurfOps" wordmark and a `NAV_ITEMS` list of 13 `NavLink`s, plus a scrolling `<main>` that renders the `<Outlet/>`. The active link gets a darker background, green text (`#68d391`) and bold weight, so the active state is carried by weight as well as colour. `end` is set only on `/`, so the Dashboard link is not active on every route. Nav order is the sidebar order in the table above (minus the `:slug` and wildcard routes). The nav has `aria-label="Main navigation"`.
 
-On a narrow screen (phone width) the sidebar collapses: the page takes the full width and the twelve links open from a menu control that stays inside the "Main navigation" landmark, with the same active-link styling. The exact breakpoint is an implementation choice; the rule is that the 220 px sidebar never squeezes the page at phone width.
+On a narrow screen (phone width) the sidebar collapses: the page takes the full width and the thirteen links open from a menu control that stays inside the "Main navigation" landmark, with the same active-link styling. The exact breakpoint is an implementation choice; the rule is that the 220 px sidebar never squeezes the page at phone width.
 
 ## API Client Contract
 
@@ -94,6 +96,7 @@ Per-call timeouts: 30 s for the seasonal plan and the shopping list (both re-eva
 | Owner | Client functions → endpoint |
 |---|---|
 | SYNC | `getHealth` → `GET /health` *(defined, not called by any page)* |
+| SETUP | `searchPlaces` · `previewSources` · `getSources` · `listStations` · `pinStation` / `unpinStation` · `setForecastProvider` · `getHomeAssistant` / `setHomeAssistant` / `forgetHomeAssistant` / `testHomeAssistant` · `listEntities` · `listSensors` / `mapSensor` / `checkSensor` / `updateSensor` / `unmapSensor` |
 | web-ui | `getDashboard` → `GET /dashboard` |
 | APP | `getProfile`, `updateProfile` → `GET/PUT /profile` (an empty `soil_type`/`irrigation_type` or `lawn_size_sqft: 0` clears the field) · `getApplications(type?, limit=50, offset=0)` · `createApplication` · `updateApplication` · `deleteApplication` · `getFracClasses(product?)` → `/frac-classes` |
 | PLAN | `getCalendar(year?, month?)` → `/applications/calendar` · `getSeasonalPlan(year?)` |
@@ -129,9 +132,11 @@ Display metadata lives next to the type as exhaustive `Record<Enum, …>` maps (
 ## Shared Styles and Utilities
 
 - `styles/shared.ts` has `sharedStyles` (loading, error banner, card, table/th/td, badge, section title, empty state, page title, header row, gauge grid) and `appTypeBadgeStyle()`, a memoized per-`ApplicationType` tinted badge. Styling is inline `React.CSSProperties` throughout. There are no CSS modules and no CSS framework.
-- `utils/dates.ts` holds every calendar-date helper. `todayLocalISO()` and `addDaysISO()` build `YYYY-MM-DD` from the **browser's local calendar**, not `toISOString()`. A UTC date is already tomorrow from 8 pm Eastern, and an application logged that evening would be stored a day late and treated as future-dated by the disease and timing models. Used to pre-fill the date fields of the Applications and Soil Tests forms. The authority for "today" is the server's local date (`TZ`, the lawn's timezone, per the HLD); the browser date is only a pre-fill that matches it while the viewer's clock is in the lawn's timezone. When the date in the Applications or Soil Tests form is later than the server's today (`GET /api/v1/today` through `useServerToday()`, never the browser's clock), the form warns that the date is in the future (`futureDateWarning`); it does not block the save, and with no server date it shows nothing. The display helpers for API dates (`formatShortDate`, `formatMonthDay`, `formatDateRange`, `formatMmDd`, `formatTimestampDate`) are defined here once and read the digits, never a `Date` at local midnight; the feature type modules re-export them.
-- `utils/units.ts`: `mmToInches` and `formatInches(mm, decimals=2)`. The API carries precipitation in millimetres (lake-native); the UI shows inches.
+- `utils/dates.ts` holds every calendar-date helper. `todayLocalISO()` and `addDaysISO()` build `YYYY-MM-DD` from the **browser's local calendar**, not `toISOString()`. A UTC date is already tomorrow from 8 pm Eastern, and an application logged that evening would be stored a day late and treated as future-dated by the disease and timing models. Used to pre-fill the date fields of the Applications and Soil Tests forms. The authority for "today" is the lawn's local date (the app's clock, in the lawn's timezone, per the HLD); the browser date is only a pre-fill that matches it while the viewer's clock is in the lawn's timezone. When the date in the Applications or Soil Tests form is later than the server's today (`GET /api/v1/today` through `useServerToday()`, never the browser's clock), the form warns that the date is in the future (`futureDateWarning`); it does not block the save, and with no server date it shows nothing. The display helpers for API dates (`formatShortDate`, `formatMonthDay`, `formatDateRange`, `formatMmDd`, `formatTimestampDate`) are defined here once and read the digits, never a `Date` at local midnight; the feature type modules re-export them.
+- `utils/units.ts`: `mmToInches` and `formatInches(mm, decimals=2)`. The API carries precipitation in millimetres; the UI shows inches.
 - The calendar-date display helpers, which format an API `YYYY-MM-DD` date (or its day of month) without a timezone shift by splitting the string, live once in `utils/dates.ts` (`formatShortDate`, `formatMonthDay`, `dayNumber` and the Calendar and Seasonal Plan formatters); pages and feature type modules import them.
+- `components/BasisLabel.tsx` (owned by WX-VIEW) is the one rendering of what a weather value rests on; every page that shows such a value uses it and none words a basis itself.
+- `components/SetupNotice.tsx` (owned by SETUP) is the one notice shown in place of weather content while the lawn has no location.
 - `components/Gauge.tsx` and `gaugeConfigs.ts` are a horizontal bar gauge and its four configs (soil temp 10 cm 75/85 °F, ambient 85/95 °F, humidity 80/90 %, soil moisture 40/45 %). The configs are kept in a separate module so `Gauge.tsx` exports only a component.
 
 ## Cross-Cutting Presentation Conventions
@@ -172,11 +177,12 @@ Every error the UI shows is plain language that says what went wrong and, where 
 | Timeout | "That took too long to answer. Try again." |
 | No response (status 0, or `fetch`'s `TypeError`) | "TurfOps couldn't be reached. Check your connection and try again." |
 | 404 whose message mentions the lawn profile | "There is no lawn profile yet. Set one up in Settings to get started." |
+| 503 for a lawn with no location | Not an error sentence: the page shows `SetupNotice` |
 | 500-class other than 503 | "Something went wrong on the server. Try again; the details are in the server log." |
 | 400, 409, 503 and any other status | The server's message as written (a 503 names the unavailable source and the affected features), else `sentenceForStatus`. |
 | Anything that is not an `ApiError` | The server-error sentence. |
 
-- The backend writes `error` messages for the owner. Internal and upstream detail (OpenRouter bodies, lake errors, SQL) goes to the log, not the response.
+- The backend writes `error` messages for the owner. Internal and upstream detail (OpenRouter bodies, weather-source errors, SQL) goes to the log, not the response.
 - The `ErrorBoundary` shows "Something went wrong", a fixed sentence and the Return to Dashboard action, never the exception text; the exception goes to the browser console.
 
 ## Build, Lint and Type-Check Tooling
@@ -255,7 +261,7 @@ The bundled SPA is same-origin, so CORS never applies to it. The Vite dev server
 | Type-check command | `tsc -b` | `tsc --noEmit` | The solution tsconfig makes `--noEmit` a no-op. |
 | Lint/format | Biome (lint + format, React domain) | ESLint + Prettier | One fast tool and one config. [inferred] |
 | Styling | Inline `CSSProperties` objects + `sharedStyles` | CSS modules; Tailwind | No extra build step; styles live beside the component. [inferred] |
-| Browser dates | Local-calendar `YYYY-MM-DD` helpers to pre-fill form dates | `toISOString().slice(0,10)`; asking the server for its date | Every agronomic date is a lawn-local calendar day on the server's clock (`TZ`). The viewer's local calendar matches it for an owner at the lawn; UTC rolls over at 8 pm Eastern and would date evening applications a day late (stated in `utils/dates.ts`). |
+| Browser dates | Local-calendar `YYYY-MM-DD` helpers to pre-fill form dates | `toISOString().slice(0,10)`; asking the server for its date | Every agronomic date is a lawn-local calendar day on the app's clock. The viewer's local calendar matches it for an owner at the lawn; UTC rolls over at 8 pm Eastern and would date evening applications a day late (stated in `utils/dates.ts`). |
 | CORS default | Allow only `http://localhost:<port>` when unset | Permissive; none | Same-origin SPA needs nothing; a cross-origin host must be named explicitly. [inferred] |
 
 ## Open Questions & Future Decisions
