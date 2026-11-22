@@ -2,7 +2,7 @@
 
 use crate::models::{
     Application, ApplicationType, DailyForecast, DataSource, EnvironmentalReading,
-    EnvironmentalSummary, ForecastLocation, ForecastPoint, GrassType, LawnProfile, Recommendation,
+    EnvironmentalSummary, ForecastPoint, ForecastProvider, GrassType, LawnProfile, Recommendation,
     WeatherCondition, WeatherForecast,
 };
 use chrono::{Duration, NaiveDate, Utc};
@@ -99,8 +99,8 @@ pub fn day(on: NaiveDate, high: f64, low: f64, mm: f64, prob: f64) -> DailyForec
         high_temp_f: high,
         low_temp_f: low,
         avg_humidity: 60.0,
-        total_precipitation_mm: mm,
-        max_precipitation_prob: prob,
+        total_precipitation_mm: Some(mm),
+        max_precipitation_prob: Some(prob),
         dominant_condition: WeatherCondition::default(),
         avg_wind_speed_mph: 4.0,
         max_wind_gust_mph: None,
@@ -112,14 +112,15 @@ pub fn day(on: NaiveDate, high: f64, low: f64, mm: f64, prob: f64) -> DailyForec
 pub fn point(hours: i64, mm: f64, prob: f64) -> ForecastPoint {
     ForecastPoint {
         timestamp: Utc::now() + Duration::hours(hours),
+        slot_hours: 3,
         temp_f: 70.0,
-        feels_like_f: 70.0,
+        feels_like_f: Some(70.0),
         humidity_percent: 60.0,
-        precipitation_mm: mm,
-        precipitation_prob: prob,
+        precipitation_mm: Some(mm),
+        precipitation_prob: Some(prob),
         wind_speed_mph: 4.0,
         wind_gust_mph: None,
-        cloud_cover_percent: 20.0,
+        cloud_cover_percent: Some(20.0),
         weather_condition: WeatherCondition::default(),
     }
 }
@@ -127,13 +128,7 @@ pub fn point(hours: i64, mm: f64, prob: f64) -> ForecastPoint {
 pub fn forecast(daily: Vec<DailyForecast>, hourly: Vec<ForecastPoint>) -> WeatherForecast {
     WeatherForecast {
         fetched_at: Utc::now(),
-        location: ForecastLocation {
-            city: "Test".into(),
-            country: "US".into(),
-            latitude: 39.8,
-            longitude: -75.8,
-            utc_offset_seconds: 0,
-        },
+        provider: ForecastProvider::OpenWeatherMap,
         hourly,
         daily_summary: daily,
     }

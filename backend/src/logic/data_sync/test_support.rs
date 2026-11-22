@@ -3,7 +3,7 @@
 //! fetched. The database pool is lazy and never connects.
 
 use super::*;
-use crate::models::{DailyForecast, ForecastLocation, WeatherCondition, WeatherForecast};
+use crate::models::{DailyForecast, ForecastProvider, WeatherCondition, WeatherForecast};
 use crate::state::AppState;
 use chrono::NaiveDate;
 use chrono::Utc;
@@ -54,13 +54,7 @@ pub(crate) fn eastern() -> Clock {
 pub(crate) fn forecast(daily_summary: Vec<DailyForecast>) -> WeatherForecast {
     WeatherForecast {
         fetched_at: Utc::now(),
-        location: ForecastLocation {
-            city: "Avondale".into(),
-            country: "US".into(),
-            latitude: 39.8,
-            longitude: -75.8,
-            utc_offset_seconds: -14_400,
-        },
+        provider: ForecastProvider::OpenWeatherMap,
         hourly: vec![],
         daily_summary,
     }
@@ -78,8 +72,8 @@ pub(crate) fn forecast_day(
         high_temp_f,
         low_temp_f,
         avg_humidity: 60.0,
-        total_precipitation_mm: 0.0,
-        max_precipitation_prob: 0.0,
+        total_precipitation_mm: Some(0.0),
+        max_precipitation_prob: Some(0.0),
         dominant_condition: WeatherCondition::Clear,
         avg_wind_speed_mph: 5.0,
         max_wind_gust_mph: None,

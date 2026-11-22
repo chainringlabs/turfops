@@ -1,6 +1,7 @@
 //! A whole forecast fetch against a stubbed OpenWeatherMap response.
 
 use super::*;
+use chrono::NaiveDate;
 
 /// Three slots on Sep 22 (8 am, 11 am and 2 pm EDT).
 const RESPONSE: &str = r#"{
@@ -42,7 +43,7 @@ async fn a_fetch_returns_every_slot_and_a_summary_per_local_day() {
     assert_eq!(first.timestamp.to_rfc3339(), "2026-09-22T12:00:00+00:00");
     assert_eq!(
         (first.temp_f, first.humidity_percent, first.precipitation_mm),
-        (60.0, 80.0, 1.0)
+        (60.0, 80.0, Some(1.0))
     );
     assert_eq!(
         (
@@ -50,17 +51,18 @@ async fn a_fetch_returns_every_slot_and_a_summary_per_local_day() {
             first.wind_speed_mph,
             first.wind_gust_mph
         ),
-        (0.2, 5.0, Some(10.0))
+        (Some(0.2), 5.0, Some(10.0))
     );
     assert_eq!(first.weather_condition, WeatherCondition::Rain);
     let second = &forecast.hourly[1];
     assert!(
-        (second.precipitation_mm - 0.8).abs() < 1e-9,
+        (second.precipitation_mm.unwrap() - 0.8).abs() < 1e-9,
         "rain + snow in mm"
     );
     assert_eq!(second.wind_gust_mph, None);
     assert_eq!(
-        forecast.hourly[2].precipitation_prob, 0.0,
+        forecast.hourly[2].precipitation_prob,
+        Some(0.0),
         "pop defaults to 0"
     );
     assert_eq!(
@@ -73,8 +75,8 @@ async fn a_fetch_returns_every_slot_and_a_summary_per_local_day() {
     assert_eq!(day.date, NaiveDate::from_ymd_opt(2026, 9, 22).unwrap());
     assert_eq!((day.high_temp_f, day.low_temp_f), (75.0, 60.0));
     assert_eq!(day.avg_humidity, 60.0);
-    assert!((day.total_precipitation_mm - 1.8).abs() < 1e-9);
-    assert_eq!(day.max_precipitation_prob, 0.7);
+    assert!((day.total_precipitation_mm.unwrap() - 1.8).abs() < 1e-9);
+    assert_eq!(day.max_precipitation_prob, Some(0.7));
     assert_eq!(
         day.dominant_condition,
         WeatherCondition::Rain,

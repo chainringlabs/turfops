@@ -196,20 +196,37 @@ mapping is made in the app and stored there.
 
 `WeatherForecast` (`backend/src/models/forecast.rs`) is what every provider returns:
 
-- `hourly: Vec<ForecastPoint>`: one point per provider slot with the slot's length in hours,
-  temperature, humidity, precipitation in mm for the slot, probability of precipitation, wind,
-  gust and a condition. A quantity the provider does not forecast for a slot is `None`, never
-  zero: NWS rain amounts end about three days out.
+- `provider`: which provider it came from.
+- `hourly: Vec<ForecastPoint>`: one point per provider slot, from the slot in progress, with the
+  slot's length in hours, temperature, humidity, wind, precipitation in mm for the slot,
+  probability of precipitation, gust, feels-like temperature, cloud cover and a condition.
+  Every provider forecasts temperature, humidity and wind for its whole span, and a slot
+  lacking one of them is not returned. Any other quantity the provider does not forecast for
+  a slot is `None`, never zero: NWS rain amounts end about three days out.
 - `daily_summary: Vec<DailyForecast>`: points grouped by lawn-local date through the app's
-  `Clock`, each with high, low, mean humidity, total precipitation, maximum probability, most
-  frequent condition, mean wind, maximum gust and `hours_covered`, the sum of its slots'
-  lengths.
+  `Clock`, each with high, low, mean humidity, total precipitation, maximum probability, the
+  condition covering the most hours, mean wind, maximum gust and `hours_covered`, the sum of
+  its slots' lengths. The total is `None` unless every slot of the day carries an amount: a
+  sum over part of a day would read as a dry day.
 
 | Provider | Slot | Horizon | Needs |
 |---|---|---|---|
 | Open-Meteo (default) | 1 h | 16 days | Nothing |
 | National Weather Service | 1 h | About 6.5 days | Nothing |
 | OpenWeatherMap | 3 h | 5 days | `OWM_API_KEY` |
+
+How each provider's response becomes hourly points:
+
+- **Open-Meteo** stamps temperature, humidity, feels-like temperature, wind, cloud cover and
+  the WMO weather code at an instant, and precipitation, its probability and gust over the
+  hour before the stamp. A point takes the first group from its start and the second from its
+  end, so the last hour of the response, which has no end stamp, is not returned.
+- **The National Weather Service** needs two requests: one to learn which forecast grid cell
+  holds the point (kept for later fetches), and one for that cell's forecast. Each quantity
+  is a list of values with the span each is valid for. A value stands for every hour of its
+  span, except a precipitation amount, which is divided evenly across them. A slot's condition
+  is its forecast weather when that is more than a chance; otherwise it follows sky cover.
+- **OpenWeatherMap** gives 3-hour slots with rain and snow amounts, which are added.
 
 The provider is chosen in the app. A provider chosen but not usable (no key) leaves the
 forecast off with the reason shown; it does not fall back to another provider silently.

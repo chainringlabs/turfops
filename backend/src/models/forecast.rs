@@ -1,17 +1,47 @@
+mod daily;
+
+use crate::clock::Clock;
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Weather forecast data from OpenWeatherMap 5-day/3-hour API
+/// Who a forecast came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ForecastProvider {
+    OpenMeteo,
+    NationalWeatherService,
+    OpenWeatherMap,
+}
+
+/// A forecast as every provider returns it: points of the provider's slot length, and
+/// the lawn's local days they add up to.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WeatherForecast {
     pub fetched_at: DateTime<Utc>,
-    pub location: ForecastLocation,
-    pub hourly: Vec<ForecastPoint>,        // 3-hour intervals
-    pub daily_summary: Vec<DailyForecast>, // Aggregated by day
+    // @spec WX-SRC-FC-008
+    pub provider: ForecastProvider,
+    pub hourly: Vec<ForecastPoint>,
+    pub daily_summary: Vec<DailyForecast>,
 }
 
 // @spec WX-SRC-OWM-004
 impl WeatherForecast {
+    /// A forecast of `hourly` points, with its daily summaries on the lawn's local days.
+    // @spec WX-SRC-OWM-001, WX-SRC-OWM-002
+    pub fn new(
+        provider: ForecastProvider,
+        fetched_at: DateTime<Utc>,
+        hourly: Vec<ForecastPoint>,
+        clock: &Clock,
+    ) -> Self {
+        let daily_summary = daily::summarize(&hourly, clock);
+        Self {
+            fetched_at,
+            provider,
+            hourly,
+            daily_summary,
+        }
+    }
+
     /// Get forecast points for the next N hours
     pub fn next_hours(&self, now: DateTime<Utc>, hours: u32) -> Vec<&ForecastPoint> {
         let cutoff = now + chrono::Duration::hours(hours as i64);
@@ -22,8 +52,8 @@ impl WeatherForecast {
     }
 
     /// Daily summaries that cover enough of the day for their high/low (and the mean
-    /// derived from them) to mean something. The 5-day feed starts and ends mid-day, so
-    /// its first and last buckets are usually an evening or a few night hours.
+    /// derived from them) to mean something. A forecast starts and ends mid-day, so its
+    /// first and last days are usually an evening or a few night hours.
     // @spec WX-SRC-OWM-003
     pub fn full_days(&self) -> impl Iterator<Item = &DailyForecast> {
         self.daily_summary.iter().filter(|d| d.is_full_day())
@@ -39,7 +69,8 @@ impl WeatherForecast {
             .collect()
     }
 
-    /// Check if significant rain is expected within hours
+    /// Whether rain is expected within `hours`: by the amounts the points carry (a point
+    /// with no amount adds nothing) or by any point's probability.
     pub fn rain_expected_within(
         &self,
         now: DateTime<Utc>,
@@ -51,10 +82,8 @@ impl WeatherForecast {
         let mut max_prob = 0.0;
 
         for point in points {
-            total_precip += point.precipitation_mm;
-            if point.precipitation_prob > max_prob {
-                max_prob = point.precipitation_prob;
-            }
+            total_precip += point.precipitation_mm.unwrap_or(0.0);
+            max_prob = point.precipitation_prob.unwrap_or(0.0).max(max_prob);
         }
 
         if total_precip >= threshold_mm || max_prob >= 0.5 {
@@ -82,45 +111,43 @@ pub struct RainForecast {
     pub max_probability: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ForecastLocation {
-    pub city: String,
-    pub country: String,
-    pub latitude: f64,
-    pub longitude: f64,
-    /// Offset of the location's wall clock from UTC (OpenWeatherMap `city.timezone`).
-    #[serde(default)]
-    pub utc_offset_seconds: i32,
-}
-
-/// A single 3-hour forecast point
+/// One slot of a forecast. Every provider forecasts temperature, humidity and wind for
+/// its whole span; anything else it does not forecast for a slot is `None`, never zero.
+// @spec WX-SRC-FC-002, WX-SRC-FC-003
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForecastPoint {
+    /// The start of the slot.
     pub timestamp: DateTime<Utc>,
+    /// The slot's length: 1 or 3 hours, by provider.
+    pub slot_hours: u32,
     pub temp_f: f64,
-    pub feels_like_f: f64,
+    pub feels_like_f: Option<f64>,
     pub humidity_percent: f64,
-    pub precipitation_mm: f64,   // rain + snow
-    pub precipitation_prob: f64, // 0.0-1.0
+    /// Rain plus snow over the slot.
+    pub precipitation_mm: Option<f64>,
+    /// 0.0–1.0.
+    pub precipitation_prob: Option<f64>,
     pub wind_speed_mph: f64,
     pub wind_gust_mph: Option<f64>,
-    pub cloud_cover_percent: f64,
+    pub cloud_cover_percent: Option<f64>,
     pub weather_condition: WeatherCondition,
 }
 
-/// Aggregated daily forecast
+/// One of the lawn's local days of a forecast.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DailyForecast {
     pub date: NaiveDate,
     pub high_temp_f: f64,
     pub low_temp_f: f64,
     pub avg_humidity: f64,
-    pub total_precipitation_mm: f64,
-    pub max_precipitation_prob: f64,
+    /// `None` unless every slot of the day carries an amount.
+    pub total_precipitation_mm: Option<f64>,
+    /// The highest probability among the slots that carry one.
+    pub max_precipitation_prob: Option<f64>,
     pub dominant_condition: WeatherCondition,
     pub avg_wind_speed_mph: f64,
     pub max_wind_gust_mph: Option<f64>,
-    /// Hours of this local day the 3-hourly feed covers (3 per point).
+    /// Hours of this local day the forecast covers: the sum of its slots' lengths.
     #[serde(default)]
     pub hours_covered: u32,
 }
@@ -135,7 +162,7 @@ impl DailyForecast {
     }
 }
 
-/// Weather condition categories from OpenWeatherMap
+/// The conditions every provider's weather is mapped to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum WeatherCondition {
     #[default]
@@ -165,6 +192,20 @@ impl WeatherCondition {
         }
     }
 
+    /// From a WMO weather code, as Open-Meteo gives it.
+    pub fn from_wmo_code(code: u32) -> Self {
+        match code {
+            0 | 1 => WeatherCondition::Clear,
+            2 | 3 => WeatherCondition::Clouds,
+            45 | 48 => WeatherCondition::Fog,
+            51..=57 => WeatherCondition::Drizzle,
+            61..=67 | 80..=82 => WeatherCondition::Rain,
+            71..=77 | 85 | 86 => WeatherCondition::Snow,
+            95..=99 => WeatherCondition::Thunderstorm,
+            _ => WeatherCondition::Other,
+        }
+    }
+
     pub fn as_str(&self) -> &'static str {
         match self {
             WeatherCondition::Clear => "Clear",
@@ -187,60 +228,8 @@ impl std::fmt::Display for WeatherCondition {
 }
 
 #[cfg(test)]
-mod day_tests;
-
+mod daily_tests;
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn weather_condition_from_owm_id() {
-        assert_eq!(
-            WeatherCondition::from_owm_id(200),
-            WeatherCondition::Thunderstorm
-        );
-        assert_eq!(WeatherCondition::from_owm_id(500), WeatherCondition::Rain);
-        assert_eq!(WeatherCondition::from_owm_id(800), WeatherCondition::Clear);
-        assert_eq!(WeatherCondition::from_owm_id(801), WeatherCondition::Clouds);
-        assert_eq!(WeatherCondition::from_owm_id(600), WeatherCondition::Snow);
-    }
-
-    fn summary(date: NaiveDate) -> DailyForecast {
-        DailyForecast {
-            date,
-            high_temp_f: 70.0,
-            low_temp_f: 50.0,
-            avg_humidity: 50.0,
-            total_precipitation_mm: 0.0,
-            max_precipitation_prob: 0.0,
-            dominant_condition: WeatherCondition::Clear,
-            avg_wind_speed_mph: 0.0,
-            max_wind_gust_mph: None,
-            hours_covered: 24,
-        }
-    }
-
-    // @spec WX-SRC-OWM-004
-    #[test]
-    fn next_days_counts_from_the_given_local_today() {
-        let d = |m, day| NaiveDate::from_ymd_opt(2025, m, day).unwrap();
-        let forecast = WeatherForecast {
-            fetched_at: Utc::now(),
-            location: ForecastLocation {
-                city: "Avondale".into(),
-                country: "US".into(),
-                latitude: 0.0,
-                longitude: 0.0,
-                utc_offset_seconds: 0,
-            },
-            hourly: vec![],
-            daily_summary: (1..=6).map(|day| summary(d(6, day))).collect(),
-        };
-        let dates: Vec<_> = forecast
-            .next_days(d(6, 2), 2)
-            .iter()
-            .map(|s| s.date)
-            .collect();
-        assert_eq!(dates, vec![d(6, 1), d(6, 2), d(6, 3), d(6, 4)]);
-    }
-}
+mod day_tests;
+#[cfg(test)]
+mod tests;

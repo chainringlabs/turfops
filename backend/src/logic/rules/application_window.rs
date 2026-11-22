@@ -158,23 +158,18 @@ impl ApplicationWindowRule {
 
         // Check day before
         let no_rain_before = if day_idx > 0 {
-            forecast.daily_summary[day_idx - 1].total_precipitation_mm < PRECIP_TRACE_MM
-                && forecast.daily_summary[day_idx - 1].max_precipitation_prob < PRECIP_PROB_LIKELY
+            is_dry(&forecast.daily_summary[day_idx - 1])
         } else {
             // Check recent precipitation from environmental data
             env.precipitation_7day_total_mm.unwrap_or(0.0) < PRECIP_HEAVY_7DAY_MM
         };
 
         // Check current day and next day
-        let current_dry = day.total_precipitation_mm < PRECIP_TRACE_MM
-            && day.max_precipitation_prob < PRECIP_PROB_LIKELY;
+        let current_dry = is_dry(day);
         let next_day_dry = forecast
             .daily_summary
             .get(day_idx + 1)
-            .map(|d| {
-                d.total_precipitation_mm < PRECIP_TRACE_MM
-                    && d.max_precipitation_prob < PRECIP_PROB_LIKELY
-            })
+            .map(is_dry)
             .unwrap_or(true);
 
         let no_rain_after = current_dry && next_day_dry;

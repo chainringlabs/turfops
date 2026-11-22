@@ -7,6 +7,8 @@ pub mod grid;
 #[cfg(test)]
 mod live_tests;
 #[allow(dead_code)]
+pub mod nws;
+#[allow(dead_code)]
 pub mod open_meteo;
 #[allow(dead_code)]
 pub mod outside;

@@ -244,30 +244,31 @@ export interface EnvironmentalReading {
 
 export type Trend = "Rising" | "Falling" | "Stable" | "Unknown";
 
+export type ForecastProvider =
+	| "OpenMeteo"
+	| "NationalWeatherService"
+	| "OpenWeatherMap";
+
 export interface WeatherForecast {
 	fetched_at: string;
-	location: ForecastLocation;
+	provider: ForecastProvider;
 	hourly: ForecastPoint[];
 	daily_summary: DailyForecast[];
 }
 
-export interface ForecastLocation {
-	city: string;
-	country: string;
-	latitude: number;
-	longitude: number;
-}
-
+/** One slot of the forecast. A quantity the provider does not forecast is null. */
 export interface ForecastPoint {
 	timestamp: string;
+	/** The slot's length in hours: 1 or 3, by provider. */
+	slot_hours: number;
 	temp_f: number;
-	feels_like_f: number;
+	feels_like_f: number | null;
 	humidity_percent: number;
-	precipitation_mm: number;
-	precipitation_prob: number;
+	precipitation_mm: number | null;
+	precipitation_prob: number | null;
 	wind_speed_mph: number;
 	wind_gust_mph: number | null;
-	cloud_cover_percent: number;
+	cloud_cover_percent: number | null;
 	weather_condition: string;
 }
 
@@ -276,12 +277,13 @@ export interface DailyForecast {
 	high_temp_f: number;
 	low_temp_f: number;
 	avg_humidity: number;
-	total_precipitation_mm: number;
-	max_precipitation_prob: number;
+	/** Null unless every slot of the day carries an amount. */
+	total_precipitation_mm: number | null;
+	max_precipitation_prob: number | null;
 	dominant_condition: string;
 	avg_wind_speed_mph: number;
 	max_wind_gust_mph: number | null;
-	/** Hours of the local day the 3-hourly feed covers; under 18 = a partial day. */
+	/** Hours of the local day the forecast covers; under 18 = a partial day. */
 	hours_covered?: number;
 }
 

@@ -18,6 +18,9 @@ use crate::models::{
 /// - Critical: No rain 5 days, moisture < 0.10
 pub struct IrrigationForecastRule;
 
+/// Fewer forecast days than this with a rain amount is too little to call a dry spell.
+const MIN_DAYS_WITH_AMOUNT: usize = 3;
+
 // @spec RULE-WX-002, RULE-WX-003
 impl Rule for IrrigationForecastRule {
     fn evaluate(
@@ -37,16 +40,19 @@ impl Rule for IrrigationForecastRule {
         }
 
         // Only the forecast *amount* counts: a 50% chance of a trace won't relieve dry soil.
-        // Calculate total precipitation expected in next 5 days
-        // @spec RULE-ENG-005
-        let total_precip: f64 = forecast
+        // The forecast amount over the next 5 days, from the days that carry one.
+        // @spec RULE-ENG-005, RULE-WX-011
+        let amounts: Vec<f64> = forecast
             .next_days(at.today, 5)
             .iter()
-            .map(|d| d.total_precipitation_mm)
-            .sum();
+            .filter_map(|d| d.total_precipitation_mm)
+            .collect();
+        if amounts.len() < MIN_DAYS_WITH_AMOUNT {
+            return None;
+        }
 
         // If meaningful rain expected (>2.5mm / 0.1"), no recommendation
-        if total_precip > PRECIP_TRACE_MM {
+        if amounts.iter().sum::<f64>() > PRECIP_TRACE_MM {
             return None;
         }
 
@@ -59,14 +65,12 @@ impl Rule for IrrigationForecastRule {
             Severity::Advisory
         };
 
-        // Calculate days until next rain (if any)
+        // Days until the next day that is not dry (if any)
+        // @spec RULE-WX-013
         let dry_days = forecast
             .daily_summary
             .iter()
-            .take_while(|d| {
-                d.total_precipitation_mm < PRECIP_TRACE_MM
-                    && d.max_precipitation_prob < PRECIP_PROB_LIKELY
-            })
+            .take_while(|d| is_dry(d))
             .count();
 
         Some(self.build_recommendation(severity, soil_moisture, dry_days, profile))
@@ -145,7 +149,7 @@ impl IrrigationForecastRule {
 mod tests {
     use super::*;
     use crate::models::{
-        EnvironmentalReading, ForecastLocation, ForecastPoint, GrassType, WeatherCondition,
+        DailyForecast, EnvironmentalReading, ForecastProvider, GrassType, WeatherCondition,
         WeatherForecast,
     };
     use chrono::{Duration, Utc};
@@ -165,55 +169,109 @@ mod tests {
         }
     }
 
-    /// Dry soil (8%) plus a forecast of one 3-hourly point per `(mm, probability)`.
-    fn env(points: &[(f64, f64)]) -> EnvironmentalSummary {
+    /// Dry soil (8%) plus a forecast of one day per `(amount in mm, probability)`, from
+    /// today.
+    fn env(days: &[(Option<f64>, Option<f64>)]) -> EnvironmentalSummary {
         let mut reading = EnvironmentalReading::new(DataSource::SoilData);
         reading.soil_moisture_10 = Some(0.08);
-        let hourly = points
+        let today = crate::clock::Clock::System.today();
+        let daily_summary = days
             .iter()
             .enumerate()
-            .map(|(i, (mm, prob))| ForecastPoint {
-                timestamp: Utc::now() + Duration::hours(3 * (i as i64 + 1)),
-                temp_f: 80.0,
-                feels_like_f: 80.0,
-                humidity_percent: 50.0,
-                precipitation_mm: *mm,
-                precipitation_prob: *prob,
-                wind_speed_mph: 5.0,
-                wind_gust_mph: None,
-                cloud_cover_percent: 20.0,
-                weather_condition: WeatherCondition::default(),
+            .map(|(i, (mm, prob))| DailyForecast {
+                date: today + Duration::days(i as i64),
+                high_temp_f: 85.0,
+                low_temp_f: 65.0,
+                avg_humidity: 50.0,
+                total_precipitation_mm: *mm,
+                max_precipitation_prob: *prob,
+                dominant_condition: WeatherCondition::default(),
+                avg_wind_speed_mph: 5.0,
+                max_wind_gust_mph: None,
+                hours_covered: 24,
             })
             .collect();
         EnvironmentalSummary {
             current: Some(reading),
             forecast: Some(WeatherForecast {
                 fetched_at: Utc::now(),
-                location: ForecastLocation {
-                    city: "Test".into(),
-                    country: "US".into(),
-                    latitude: 0.0,
-                    longitude: 0.0,
-                    utc_offset_seconds: 0,
-                },
-                hourly,
-                daily_summary: Vec::new(),
+                provider: ForecastProvider::OpenWeatherMap,
+                hourly: Vec::new(),
+                daily_summary,
             }),
             ..Default::default()
         }
     }
 
+    fn judge(days: &[(Option<f64>, Option<f64>)]) -> Option<Recommendation> {
+        IrrigationForecastRule.evaluate(
+            &env(days),
+            &profile(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        )
+    }
+
+    const DRY: (Option<f64>, Option<f64>) = (Some(0.0), Some(0.0));
+    /// A day the provider forecasts no amount for, at `probability`.
+    fn no_amount(probability: f64) -> (Option<f64>, Option<f64>) {
+        (None, Some(probability))
+    }
+
+    // @spec RULE-WX-003
     #[test]
     fn a_trace_or_a_coin_flip_does_not_cancel_a_drought_alert() {
-        // 0.3 mm of drizzle and one 50% slot with no accumulation: still bone dry.
-        let rec = IrrigationForecastRule
-            .evaluate(
-                &env(&[(0.3, 0.2), (0.0, 0.5)]),
-                &profile(),
-                &[],
-                crate::clock::Clock::System.moment(),
-            )
-            .expect("dry soil with no meaningful rain needs irrigation");
+        // 0.3 mm of drizzle and one 50% day with no accumulation: still bone dry.
+        let rec = judge(&[
+            (Some(0.3), Some(0.2)),
+            (Some(0.0), Some(0.5)),
+            DRY,
+            DRY,
+            DRY,
+        ])
+        .expect("dry soil with no meaningful rain needs irrigation");
         assert_eq!(rec.severity, Severity::Critical);
+    }
+
+    // @spec RULE-WX-011
+    #[test]
+    fn the_amount_is_summed_over_the_days_that_carry_one() {
+        let rec = judge(&[
+            DRY,
+            DRY,
+            DRY,
+            no_amount(0.2),
+            no_amount(0.9),
+            no_amount(0.9),
+        ]);
+        assert!(rec.is_some(), "three dry days with amounts are enough");
+        let wet = judge(&[
+            DRY,
+            (Some(3.0), Some(0.8)),
+            DRY,
+            no_amount(0.2),
+            no_amount(0.2),
+        ]);
+        assert!(wet.is_none(), "3 mm on a day that carries an amount");
+    }
+
+    // @spec RULE-WX-011
+    #[test]
+    fn fewer_than_three_days_with_an_amount_is_too_little_to_call_a_dry_spell() {
+        let rec = judge(&[DRY, DRY, no_amount(0.1), no_amount(0.1), no_amount(0.1)]);
+        assert!(rec.is_none());
+    }
+
+    // @spec RULE-WX-013
+    #[test]
+    fn dry_days_ahead_stop_at_the_first_day_that_is_not_dry() {
+        let text = |days: &[(Option<f64>, Option<f64>)]| {
+            let rec = judge(days).expect("fires");
+            format!("{} {:?}", rec.description, rec.data_points)
+        };
+        let amounts_only = text(&[DRY, DRY, DRY, no_amount(0.2), no_amount(0.6), DRY]);
+        assert!(amounts_only.contains("4 days"), "{amounts_only}");
+        let none_at_all = text(&[DRY, DRY, DRY, (None, None), DRY]);
+        assert!(none_at_all.contains("3 days"), "{none_at_all}");
     }
 }

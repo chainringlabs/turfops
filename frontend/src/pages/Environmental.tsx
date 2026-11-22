@@ -8,6 +8,7 @@ import {
 import { describeError } from "../api/errors";
 import {
 	crossingWhen,
+	forecastPrecip,
 	isPartialDay,
 	lastDays,
 	soilObservedLine,
@@ -329,10 +330,7 @@ export default function Environmental() {
 								<div style={styles.forecastDetail}>
 									Humidity: {day.avg_humidity.toFixed(0)}%
 								</div>
-								<div style={styles.forecastDetail}>
-									Precip: {mmToInches(day.total_precipitation_mm).toFixed(2)} in
-									({(day.max_precipitation_prob * 100).toFixed(0)}%)
-								</div>
+								<div style={styles.forecastDetail}>{forecastPrecip(day)}</div>
 							</div>
 						))}
 					</div>

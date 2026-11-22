@@ -1,4 +1,5 @@
 use super::*;
+use chrono::NaiveDate;
 
 fn eastern() -> Clock {
     Clock::Zone(chrono_tz::America::New_York)
@@ -19,17 +20,29 @@ fn client_creation() {
     assert!(client.config.enabled);
 }
 
+/// The forecast's daily summaries for `points`, on Eastern days.
+fn days(points: &[ForecastPoint]) -> Vec<crate::models::DailyForecast> {
+    WeatherForecast::new(
+        ForecastProvider::OpenWeatherMap,
+        Utc::now(),
+        points.to_vec(),
+        &eastern(),
+    )
+    .daily_summary
+}
+
 fn point(utc: &str, temp_f: f64) -> ForecastPoint {
     ForecastPoint {
         timestamp: utc.parse().unwrap(),
+        slot_hours: 3,
         temp_f,
-        feels_like_f: temp_f,
+        feels_like_f: Some(temp_f),
         humidity_percent: 50.0,
-        precipitation_mm: 0.0,
-        precipitation_prob: 0.0,
+        precipitation_mm: Some(0.0),
+        precipitation_prob: Some(0.0),
         wind_speed_mph: 5.0,
         wind_gust_mph: None,
-        cloud_cover_percent: 0.0,
+        cloud_cover_percent: Some(0.0),
         weather_condition: WeatherCondition::default(),
     }
 }
@@ -37,7 +50,6 @@ fn point(utc: &str, temp_f: f64) -> ForecastPoint {
 // @spec WX-SRC-OWM-002
 #[test]
 fn days_are_local_and_partial_days_are_marked() {
-    let client = OpenWeatherMapClient::new(sample_config(), eastern());
     // Fetched mid-afternoon Sep 21 (EDT): two points left today, then a full Sep 22.
     let mut hourly = vec![
         point("2026-09-21T21:00:00Z", 78.0), // 5 pm Sep 21 local
@@ -54,7 +66,7 @@ fn days_are_local_and_partial_days_are_marked() {
         hourly.push(p);
     }
 
-    let days = client.aggregate_daily(&hourly);
+    let days = days(&hourly);
     let sep21 = &days[0];
     assert_eq!(sep21.date, NaiveDate::from_ymd_opt(2026, 9, 21).unwrap());
     assert_eq!(sep21.hours_covered, 9); // 5 pm, 8 pm, 11 pm
@@ -74,8 +86,7 @@ fn days_are_local_and_partial_days_are_marked() {
 fn days_follow_daylight_saving_not_a_fixed_offset() {
     // DST ends 2026-11-01 06:00 UTC. 04:30 UTC on Nov 2 is 11:30 pm EST on Nov 1; a fixed
     // EDT offset (what OWM's `city.timezone` reported at fetch time) would call it Nov 2.
-    let client = OpenWeatherMapClient::new(sample_config(), eastern());
-    let days = client.aggregate_daily(&[
+    let days = days(&[
         point("2026-11-01T22:00:00Z", 60.0), // 5 pm EST Nov 1
         point("2026-11-02T04:30:00Z", 50.0), // 11:30 pm EST Nov 1
     ]);

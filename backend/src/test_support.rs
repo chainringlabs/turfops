@@ -52,6 +52,34 @@ pub async fn stub_http_seeing(
     (format!("http://{addr}"), request)
 }
 
+/// A stub that answers one request per body, in order, and hands back each request line.
+pub async fn stub_http_sequence(
+    answers: Vec<(u16, &'static str)>,
+) -> (String, tokio::sync::mpsc::UnboundedReceiver<String>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let (seen, requests) = tokio::sync::mpsc::unbounded_channel();
+    tokio::spawn(async move {
+        for (status, body) in answers {
+            let Ok((mut socket, _)) = listener.accept().await else {
+                return;
+            };
+            let mut buf = vec![0u8; 64 * 1024];
+            let read = socket.read(&mut buf).await.unwrap_or(0);
+            let request = String::from_utf8_lossy(&buf[..read]).into_owned();
+            let _ = seen.send(request.lines().next().unwrap_or_default().to_string());
+            let response = format!(
+                "HTTP/1.1 {status} Upstream\r\nContent-Type: application/json\r\n\
+                 Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let _ = socket.write_all(response.as_bytes()).await;
+            let _ = socket.shutdown().await;
+        }
+    });
+    (format!("http://{addr}"), requests)
+}
+
 /// The production module tree: every file reachable from `main.rs` through `mod` items
 /// that are not gated on `test`. Test modules and test helpers are left out by how they are
 /// declared, whatever their file names.
