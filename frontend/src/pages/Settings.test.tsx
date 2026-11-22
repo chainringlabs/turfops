@@ -22,6 +22,7 @@ const PROFILE: LawnProfile = {
 	soil_type: "Clay",
 	lawn_size_sqft: 5000,
 	irrigation_type: "Hose",
+	location: null,
 	created_at: "2026-03-01T12:00:00Z",
 	updated_at: "2026-03-02T12:00:00Z",
 };

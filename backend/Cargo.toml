@@ -66,6 +66,7 @@ dotenvy = { version = "0.15", optional = true }
 rmcp = { version = "3.4", features = ["server", "macros", "transport-streamable-http-server"] }
 schemars = "1"
 subtle = "2"
+tzf-rs = "2.3.0"
 
 [features]
 default = []

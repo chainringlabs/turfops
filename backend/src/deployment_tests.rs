@@ -66,6 +66,12 @@ fn compose_supplies_no_stand_in_coordinates() {
         COMPOSE.contains("OWM_LONGITUDE: ${OWM_LONGITUDE:-}\n"),
         "no 0 default"
     );
+    for key in ["LAWN_LATITUDE", "LAWN_LONGITUDE"] {
+        assert!(
+            COMPOSE.contains(&format!("{key}: ${{{key}:-}}\n")),
+            "{key} is passed with no default"
+        );
+    }
 }
 
 fn ignored(list: &str) -> Vec<(String, Option<String>)> {

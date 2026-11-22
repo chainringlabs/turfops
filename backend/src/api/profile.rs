@@ -1,6 +1,6 @@
 use crate::db::queries;
 use crate::error::TurfOpsError;
-use crate::models::{GrassType, IrrigationType, LawnProfile, SoilType};
+use crate::models::{GrassType, IrrigationType, LawnLocation, LawnProfile, SoilType};
 use crate::state::AppState;
 use axum::extract::State;
 use axum::Json;
@@ -29,6 +29,41 @@ pub struct UpdateProfileRequest {
     pub soil_type: Option<String>,
     pub lawn_size_sqft: Option<f64>,
     pub irrigation_type: Option<String>,
+    pub location: Option<LocationRequest>,
+}
+
+/// The lawn's location as a request gives it. A timezone is never taken from a request.
+#[derive(Debug, Deserialize)]
+pub struct LocationRequest {
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub place_name: Option<String>,
+}
+
+const NEEDS_BOTH: &str = "A location needs both a latitude and a longitude.";
+const OUTSIDE: &str = "That location is outside the contiguous United States, the only area \
+                       TurfOps has weather data for.";
+
+/// The location a request asks for: a new point, or the current one with a new place name.
+// @spec APP-PROF-013, APP-PROF-014, APP-PROF-017
+fn requested_location(
+    request: LocationRequest,
+    current: Option<&LawnLocation>,
+) -> Result<LawnLocation, TurfOpsError> {
+    let invalid = |message: &str| TurfOpsError::InvalidData(message.into());
+    match (request.latitude, request.longitude, current) {
+        (Some(latitude), Some(longitude), _) => {
+            let place_name = request
+                .place_name
+                .or_else(|| current.and_then(|c| c.place_name.clone()));
+            LawnLocation::at(latitude, longitude, place_name).map_err(|_| invalid(OUTSIDE))
+        }
+        (None, None, Some(current)) => {
+            LawnLocation::at(current.latitude, current.longitude, request.place_name)
+                .map_err(|_| invalid(OUTSIDE))
+        }
+        _ => Err(invalid(NEEDS_BOTH)),
+    }
 }
 
 /// Update the lawn profile, or create it when none exists yet (filling omitted fields
@@ -76,6 +111,10 @@ pub async fn update_profile(
                 TurfOpsError::InvalidData(format!("Unknown irrigation type: {}", it))
             })?);
         }
+    }
+
+    if let Some(location) = req.location {
+        profile.location = Some(requested_location(location, profile.location.as_ref())?);
     }
 
     if creating {

@@ -287,8 +287,8 @@ async fn shutdown_signal() {
 /// Create a default lawn profile from config if no profile exists in the DB.
 // @spec APP-PROF-005, DEPLOY-CONFIG-009
 async fn ensure_default_profile(pool: &sqlx::PgPool, config: &Config) -> anyhow::Result<()> {
-    if queries::get_default_lawn_profile(pool).await?.is_some() {
-        return Ok(());
+    if let Some(profile) = queries::get_default_lawn_profile(pool).await? {
+        return seed_missing_location(pool, config, profile).await;
     }
 
     tracing::info!("No lawn profile found, creating default from config");
@@ -301,5 +301,29 @@ async fn ensure_default_profile(pool: &sqlx::PgPool, config: &Config) -> anyhow:
     queries::create_lawn_profile(pool, &profile).await?;
     tracing::info!("Default lawn profile created: {}", config.lawn.name);
 
+    Ok(())
+}
+
+/// Gives a profile that has no location the one the environment describes, so an
+/// installation that predates the location comes up located. A profile that has one is
+/// left alone.
+// @spec APP-PROF-015, APP-PROF-016
+async fn seed_missing_location(
+    pool: &sqlx::PgPool,
+    config: &Config,
+    mut profile: models::LawnProfile,
+) -> anyhow::Result<()> {
+    if profile.location.is_some() {
+        return Ok(());
+    }
+    let (location, warnings) = config.lawn.seed_location();
+    for warning in warnings {
+        tracing::warn!("{warning}");
+    }
+    if let Some(location) = location {
+        tracing::info!(timezone = %location.timezone, "Lawn location set from the environment");
+        profile.location = Some(location);
+        queries::update_lawn_profile(pool, &profile).await?;
+    }
     Ok(())
 }

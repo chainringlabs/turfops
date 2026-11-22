@@ -55,6 +55,7 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [ ] **SETUP-PAGE-004**: The Sources page shall list every source in use with its name, kind, the inputs it speaks for, its last successful fetch, its last failure with that failure's owner sentence, the history held against wanted, and its attribution, with failing sources first.
 - [ ] **SETUP-PAGE-005**: The Sources page shall show the state of the Home Assistant connection (connected or not set up), the forecast provider, and whether posted readings are enabled, each with a way to test and change it where it can be changed.
 - [ ] **SETUP-PAGE-006**: The Sources page shall show the lawn's place, coordinates and timezone, and before a change of location is saved shall warn that station and grid history for the old point will be replaced and reloaded and that sensor history is kept.
+- [ ] **SETUP-PAGE-008**: The Sources page shall credit the timezone boundary data to OpenStreetMap contributors under the Open Database License.
 - [ ] **SETUP-PAGE-007**: From each input on the Sources page, the owner shall be able to pin or unpin a station and map or unmap a sensor.
 
 ## The endpoints

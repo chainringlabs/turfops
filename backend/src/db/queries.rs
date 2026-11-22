@@ -1,7 +1,7 @@
 use crate::error::{Result, TurfOpsError};
 use crate::models::{
     seasonal_plan::ThresholdCrossing, Application, ApplicationType, FracClass, GrassType,
-    IrrigationType, LawnProfile, LogScope, RecommendationState, Severity, SoilType,
+    IrrigationType, LawnLocation, LawnProfile, LogScope, RecommendationState, Severity, SoilType,
 };
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::PgPool;
@@ -35,8 +35,9 @@ pub async fn create_lawn_profile(pool: &PgPool, profile: &LawnProfile) -> Result
     let row = sqlx::query_scalar::<_, i64>(
         r#"
         INSERT INTO lawn_profiles
-            (name, grass_type, usda_zone, soil_type, lawn_size_sqft, irrigation_type, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            (name, grass_type, usda_zone, soil_type, lawn_size_sqft, irrigation_type, created_at, updated_at,
+             latitude, longitude, place_name, timezone)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING id
         "#,
     )
@@ -48,6 +49,10 @@ pub async fn create_lawn_profile(pool: &PgPool, profile: &LawnProfile) -> Result
     .bind(opt_enum_to_db_string(profile.irrigation_type)?)
     .bind(profile.created_at)
     .bind(profile.updated_at)
+    .bind(profile.location.as_ref().map(|l| l.latitude))
+    .bind(profile.location.as_ref().map(|l| l.longitude))
+    .bind(profile.location.as_ref().and_then(|l| l.place_name.clone()))
+    .bind(profile.location.as_ref().map(|l| l.timezone.clone()))
     .fetch_one(pool)
     .await?;
 
@@ -57,7 +62,7 @@ pub async fn create_lawn_profile(pool: &PgPool, profile: &LawnProfile) -> Result
 // @spec APP-PROF-001
 pub async fn get_default_lawn_profile(pool: &PgPool) -> Result<Option<LawnProfile>> {
     let row = sqlx::query_as::<_, LawnProfileRow>(
-        "SELECT id, name, grass_type, usda_zone, soil_type, lawn_size_sqft, irrigation_type, created_at, updated_at FROM lawn_profiles ORDER BY id LIMIT 1",
+        "SELECT id, name, grass_type, usda_zone, soil_type, lawn_size_sqft, irrigation_type, created_at, updated_at, latitude, longitude, place_name, timezone FROM lawn_profiles ORDER BY id LIMIT 1",
     )
     .fetch_optional(pool)
     .await?;
@@ -74,7 +79,8 @@ pub async fn update_lawn_profile(pool: &PgPool, profile: &LawnProfile) -> Result
         r#"
         UPDATE lawn_profiles SET
             name = $1, grass_type = $2, usda_zone = $3, soil_type = $4,
-            lawn_size_sqft = $5, irrigation_type = $6, updated_at = $7
+            lawn_size_sqft = $5, irrigation_type = $6, updated_at = $7,
+            latitude = $9, longitude = $10, place_name = $11, timezone = $12
         WHERE id = $8
         "#,
     )
@@ -86,6 +92,10 @@ pub async fn update_lawn_profile(pool: &PgPool, profile: &LawnProfile) -> Result
     .bind(opt_enum_to_db_string(profile.irrigation_type)?)
     .bind(Utc::now())
     .bind(id)
+    .bind(profile.location.as_ref().map(|l| l.latitude))
+    .bind(profile.location.as_ref().map(|l| l.longitude))
+    .bind(profile.location.as_ref().and_then(|l| l.place_name.clone()))
+    .bind(profile.location.as_ref().map(|l| l.timezone.clone()))
     .execute(pool)
     .await?;
 
@@ -416,6 +426,10 @@ struct LawnProfileRow {
     irrigation_type: Option<String>,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
+    latitude: Option<f64>,
+    longitude: Option<f64>,
+    place_name: Option<String>,
+    timezone: Option<String>,
 }
 
 impl LawnProfileRow {
@@ -449,6 +463,16 @@ impl LawnProfileRow {
             soil_type,
             lawn_size_sqft: self.lawn_size_sqft,
             irrigation_type,
+            // @spec APP-PROF-013
+            location: match (self.latitude, self.longitude, self.timezone) {
+                (Some(latitude), Some(longitude), Some(timezone)) => Some(LawnLocation {
+                    latitude,
+                    longitude,
+                    place_name: self.place_name,
+                    timezone,
+                }),
+                _ => None,
+            },
             created_at: self.created_at,
             updated_at: self.updated_at,
         }

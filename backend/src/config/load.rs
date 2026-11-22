@@ -129,6 +129,7 @@ pub fn from_vars(get: Lookup) -> Result<(Config, Vec<String>)> {
             soil_type: var(get, "LAWN_SOIL_TYPE"),
             lawn_size_sqft: var(get, "LAWN_SIZE_SQFT"),
             irrigation_type: var(get, "LAWN_IRRIGATION_TYPE"),
+            location: super::location_seed::LocationSettings::from_vars(get),
         },
         noaa: NoaaConfig {
             station_wbanno: parsed(get, "NOAA_STATION_WBANNO", 3761, "3761", w),

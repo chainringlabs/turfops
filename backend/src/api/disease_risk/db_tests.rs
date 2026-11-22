@@ -21,6 +21,7 @@ fn config(silver: &str, clock: Clock) -> Config {
             soil_type: None,
             lawn_size_sqft: None,
             irrigation_type: None,
+            location: Default::default(),
         },
         noaa: NoaaConfig {
             station_wbanno: 3761,

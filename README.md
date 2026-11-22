@@ -671,3 +671,11 @@ Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING
 ## License
 
 Released under the [MIT License](LICENSE).
+
+### Data bundled with the application
+
+The lawn's timezone is found from its coordinates using timezone boundaries compiled into the
+binary. That boundary data is © OpenStreetMap contributors, made available under the
+[Open Database License (ODbL) 1.0](https://opendatacommons.org/licenses/odbl/1-0/), assembled
+by [timezone-boundary-builder](https://github.com/evansiroky/timezone-boundary-builder) and
+packaged by [tzf-rs](https://github.com/ringsaturn/tzf-rs). It is included unmodified.

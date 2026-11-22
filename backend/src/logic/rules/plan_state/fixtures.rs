@@ -35,6 +35,7 @@ pub(super) fn profile() -> LawnProfile {
         soil_type: None,
         lawn_size_sqft: None,
         irrigation_type: None,
+        location: None,
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
     }
