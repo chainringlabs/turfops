@@ -56,10 +56,11 @@ impl Fetcher {
         Self { pool, clients }
     }
 
-    /// Runs one fetch. Its rows and the span now held are written together; a failure
-    /// is recorded against the source and product, logged, and returned.
+    /// Runs one fetch and returns how many rows it wrote. Its rows and the span now held
+    /// are written together; a failure is recorded against the source and product,
+    /// logged, and returned.
     // @spec SYNC-SCHED-002, SYNC-SCHED-006, WX-REC-FILL-003, WX-REC-FAIL-004
-    pub async fn run(&self, fetch: &Fetch, now: DateTime<Utc>) -> Result<()> {
+    pub async fn run(&self, fetch: &Fetch, now: DateTime<Utc>) -> Result<usize> {
         let outcome = self.attempt(fetch, now).await;
         if let Err(error) = &outcome {
             tracing::warn!(source = %fetch.source.key, ?error, "weather fetch failed");
@@ -80,7 +81,7 @@ impl Fetcher {
         catalog::replace_network(&self.pool, network, &stations).await
     }
 
-    async fn attempt(&self, fetch: &Fetch, now: DateTime<Utc>) -> Result<()> {
+    async fn attempt(&self, fetch: &Fetch, now: DateTime<Utc>) -> Result<usize> {
         match fetch.product {
             Product::StationHours => self.station_hours(fetch, now).await,
             Product::CalibrationDays => self.calibration_days(fetch, now).await,
@@ -116,7 +117,7 @@ impl Fetcher {
             .and_then(|state| state.last_success))
     }
 
-    async fn station_hours(&self, fetch: &Fetch, now: DateTime<Utc>) -> Result<()> {
+    async fn station_hours(&self, fetch: &Fetch, now: DateTime<Utc>) -> Result<usize> {
         let station = self.station(&fetch.source).await?;
         let (from, through) = fetch.span;
         let product = fetch.product.as_str();
@@ -138,7 +139,8 @@ impl Fetcher {
                     }
                 }
                 if !changed {
-                    return fetch_state::checked(&self.pool, fetch.source.id, product, now).await;
+                    fetch_state::checked(&self.pool, fetch.source.id, product, now).await?;
+                    return Ok(0);
                 }
                 self.learn_inputs(fetch, &rows).await?;
                 // A year's file holds the whole year; only the span asked for is new.
@@ -147,7 +149,8 @@ impl Fetcher {
             }
         }
         fetch_state::hourly_fetched(&self.pool, fetch.source.id, product, &rows, fetch.span, now)
-            .await
+            .await?;
+        Ok(rows.len())
     }
 
     /// The station list does not say what a USCRN station measures; the year so far
@@ -164,7 +167,7 @@ impl Fetcher {
         Ok(())
     }
 
-    async fn calibration_days(&self, fetch: &Fetch, now: DateTime<Utc>) -> Result<()> {
+    async fn calibration_days(&self, fetch: &Fetch, now: DateTime<Utc>) -> Result<usize> {
         let station = self.station(&fetch.source).await?;
         let locator = locator(&station)?;
         let (from, through) = fetch.span;
@@ -183,13 +186,16 @@ impl Fetcher {
             }
         }
         if !changed {
-            return fetch_state::checked(&self.pool, fetch.source.id, product, now).await;
+            fetch_state::checked(&self.pool, fetch.source.id, product, now).await?;
+            return Ok(0);
         }
         rows.retain(|row| (from..=through).contains(&row.day));
-        fetch_state::daily_fetched(&self.pool, &fetch.source, product, &rows, fetch.span, now).await
+        fetch_state::daily_fetched(&self.pool, &fetch.source, product, &rows, fetch.span, now)
+            .await?;
+        Ok(rows.len())
     }
 
-    async fn grid_days(&self, fetch: &Fetch, grid: Grid, now: DateTime<Utc>) -> Result<()> {
+    async fn grid_days(&self, fetch: &Fetch, grid: Grid, now: DateTime<Utc>) -> Result<usize> {
         let (latitude, longitude) = point(&fetch.source)?;
         let (from, through) = fetch.span;
         let product = fetch.product.as_str();
@@ -206,15 +212,17 @@ impl Fetcher {
             // asked for again without end.
             (None, Purpose::Backfill) => fetch.span,
             (None, Purpose::Current) => {
-                return fetch_state::checked(&self.pool, fetch.source.id, product, now).await;
+                fetch_state::checked(&self.pool, fetch.source.id, product, now).await?;
+                return Ok(0);
             }
         };
-        fetch_state::daily_fetched(&self.pool, &fetch.source, product, &days, span, now).await
+        fetch_state::daily_fetched(&self.pool, &fetch.source, product, &days, span, now).await?;
+        Ok(days.len())
     }
 
     /// The hourly analysis, and with it the elevation of the lawn's point.
     // @spec WX-REC-PLAN-007
-    async fn analysis_hours(&self, fetch: &Fetch, now: DateTime<Utc>) -> Result<()> {
+    async fn analysis_hours(&self, fetch: &Fetch, now: DateTime<Utc>) -> Result<usize> {
         let (latitude, longitude) = point(&fetch.source)?;
         let (from, through) = fetch.span;
         let days_back = ((through - from).num_days() + 1).clamp(1, ANALYSIS_MAX_DAYS) as u32;
@@ -229,7 +237,8 @@ impl Fetcher {
         let product = fetch.product.as_str();
         let hours = &analysis.hours;
         fetch_state::hourly_fetched(&self.pool, fetch.source.id, product, hours, fetch.span, now)
-            .await
+            .await?;
+        Ok(hours.len())
     }
 }
 

@@ -81,7 +81,7 @@ async fn a_grid_fetch_writes_its_days_and_holds_what_the_grid_returned(pool: PgP
     );
     let now = noon(20).at.now;
     let wanted = fetch(&lab, PRISM, Product::PrismDays, (d(17), d(20))).await;
-    fetcher.run(&wanted, now).await.unwrap();
+    assert_eq!(fetcher.run(&wanted, now).await.unwrap(), 2, "rows written");
 
     let held = rows::daily(&lab.pool, wanted.source.id, d(1), d(31))
         .await
