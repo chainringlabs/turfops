@@ -15,6 +15,7 @@ import {
 	type Widgets,
 } from "../components/dashboard/loadDashboard";
 import DiseaseRiskWidget from "../components/disease/DiseaseRiskWidget";
+import { staleSoilMessage } from "../components/environmental/display";
 import Gauge from "../components/Gauge";
 import GddWidget from "../components/GddWidget";
 import {
@@ -204,15 +205,10 @@ export default function Dashboard() {
 				</div>
 			</div>
 
-			{/* @spec SYNC-MERGE-006: data sync owns the 72 h limit */}
+			{/* @spec SYNC-MERGE-006, FEED-UI-009: data sync owns the 72 h limit */}
 			{environmental.soil_stale && (
-				<div role="alert" style={styles.errorBanner}>
-					Station soil data stopped on{" "}
-					{new Date(
-						environmental.soil_observed_at as string,
-					).toLocaleDateString()}
-					. Soil readings are hidden and soil-based advice is paused until the
-					feed catches up.
+				<div role="status" style={sharedStyles.notice}>
+					{staleSoilMessage(environmental)}
 				</div>
 			)}
 

@@ -216,7 +216,7 @@ export default function Environmental() {
 
 			{/* @spec WX-VIEW-PAGE-008: data sync owns the stale limit (SYNC-MERGE-006) */}
 			{data?.soil_stale && (
-				<div role="alert" style={sharedStyles.error}>
+				<div role="status" style={sharedStyles.notice}>
 					{staleSoilMessage(data)}
 				</div>
 			)}

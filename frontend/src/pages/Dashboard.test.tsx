@@ -154,8 +154,11 @@ describe("Dashboard", () => {
 		expect(header.parentElement).toHaveTextContent("Tall Fescue");
 		expect(header.parentElement).toHaveTextContent("Zone 7a");
 		expect(header.parentElement).toHaveTextContent("Updated");
-		const banner = screen.getByRole("alert");
-		expect(banner).toHaveTextContent("Station soil data stopped");
+		// A notice, not an error: the delay is the station network's.
+		expect(screen.queryByRole("alert")).toBeNull();
+		const banner = screen.getByRole("status");
+		expect(banner).toHaveTextContent("hasn't published new soil readings");
+		expect(banner).toHaveTextContent("nothing you need to do");
 		const connections = screen.getByText("Weather lake");
 		expect(connections.parentElement).toHaveTextContent("Home Assistant");
 		expect(connections.parentElement).toHaveTextContent("OpenWeatherMap");

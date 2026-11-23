@@ -11,6 +11,7 @@ import {
 	isPartialDay,
 	lastDays,
 	soilObservedLine,
+	staleSoilMessage,
 	TREND_REFERENCES,
 } from "./display";
 
@@ -46,6 +47,29 @@ describe("station soil", () => {
 		const line = soilObservedLine(summary);
 		expect(line).toMatch(/^Station soil observed /);
 		expect(soilObservedLine({} as EnvironmentalSummary)).toBeNull();
+	});
+});
+
+describe("stale station soil", () => {
+	// @spec WX-VIEW-PAGE-008
+	it("says whose delay it is, that nothing needs doing, and what is paused", () => {
+		const message = staleSoilMessage({
+			soil_observed_at: "2026-11-20T12:00:00Z",
+		} as EnvironmentalSummary);
+		expect(message).toContain("weather station hasn't published");
+		expect(message).toContain(
+			new Date("2026-11-20T12:00:00Z").toLocaleDateString(),
+		);
+		expect(message).toContain("nothing you need to do");
+		expect(message).toContain("TurfOps keeps checking");
+		expect(message).toContain("soil-based advice is paused");
+		expect(message).not.toMatch(/error|fail|fix|feed/i);
+	});
+
+	// @spec WX-VIEW-PAGE-008
+	it("still reads as a sentence when the last reading's date is unknown", () => {
+		const message = staleSoilMessage({} as EnvironmentalSummary);
+		expect(message).toContain("new soil readings for several days.");
 	});
 });
 
