@@ -29,6 +29,11 @@ pub struct SourceStatus {
     pub inputs: Vec<Input>,
     pub last_success: Option<DateTime<Utc>>,
     pub last_failure: Option<DateTime<Utc>>,
+    /// The owner's sentence for the latest failure, while it is newer than the latest
+    /// success.
+    pub last_error: Option<String>,
+    /// The source's key: its kind and what it is a source of.
+    pub key: String,
     /// First and last day held, when the source is fetched and holds anything.
     pub held: Option<(NaiveDate, NaiveDate)>,
     /// The first day wanted, when the source is fetched.
@@ -132,8 +137,16 @@ impl WeatherRecord {
             .into_iter()
             .map(|(source, inputs)| {
                 let state = states.remove(&source.id);
+                let failing = state
+                    .as_ref()
+                    .is_some_and(|s| s.last_failure > s.last_success);
                 SourceStatus {
                     source_id: source.id,
+                    last_error: state
+                        .as_ref()
+                        .filter(|_| failing)
+                        .and_then(|s| s.last_error.clone()),
+                    key: source.key,
                     name: source.name,
                     kind: source.kind,
                     inputs,

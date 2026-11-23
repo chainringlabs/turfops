@@ -1,9 +1,15 @@
 //! The lawn's weather sources as the owner sees and chooses them (SETUP).
 
+pub mod read;
 pub mod view;
+pub mod write;
 
 #[cfg(all(test, feature = "db-tests"))]
 mod db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod read_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod write_db_tests;
 
 use crate::db::weather_queries::catalog;
 use crate::error::TurfOpsError;
@@ -16,7 +22,8 @@ use axum::Json;
 use serde::{Deserialize, Serialize};
 use view::{InputPlan, StationChoice};
 
-const OUTSIDE: &str = "TurfOps has no weather data for that location yet. It covers the \
+pub(crate) const OUTSIDE: &str =
+    "TurfOps has no weather data for that location yet. It covers the \
                        contiguous United States.";
 
 #[derive(Debug, Deserialize)]
