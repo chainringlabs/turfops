@@ -31,7 +31,7 @@ fn station(network: Network, id: &str, miles_north: f64, inputs: &[Input]) -> St
 const SOIL: [Input; 2] = [Input::SoilTemp5, Input::SoilTemp10];
 
 /// A USCRN station 20 miles off and SCAN stations at 60 and 140 miles, all with soil.
-async fn stocked(pool: &PgPool) -> AppState {
+pub(super) async fn stocked(pool: &PgPool) -> AppState {
     let uscrn = [station(Network::Uscrn, "near", 20.0, &SOIL)];
     let scan = [
         station(Network::Scan, "mid", 60.0, &SOIL),
@@ -52,7 +52,7 @@ async fn stocked(pool: &PgPool) -> AppState {
     state(pool).await
 }
 
-fn at(lat: f64, lon: f64, pins: Option<&str>) -> Query<PreviewQuery> {
+pub(super) fn at(lat: f64, lon: f64, pins: Option<&str>) -> Query<PreviewQuery> {
     Query(PreviewQuery {
         lat,
         lon,
@@ -190,7 +190,7 @@ async fn a_station_list_that_cannot_be_loaded_is_an_outage_of_the_station_networ
     assert!(message.contains("weather station network"), "{message}");
 }
 
-fn stations_query(input: &str, point: Option<(f64, f64)>) -> Query<StationsQuery> {
+pub(super) fn stations_query(input: &str, point: Option<(f64, f64)>) -> Query<StationsQuery> {
     Query(StationsQuery {
         input: input.into(),
         lat: point.map(|p| p.0),

@@ -10,6 +10,8 @@ pub mod write;
 #[cfg(all(test, feature = "db-tests"))]
 mod db_tests;
 #[cfg(all(test, feature = "db-tests"))]
+mod elevation_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
 mod home_assistant_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod read_db_tests;
@@ -50,6 +52,8 @@ pub struct Preview {
     pub latitude: f64,
     pub longitude: f64,
     pub timezone: String,
+    /// The point's elevation in feet, when it could be had.
+    pub elevation_ft: Option<f64>,
     pub inputs: Vec<InputPlan>,
     /// The nearest station that may supply soil temperature, however far.
     pub nearest_soil_station: Option<StationChoice>,
@@ -67,6 +71,27 @@ async fn stations(state: &AppState) -> Result<Vec<(i64, Station)>, TurfOpsError>
         fetcher.refresh_catalog(network).await?;
     }
     catalog::stations(&state.pool).await
+}
+
+/// A point's elevation, asked of the hourly analysis so that the elevation guard applies
+/// to a preview as it will to the saved plan. If it cannot be had the preview goes on
+/// without the guard, as a new plan does until its first fetch.
+// @spec SETUP-API-002, WX-REC-PLAN-007
+async fn elevation_of(state: &AppState, at: &LawnLocation) -> Option<f64> {
+    let fetcher = state.weather.as_ref()?;
+    match fetcher
+        .elevation_ft(at.latitude, at.longitude, state.clock.now())
+        .await
+    {
+        Ok(elevation) => elevation,
+        Err(error) => {
+            tracing::warn!(
+                ?error,
+                "A point's elevation could not be fetched for a preview"
+            );
+            None
+        }
+    }
 }
 
 fn parse_pins(text: Option<&str>) -> Result<Vec<Pin>, TurfOpsError> {
@@ -95,11 +120,10 @@ pub async fn preview(
         .map_err(|_| TurfOpsError::InvalidData(OUTSIDE.into()))?;
     let pins = parse_pins(query.pins.as_deref())?;
     let catalog = stations(&state).await?;
-    // The point's elevation is not known until its weather has been fetched once.
     let lawn = Lawn {
         latitude: location.latitude,
         longitude: location.longitude,
-        elevation_ft: None,
+        elevation_ft: elevation_of(&state, &location).await,
     };
     let planned = plan::build(Some(&lawn), &catalog, &[], &pins);
     let nearest_soil_station = plan::nearby(&lawn, &catalog, f64::INFINITY)
@@ -110,6 +134,7 @@ pub async fn preview(
         latitude: location.latitude,
         longitude: location.longitude,
         timezone: location.timezone,
+        elevation_ft: lawn.elevation_ft,
         inputs: view::input_plans(planned.iter().map(view::Planned::from)),
         nearest_soil_station,
     }))
@@ -138,7 +163,7 @@ pub async fn stations_for(
             Lawn {
                 latitude: at.latitude,
                 longitude: at.longitude,
-                elevation_ft: None,
+                elevation_ft: elevation_of(&state, &at).await,
             }
         }
         None => view::lawn(&state.pool).await?,

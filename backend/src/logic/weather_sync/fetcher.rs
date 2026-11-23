@@ -77,6 +77,23 @@ impl Fetcher {
         self.clients.open_meteo.places(typed).await
     }
 
+    /// The elevation of a point in feet, as the hourly analysis reports it: the same
+    /// figure the lawn's own elevation comes from once its weather is fetched.
+    // @spec SETUP-API-002, WX-REC-PLAN-007
+    pub async fn elevation_ft(
+        &self,
+        latitude: f64,
+        longitude: f64,
+        now: DateTime<Utc>,
+    ) -> Result<Option<f64>> {
+        let analysis = self
+            .clients
+            .open_meteo
+            .analysis(latitude, longitude, 1, now)
+            .await?;
+        Ok(analysis.elevation_ft)
+    }
+
     /// Reads a network's station list again and replaces the catalog's copy of it.
     // @spec WX-REC-FILL-008
     pub async fn refresh_catalog(&self, network: Network) -> Result<()> {
