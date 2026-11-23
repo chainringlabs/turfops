@@ -20,10 +20,10 @@ pub struct SoilEstimator {
 }
 
 /// What a decision rests on, read once.
-struct Scene {
+pub(super) struct Scene {
     latitude: f64,
     longitude: f64,
-    zone: Tz,
+    pub(super) zone: Tz,
     catalog: Vec<(i64, Station)>,
     sources: Vec<Source>,
     states: HashMap<i64, FetchState>,
@@ -68,7 +68,7 @@ impl SoilEstimator {
         Ok(decisions)
     }
 
-    async fn scene(&self) -> Result<Option<Scene>> {
+    pub(super) async fn scene(&self) -> Result<Option<Scene>> {
         let profile = crate::db::queries::get_default_lawn_profile(&self.pool).await?;
         let Some(location) = profile.and_then(|profile| profile.location) else {
             return Ok(None);
@@ -206,15 +206,23 @@ impl SoilEstimator {
 }
 
 impl Scene {
-    fn station(&self, station_ref: i64) -> Option<&Station> {
+    pub(super) fn station(&self, station_ref: i64) -> Option<&Station> {
         self.catalog
             .iter()
             .find(|(id, _)| *id == station_ref)
             .map(|(_, station)| station)
     }
 
-    fn source(&self, key: &str) -> Option<&Source> {
+    pub(super) fn source(&self, key: &str) -> Option<&Source> {
         self.sources.iter().find(|source| source.key == key)
+    }
+
+    /// The span a source holds, as far as it is wanted: from the first day wanted when
+    /// its history is in, from the first day held until then.
+    pub(super) fn span_held(&self, source: &Source) -> Option<(NaiveDate, NaiveDate)> {
+        let state = self.states.get(&source.id)?;
+        let (from, through) = state.held?;
+        Some((from.max(state.wanted_from), through))
     }
 
     /// Whether a source holds everything it is wanted for, so its days can be counted.

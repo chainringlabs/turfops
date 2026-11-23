@@ -63,7 +63,13 @@ The estimate is daily. It has no hourly form.
   fit date, the stations used and the number of days, and the whole series is recomputed after
   a refit.
 - **Recent days** are recomputed whenever the grid revises their air (the record re-fetches the
-  grid's last 7 days daily), and the 30 days after a revised day with them.
+  grid's last 7 days daily), and the 30 days after a revised day with them. In practice each
+  run recomputes the whole series: it is a few thousand days of eight terms, and one rule is
+  simpler than tracking which days moved.
+- **The span the estimate holds** is the span of the air that drives it. While the grid's
+  history is still arriving the estimate covers only what the grid holds so far.
+- **A refit that cannot be made** (too little paired data for a unique fit) leaves the fit
+  before it in use and is logged.
 
 - **Choosing the five** before their data is held: the five nearest by the catalog's years of
   operation. Any that turn out to have fewer than 1,000 days are replaced by the next nearest.
@@ -87,7 +93,7 @@ already held as its hourly rows.
 
 | Output | Form |
 |---|---|
-| The series | One daily value per depth, for the span the record holds grid air, written to the record as the source "Soil estimate" |
+| The series | One daily value per depth, for the span the record holds grid air, written to the record as the source "Soil temperature estimate" |
 | The anchored series | The series adjusted to a measured series around a gap (below) |
 | The forward estimate | The same model applied to a daily air series that continues into the forecast, for consumers that need soil on days not yet observed |
 | `datable(depth, threshold, direction)` | Whether the estimate, as calibrated for this lawn, may date that crossing, and its scored error (median and 80th percentile, days) |

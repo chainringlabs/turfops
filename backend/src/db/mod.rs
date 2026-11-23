@@ -4,6 +4,8 @@ pub mod plant_queries;
 pub mod pool;
 pub mod product_queries;
 pub mod queries;
+#[allow(dead_code)]
+pub mod soil_estimate_queries;
 pub mod soil_test_queries;
 // Used by the fetch schedule and the record's contracts as they land.
 #[allow(dead_code)]

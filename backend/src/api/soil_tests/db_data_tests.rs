@@ -62,7 +62,7 @@ async fn advice_is_derived_afresh_on_every_read(pool: PgPool) {
 
     let tables: Vec<String> = sqlx::query_scalar(
         "SELECT table_name::TEXT FROM information_schema.tables \
-         WHERE table_schema = 'public' AND table_name LIKE '%soil%'",
+         WHERE table_schema = 'public' AND table_name LIKE '%soil_test%'",
     )
     .fetch_all(&pool)
     .await

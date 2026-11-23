@@ -17,7 +17,7 @@ fn train_from() -> NaiveDate {
 }
 
 /// The lab's station "a" at 20 miles, and six more USCRN stations at 30 to 80.
-async fn neighbours(lab: &Lab) {
+pub(super) async fn neighbours(lab: &Lab) {
     let mut stations = Vec::new();
     for (id, miles) in [
         ("a", 20.0),
@@ -88,7 +88,7 @@ async fn hold(lab: &Lab, id: &str, soil_days: i64) {
     .unwrap();
 }
 
-fn chosen(decision: &Decision, lab_catalog: &[(i64, Station)]) -> Vec<String> {
+pub(super) fn chosen(decision: &Decision, lab_catalog: &[(i64, Station)]) -> Vec<String> {
     let stations = match decision {
         Decision::Fit(_, stations) | Decision::Wait(stations) => stations,
         Decision::NoModel => return Vec::new(),
