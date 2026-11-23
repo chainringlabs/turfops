@@ -143,7 +143,7 @@ The location is a field of the lawn profile (applications). Setup saves it throu
 | Home Assistant does not answer or refuses the token | The Test result says which; nothing is saved by Test |
 | Home Assistant connection lost after sensors are mapped | The mappings stay; the sensors' inputs fall to the next basis after data sync's age limit; the Sources page shows the failure |
 | An entity disappears from Home Assistant | Its sensor is shown as "not found in Home Assistant" with Unmap and Remap |
-| The record cannot preview a plan (catalog not loaded yet) | Step 2 shows that the station list is still loading and retries |
+| The station list is not loaded yet | The preview loads it first: setup runs before the lawn has a location for the schedule to act on. If it cannot be loaded, step 2 shows the station network's outage sentence and offers to try again |
 | No stations within 150 miles for a pin | The list is empty and says so; the estimate remains |
 
 ## Decisions & Alternatives
