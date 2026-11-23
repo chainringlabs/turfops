@@ -1,3 +1,5 @@
+#[allow(dead_code)]
+pub mod cadence;
 pub mod homeassistant;
 pub mod openrouter;
 pub mod openweathermap;

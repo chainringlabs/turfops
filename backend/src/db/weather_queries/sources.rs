@@ -94,3 +94,12 @@ pub async fn delete(pool: &PgPool, source_id: i64) -> Result<()> {
         .await?;
     Ok(())
 }
+
+/// The day each source came into use.
+pub async fn created_on(pool: &PgPool) -> Result<Vec<(i64, chrono::NaiveDate)>> {
+    Ok(
+        sqlx::query_as("SELECT id, (created_at AT TIME ZONE 'UTC')::date FROM weather_source")
+            .fetch_all(pool)
+            .await?,
+    )
+}

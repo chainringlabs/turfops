@@ -1,13 +1,15 @@
 //! The record's daily contracts: series of the lawn's days, each with its basis.
 
+use super::due::product_of;
 use super::record::{Asked, View, WeatherRecord};
 use super::resolve::{self, DayAir};
+use crate::datasources::cadence::Product;
 use crate::datasources::weather::{ClimateDay, DailyGddRow};
 use crate::db::weather_queries::fetch_state;
 use crate::error::{Result, TurfOpsError};
 use crate::models::seasonal_plan::DailySoilTempAvg;
 use crate::models::weather_basis::{Basis, BasisSpan, Figure, Series};
-use crate::models::weather_record::{Input, SourceKind};
+use crate::models::weather_record::{Input, Source, SourceKind};
 use chrono::{Datelike, Duration, NaiveDate};
 
 /// The base of growing degree days, °F.
@@ -173,7 +175,11 @@ impl View<'_> {
         let (mut held, mut wanted) = (u32::MAX, 0u32);
         for input in LONG_HISTORY {
             // A sensor has no past to download.
-            for source in self.sources(input).filter(|s| s.kind != SourceKind::Sensor) {
+            // The fallback grid only fills days PRISM lacks; it holds no history.
+            let loads = |s: &&Source| {
+                s.kind != SourceKind::Sensor && product_of(s) != Some(Product::NrccDays)
+            };
+            for source in self.sources(input).filter(loads) {
                 let products: Vec<_> = states.iter().filter(|s| s.source_id == source.id).collect();
                 if products.is_empty() {
                     (held, wanted) = (0, wanted.max(1));

@@ -222,8 +222,11 @@ Details consumers rely on:
 ## Backfill and Keeping Current
 
 `weather_fetch_state` records, per source and product, the span wanted and the span held. The
-difference is what `due(now)` reports, newest first, so the current season fills before 2012
-does. A fetch that fails leaves the state unchanged apart from its failure stamp; the same span
+difference is what `due(now)` reports, one calendar year at a time and newest first, so the
+current season fills before 2012 does and progress can be shown in years. Every current fetch
+is reported before any backfill. A source new to the plan gets one current fetch first: the
+year so far for a station, the last 30 days for a grid, the whole 93 days for the analysis.
+The NRCC grid is asked only for the days after PRISM's newest, and holds no history. A fetch that fails leaves the state unchanged apart from its failure stamp; the same span
 is due again. Writes are upserts, so a repeated or overlapping fetch is harmless and a backfill
 interrupted by a restart resumes where the held span ends.
 
@@ -237,9 +240,12 @@ then moving when a station's history lands. Contracts over recent days answer as
 their own window is held.
 
 When the plan changes, sources that left it stop being fetched and new ones start with an empty
-held span. Rows of a station or grid point no longer in the plan are deleted once the sources
-that replaced them have finished their backfill. Sensor rows are never deleted by a plan
-change.
+held span. A source no longer in the plan is deleted with its rows once every fetched source in
+the plan holds its wanted span. Sensors and calibration sources are never deleted this way.
+
+The station catalog is due for refresh when a network has no stations or was last read 30 days
+ago. The record answers that on its own too, so setup can load the catalog before the lawn has
+a location or a plan.
 
 ## Failure and Degradation
 

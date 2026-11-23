@@ -22,8 +22,8 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 
 ## Cadence
 
-- [ ] **WX-SRC-CAD-001**: Each client shall state, for each product it serves, how often the source may have new data: hourly for USCRN and SCAN hourly data of the current year, the hourly analysis and the forecast; daily for the PRISM grid and for calibration stations' daily data; every 5 minutes for Home Assistant entities; monthly for station catalogs; never for a station-year that has ended.
-- [ ] **WX-SRC-CAD-002**: The NRCC grid client shall state that its data is wanted only for days the PRISM grid has returned no value for.
+- [x] **WX-SRC-CAD-001**: Each client shall state, for each product it serves, how often the source may have new data: hourly for USCRN and SCAN hourly data of the current year, the hourly analysis and the forecast; daily for the PRISM grid and for calibration stations' daily data; every 5 minutes for Home Assistant entities; monthly for station catalogs; never for a station-year that has ended.
+- [x] **WX-SRC-CAD-002**: The NRCC grid client shall state that its data is wanted only for days the PRISM grid has returned no value for.
 
 ## USCRN
 

@@ -97,7 +97,7 @@ For a lawn with a soil station, steady state:
 | USDA (a SCAN station, where one is in the plan) | 24 |
 | Home Assistant (local) | 288 |
 
-The first start adds the backfill: about 15 hourly files per basis station, 15 daily files per calibration station, and one request per grid point.
+The first start adds the backfill: about 15 hourly files per basis station, 15 daily files per calibration station, and 15 requests per grid point, one for each year.
 
 ## The Summary
 
