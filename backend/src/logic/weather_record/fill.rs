@@ -51,24 +51,35 @@ impl WeatherRecord {
         Ok(in_use)
     }
 
+    /// Every source the record keeps filled: the plan's, and the stations and grid
+    /// points that calibrate the soil estimate.
+    async fn fetched(&self) -> Result<Vec<Source>> {
+        let mut fetched: Vec<Source> = self.in_use().await?.into_iter().map(|(s, _)| s).collect();
+        let calibrating = sources::all(&self.pool).await?;
+        fetched.extend(
+            calibrating
+                .into_iter()
+                .filter(|source| source.role == SourceRole::Calibration),
+        );
+        Ok(fetched)
+    }
+
     async fn states(&self) -> Result<HashMap<i64, FetchState>> {
         let states = fetch_state::all(&self.pool).await?;
         Ok(states.into_iter().map(|s| (s.source_id, s)).collect())
     }
 
-    /// Registers what each fetched source in the plan is wanted for. A source new to
+    /// Registers what each fetched source is wanted for. A source new to
     /// the plan starts holding nothing; one already registered keeps what it holds.
     // @spec WX-REC-STORE-008, WX-REC-FILL-006
     pub async fn register_wanted(&self, today: NaiveDate) -> Result<()> {
         let created: HashMap<i64, NaiveDate> =
             sources::created_on(&self.pool).await?.into_iter().collect();
-        for (source, _) in self.in_use().await? {
-            let Some(product) = due::product_of(&source) else {
-                continue;
-            };
+        for source in self.fetched().await? {
             let located_on = created.get(&source.id).copied().unwrap_or(today);
-            let from = due::wanted_from(product, today, located_on);
-            fetch_state::want(&self.pool, source.id, product.as_str(), from).await?;
+            if let Some((product, from)) = due::wanted_for(&source, today, located_on) {
+                fetch_state::want(&self.pool, source.id, product.as_str(), from).await?;
+            }
         }
         Ok(())
     }
@@ -77,14 +88,15 @@ impl WeatherRecord {
     /// with no location, whose plan is empty, wants nothing.
     // @spec WX-REC-FILL-002, WX-REC-FILL-006, WX-REC-FILL-008
     pub async fn due(&self, now: DateTime<Utc>, today: NaiveDate) -> Result<Due> {
-        let in_use = self.in_use().await?;
-        if in_use.is_empty() {
+        if self.in_use().await?.is_empty() {
             return Ok(Due::default());
         }
         let mut states = self.states().await?;
-        let with_state: Vec<_> = in_use
+        let with_state: Vec<_> = self
+            .fetched()
+            .await?
             .into_iter()
-            .map(|(source, _)| {
+            .map(|source| {
                 let state = states.remove(&source.id);
                 (source, state)
             })

@@ -24,6 +24,6 @@ mod history_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod hourly_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
-mod lab;
+pub(crate) mod lab;
 #[cfg(all(test, feature = "db-tests"))]
 mod live_db_tests;

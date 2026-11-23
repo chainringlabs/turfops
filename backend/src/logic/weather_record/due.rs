@@ -6,7 +6,8 @@
 mod tests;
 
 use crate::datasources::cadence::Product;
-use crate::models::weather_record::{FetchState, Source, SourceKind};
+use crate::logic::soil_estimate::calibration::train_from;
+use crate::models::weather_record::{FetchState, Source, SourceKind, SourceRole};
 use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
 
 /// Years of history kept behind the current year: what the typical dates read.
@@ -38,8 +39,12 @@ pub struct Fetch {
 /// the soil estimate is computed, so neither is fetched here.
 pub fn product_of(source: &Source) -> Option<Product> {
     match source.kind {
+        // A station that only calibrates the soil estimate is read as daily values.
+        SourceKind::Station if source.role == SourceRole::Calibration => {
+            Some(Product::CalibrationDays)
+        }
         SourceKind::Station => Some(Product::StationHours),
-        SourceKind::Grid if source.key.starts_with("grid:nrcc") => Some(Product::NrccDays),
+        SourceKind::Grid if source.key.contains("grid:nrcc") => Some(Product::NrccDays),
         SourceKind::Grid => Some(Product::PrismDays),
         SourceKind::Analysis => Some(Product::AnalysisHours),
         SourceKind::Sensor | SourceKind::Estimate => None,
@@ -56,6 +61,22 @@ pub fn wanted_from(product: Product, today: NaiveDate, located_on: NaiveDate) ->
         Product::NrccDays => today,
         _ => NaiveDate::from_ymd_opt(today.year() - HISTORY_YEARS, 1, 1).unwrap_or(today),
     }
+}
+
+/// What a source is fetched as and from when, or nothing for a source that is not
+/// fetched. A calibration source is wanted for the span the soil estimate trains on.
+// @spec WX-REC-STORE-008, WX-EST-CAL-007
+pub fn wanted_for(
+    source: &Source,
+    today: NaiveDate,
+    located_on: NaiveDate,
+) -> Option<(Product, NaiveDate)> {
+    let product = product_of(source)?;
+    let from = match source.role {
+        SourceRole::Calibration => train_from(),
+        SourceRole::Basis => wanted_from(product, today, located_on),
+    };
+    Some((product, from))
 }
 
 /// The fetches wanted for the plan's sources at `now`: every current fetch that is due,
