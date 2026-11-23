@@ -80,7 +80,11 @@ pub async fn update_lawn_profile(pool: &PgPool, profile: &LawnProfile) -> Result
         UPDATE lawn_profiles SET
             name = $1, grass_type = $2, usda_zone = $3, soil_type = $4,
             lawn_size_sqft = $5, irrigation_type = $6, updated_at = $7,
-            latitude = $9, longitude = $10, place_name = $11, timezone = $12
+            latitude = $9, longitude = $10, place_name = $11, timezone = $12,
+            -- The elevation belongs to the point: a lawn that moves has none until its
+            -- weather is fetched again.
+            elevation_ft = CASE WHEN latitude IS DISTINCT FROM $9 OR longitude IS DISTINCT FROM $10
+                                THEN NULL ELSE elevation_ft END
         WHERE id = $8
         "#,
     )
