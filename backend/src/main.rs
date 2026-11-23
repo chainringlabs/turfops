@@ -88,6 +88,8 @@ async fn main() -> anyhow::Result<()> {
     // Create default profile if DB is empty
     ensure_default_profile(&pool, &config).await?;
 
+    import_connections(&pool, &config).await?;
+
     // Initialize data sync service (connects to external datasources)
     let sync_service = DataSyncService::initialize(&config, pool.clone()).await;
 
@@ -146,6 +148,20 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/api/v1/sources/forecast-provider",
             put(api::sources::write::put_forecast_provider),
+        )
+        .route(
+            "/api/v1/sources/home-assistant",
+            get(api::sources::home_assistant::get_connection)
+                .put(api::sources::home_assistant::put_connection)
+                .delete(api::sources::home_assistant::delete_connection),
+        )
+        .route(
+            "/api/v1/sources/home-assistant/test",
+            post(api::sources::home_assistant::test_connection),
+        )
+        .route(
+            "/api/v1/sources/home-assistant/entities",
+            get(api::sources::home_assistant::get_entities),
         )
         .route(
             "/api/v1/applications",
@@ -302,6 +318,27 @@ async fn main() -> anyhow::Result<()> {
         tracing::warn!("Weather schedule was still fetching at shutdown");
     }
 
+    Ok(())
+}
+
+/// On a start that finds no connection ever stored for a service, stores the one the
+/// environment gives. The app then uses only the stored one.
+// @spec SETUP-CRED-002
+async fn import_connections(pool: &sqlx::PgPool, config: &Config) -> anyhow::Result<()> {
+    let ha = &config.homeassistant;
+    let home_assistant =
+        (!ha.url.trim().is_empty()).then_some((ha.url.as_str(), ha.token.as_str()));
+    let key = config
+        .openweathermap
+        .as_ref()
+        .map(|owm| owm.api_key.as_str());
+    let imported = db::setup_queries::import_once(pool, home_assistant, key).await?;
+    for service in imported {
+        tracing::info!(
+            ?service,
+            "Connection imported from the environment; it is now managed in the app"
+        );
+    }
     Ok(())
 }
 

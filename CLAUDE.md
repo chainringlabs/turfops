@@ -17,8 +17,8 @@ Containerized web application for tracking lawn care activities with data-driven
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (1,152 tests; no database needed)
-- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,418 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
+- `cd backend && cargo test` — Run tests (1,159 tests; no database needed)
+- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,432 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
 - `cd backend && cargo run --release --features scoring -- score-estimate --cache <dir> --out src/logic/soil_estimate/scores.json` — Re-score the soil estimate against USCRN (downloads about 1,900 public files into `<dir>` on first run; re-run when the model, the calibration rule or a consumer's crossing rule changes)
 - `cd backend && cargo test live_ -- --ignored --test-threads=1` — One real request to each outside weather source (NOAA, RCC-ACIS, USDA, Open-Meteo, National Weather Service), to confirm the parsers still match what the services send; not part of the suite
 - `cd backend && DATABASE_URL=… cargo test --features db-tests live_schedule -- --ignored` — The fetch schedule's first passes for a new lawn against the real services, into the test database; not part of the suite
@@ -51,7 +51,7 @@ turfops/
 │       ├── error.rs             # Error types with HTTP responses
 │       ├── state.rs             # AppState (pool, sync, rules engine, 1 h climate-record memo)
 │       ├── mcp/                 # Read-only MCP server at /mcp (rmcp): config.rs MCP_TOKEN, auth.rs bearer guard, instructions.rs doctrine, resources.rs (embeds docs/agronomy-methods.md + docs/timing-windows.md), trim.rs, tools/ (lawn · season · weather · disease · log · shelf) calling the api handlers
-│       ├── api/                 # Route handlers (37 paths / 50 routes) + recommendation_feed.rs shared by dashboard and feed
+│       ├── api/                 # Route handlers (40 paths / 55 routes) + recommendation_feed.rs shared by dashboard and feed
 │       ├── db/                  # PostgreSQL pool, queries, migrations
 │       ├── models/              # Data structures (shared with rules); product/ = inventory enums + LLM profile + user-owned facts
 │       ├── logic/               # Data sync + 10 agronomic rules + GDD accumulation + seasonal plan + disease risk models + seeding/pre-emergent timing windows + inventory.rs (shelf enrichment pass) + inventory/shopping.rs (shopping list)
@@ -82,6 +82,9 @@ turfops/
 | GET | /api/v1/sources | Inputs with their plan, value in use and basis; sources with status, history and attribution; forecast provider; which connections are stored (never a secret); location |
 | PUT/DELETE | /api/v1/sources/pins/:input | Pin a station for an input (400 when it does not report it, is over 150 miles off or is unknown) / remove the pin |
 | PUT | /api/v1/sources/forecast-provider | Choose the forecast provider; carries and stores the key OpenWeatherMap needs |
+| GET/PUT/DELETE | /api/v1/sources/home-assistant | Whether a Home Assistant connection is stored and its address (never the token) / store an `http(s)` address and token / forget them |
+| POST | /api/v1/sources/home-assistant/test | Try a connection, the one given or the stored one; saves nothing; says whether nothing answered or the token was refused |
+| GET | /api/v1/sources/home-assistant/entities | Numeric sensor entities, weather-like first, each with a suggested input and the input it is already mapped to |
 | GET/POST | /api/v1/applications | List (`?type=&limit=&offset=`, type filtered in SQL) / create applications (409 on a true duplicate; optional `product_id` must be a shelf product whose category accepts the type — 400 otherwise — and fills `product_name` when empty) |
 | PUT/DELETE | /api/v1/applications/:id | Update / delete application |
 | GET | /api/v1/applications/calendar | Calendar view |
@@ -158,8 +161,8 @@ See `backend/.env.example` for full list:
 - `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD` — App PostgreSQL connection
 - `DATALAKE_ROOT` — Mount point of the NOAA weather data lake (default `/data`); silver/gold weather parquet paths derive beneath it. Override individually with `WEATHER_SILVER_PATH` / `WEATHER_GOLD_PATH`.
 - `NOAA_STATION_WBANNO` — USCRN station filter (default 3761)
-- `HA_URL`, `HA_TOKEN` — Home Assistant connection
-- `OWM_API_KEY` — OpenWeatherMap API key (an empty value = not configured, same for the other optional keys)
+- `HA_URL`, `HA_TOKEN` — Home Assistant connection. Also copied once into the app's database (`service_credential`) on a start that finds no connection ever stored there; the setup endpoints read and change that stored copy, and forgetting it in the app is not undone by a restart. The pages still read the environment until the cutover
+- `OWM_API_KEY` — OpenWeatherMap API key (an empty value = not configured, same for the other optional keys); copied once into `service_credential` the same way
 - `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_ENABLED` — landscape-plant care plans (503 without a key)
 - `CORS_ALLOWED_ORIGIN` — only when the SPA is served from another origin
 - `MCP_TOKEN` — bearer token for `/mcp` (≥ 32 chars; unset = not mounted)
