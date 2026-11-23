@@ -3,7 +3,7 @@
 
 use crate::datasources::cadence::Product;
 use crate::datasources::grid::{Grid, GridClient};
-use crate::datasources::open_meteo::OpenMeteoClient;
+use crate::datasources::open_meteo::{OpenMeteoClient, Place};
 use crate::datasources::outside::Outside;
 use crate::datasources::scan::ScanClient;
 use crate::datasources::uscrn::parse::inputs_reported;
@@ -69,6 +69,12 @@ impl Fetcher {
             fetch_state::failed(&self.pool, fetch.source.id, product, &said, now).await?;
         }
         outcome
+    }
+
+    /// Candidate places for what the owner typed in setup.
+    // @spec SETUP-API-001
+    pub async fn places(&self, typed: &str) -> Result<Vec<Place>> {
+        self.clients.open_meteo.places(typed).await
     }
 
     /// Reads a network's station list again and replaces the catalog's copy of it.

@@ -3,6 +3,7 @@ use crate::datasources::weather::ClimateRecord;
 use crate::datasources::OpenRouterClient;
 use crate::logic::data_sync::DataSyncService;
 use crate::logic::rules::RulesEngine;
+use crate::logic::weather_sync::fetcher::Fetcher;
 use crate::logic::weather_sync::schedule::Waker;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -25,9 +26,18 @@ pub struct AppState {
     pub clock: Clock,
     /// Starts a pass of the weather fetch schedule; absent where none runs.
     pub weather_waker: Option<Waker>,
+    /// Reaches the outside weather sources for what setup asks at once: a place search,
+    /// a station list that is not loaded yet.
+    pub weather: Option<Arc<Fetcher>>,
 }
 
 impl AppState {
+    /// The same state, able to reach the outside weather sources.
+    pub fn fetching(mut self, fetcher: Fetcher) -> Self {
+        self.weather = Some(Arc::new(fetcher));
+        self
+    }
+
     /// The same state, able to wake the weather fetch schedule.
     // @spec SYNC-SCHED-008
     pub fn waking(mut self, waker: Waker) -> Self {
@@ -51,6 +61,7 @@ impl AppState {
             mcp_enabled,
             clock,
             weather_waker: None,
+            weather: None,
         }
     }
 }

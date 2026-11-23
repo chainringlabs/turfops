@@ -109,6 +109,7 @@ async fn main() -> anyhow::Result<()> {
         logic::weather_sync::fetcher::Clients::new(),
     );
     let weather_schedule = tokio::spawn(schedule.run());
+    let pool_for_setup = pool.clone();
 
     // Create app state
     let mcp_token = config.mcp.token.clone();
@@ -119,7 +120,11 @@ async fn main() -> anyhow::Result<()> {
         mcp_token.is_some(),
         config.clock,
     )
-    .waking(weather_waker);
+    .waking(weather_waker)
+    .fetching(logic::weather_sync::fetcher::Fetcher::new(
+        pool_for_setup,
+        logic::weather_sync::fetcher::Clients::new(),
+    ));
 
     // Build router
     let app = Router::new()
@@ -129,6 +134,9 @@ async fn main() -> anyhow::Result<()> {
             "/api/v1/profile",
             get(api::profile::get_profile).put(api::profile::update_profile),
         )
+        .route("/api/v1/setup/places", get(api::setup::places))
+        .route("/api/v1/sources/preview", get(api::sources::preview))
+        .route("/api/v1/sources/stations", get(api::sources::stations_for))
         .route(
             "/api/v1/applications",
             get(api::applications::list_applications).post(api::applications::create_application),

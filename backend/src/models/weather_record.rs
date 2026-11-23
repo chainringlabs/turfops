@@ -55,6 +55,28 @@ names! {
     }
 }
 
+impl Input {
+    /// The input as the owner reads it.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Input::AirTemp => "Air temperature",
+            Input::Humidity => "Humidity",
+            Input::Rain => "Rain",
+            Input::DailyAir => "Daily high and low",
+            Input::SoilTemp5 => "Soil temperature, 5 cm",
+            Input::SoilTemp10 => "Soil temperature, 10 cm",
+            Input::SoilTemp20 => "Soil temperature, 20 cm",
+            Input::SoilTemp50 => "Soil temperature, 50 cm",
+            Input::SoilTemp100 => "Soil temperature, 100 cm",
+            Input::SoilMoisture5 => "Soil moisture, 5 cm",
+            Input::SoilMoisture10 => "Soil moisture, 10 cm",
+            Input::SoilMoisture20 => "Soil moisture, 20 cm",
+            Input::SoilMoisture50 => "Soil moisture, 50 cm",
+            Input::SoilMoisture100 => "Soil moisture, 100 cm",
+        }
+    }
+}
+
 /// A station in a network's catalog.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Station {

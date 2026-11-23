@@ -60,10 +60,10 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 
 ## The endpoints
 
-- [ ] **SETUP-API-001**: `GET /api/v1/setup/places?q=` shall return the candidate places for the search text.
-- [ ] **SETUP-API-002**: `GET /api/v1/sources/preview?lat=&lon=` shall return the basis plan the point would get and shall save nothing.
+- [x] **SETUP-API-001**: `GET /api/v1/setup/places?q=` shall return the candidate places for the search text.
+- [x] **SETUP-API-002**: `GET /api/v1/sources/preview?lat=&lon=` shall return the point as it would be stored with its timezone, the basis plan the point would get with every input listed as measured, estimated or without a source, and the nearest station that may supply soil temperature; given `pins` as `input:station` pairs it shall return the plan with those pins; it shall save nothing.
 - [ ] **SETUP-API-003**: `GET /api/v1/sources` shall return the inputs with their basis plan, basis in use and accuracy; the sources with status, history and attribution; the connections; and the location.
-- [ ] **SETUP-API-004**: `GET /api/v1/sources/stations?input=` shall return the stations within 150 miles of the lawn that report that input.
+- [x] **SETUP-API-004**: `GET /api/v1/sources/stations?input=` shall return the stations within 150 miles of the lawn, or of the point given as `lat` and `lon`, that report that input or whose reported inputs are not yet known, nearest first.
 - [ ] **SETUP-API-005**: `PUT` and `DELETE /api/v1/sources/pins/{input}` shall pin a station for the input and remove the pin; a pin on a station that does not report the input shall be a 400 saying so.
 - [ ] **SETUP-API-006**: `PUT /api/v1/sources/forecast-provider` shall set the forecast provider and, when the request carries one, its key.
 - [ ] **SETUP-API-007**: `GET`, `PUT` and `DELETE /api/v1/sources/home-assistant` shall report whether a connection is set, set the address and token, and forget them; `POST /api/v1/sources/home-assistant/test` shall try the saved connection or the one given in the request and save nothing.
@@ -84,4 +84,4 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [ ] **SETUP-FAIL-001**: If the place search fails, then the location step shall say "Place search is unavailable; enter coordinates instead" and shall still accept typed coordinates.
 - [ ] **SETUP-FAIL-002**: If Home Assistant does not answer at the address, or refuses the token, then the test shall say which of the two happened.
 - [ ] **SETUP-FAIL-003**: If a mapped entity is no longer found in Home Assistant, then the Sources page shall show its sensor as "not found in Home Assistant" with ways to unmap and to remap it.
-- [ ] **SETUP-FAIL-004**: If the weather record cannot preview a plan because the station catalog is not yet loaded, then the what-we-found step shall say the station list is still loading and try again.
+- [ ] **SETUP-FAIL-004**: If the station list is not loaded when a preview or a station list is asked for, then the system shall load it before answering; if it cannot be loaded, the request shall fail with the station network's outage sentence and the what-we-found step shall offer to try again.
