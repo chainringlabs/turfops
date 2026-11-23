@@ -5,7 +5,7 @@ on a decision. The research behind the design is in
 [standalone-weather-sources.md](standalone-weather-sources.md); the design and specs are under
 `docs/intent/`. This file is the place to start when picking the work up.
 
-Status as of 2026-11-23, with `main` at PR #368.
+Status as of 2026-11-23, with `main` at PR #369 and the preview-elevation change in PR #370.
 
 ## The goal
 
@@ -83,14 +83,13 @@ them: `CLAUDE.md`, the README, `docs/agronomy-methods.md`, `docs/timing-windows.
 
 ## Waiting on a decision
 
-| Question | Detail |
-|---|---|
-| Elevation during a preview | A point's elevation is not known until its weather has been fetched once, so the 1,000 ft guard is not applied when setup previews a point. A preview can show a station the saved plan later drops. Asking Open-Meteo for the elevation during the preview would fix it at the cost of one more outside request per preview. |
+Nothing.
 
 ## Decisions already made
 
 | Decision | Chosen |
 |---|---|
+| Elevation during a setup preview | Fetched from the hourly analysis at preview time, so the 1,000 ft guard applies to a preview as it will to the saved plan. Decided 2026-11-23. |
 | Years of station history | 15 complete years plus the current one, hourly. Reviewed on 2026-11-22 and kept. |
 | A forecast day with no rain amount | The irrigation rule keeps its existing specs (probability alone never cancels it; it needs three days that carry an amount). Rain delay, plant watering, the application window and disease leaf wetness follow the table in PR #347. |
 | Timezone licence | A scoped cargo-deny exception for `tzf-dist` (ODbL) with attribution. |
@@ -113,9 +112,11 @@ them: `CLAUDE.md`, the README, `docs/agronomy-methods.md`, `docs/timing-windows.
 - **Renovate PR #366 (lock file maintenance) must not be merged before 2026-11-27.** It moves
   `url` back to 2.5.8, which has RUSTSEC-2026-0592, because 2.5.9 is inside the 7-day release
   wait. Renovate rebuilds it once 2.5.9 is old enough.
-- **The deployment sets no `TZ`**, so the app's clock is on UTC and date-gated advice rolls
-  over in the early evening. Adding `TZ` to the TurfOps container in the home-builder repo
-  fixes it until the cutover makes the clock follow the location.
+- **The deployment's `TZ`.** The TurfOps container had none, so the app's clock was on UTC and
+  date-gated advice rolled over in the early evening. A change adding `TZ: "{{ timezone }}"`
+  to it in the home-builder repo was opened on 2026-11-23; once that is deployed the startup
+  log reads `Clock: TZ=America/New_York`. It stays until the cutover makes the clock follow
+  the location, after which `TZ` is not read.
 - **Confirming the backfill** on a running install: the startup log line, or
 
   ```sql
@@ -128,7 +129,7 @@ them: `CLAUDE.md`, the README, `docs/agronomy-methods.md`, `docs/timing-windows.
 
 - `cd backend && cargo test`: the suite with no database (1,160 tests).
 - `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests`:
-  everything, against PostgreSQL (1,441 tests). The container is
+  everything, against PostgreSQL (1,443 tests). The container is
   `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`.
 - `cd backend && cargo test live_ -- --ignored --test-threads=1`: one real request to each
   outside source.
