@@ -2,6 +2,8 @@
 
 pub mod home_assistant;
 pub mod read;
+pub mod sensor_check;
+pub mod sensors;
 pub mod view;
 pub mod write;
 
@@ -11,6 +13,10 @@ mod db_tests;
 mod home_assistant_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod read_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod sensor_check_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod sensors_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod write_db_tests;
 

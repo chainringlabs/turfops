@@ -39,6 +39,16 @@ impl Unusable {
     }
 }
 
+/// What Home Assistant says about one entity.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Lookup {
+    Reading(Entity),
+    /// It exists, and its state is not a number just now (`unavailable`, `unknown`).
+    NotANumber,
+    /// Home Assistant has no such sensor.
+    Missing,
+}
+
 /// What answered a probe.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, serde::Serialize)]
 pub struct Answered {
@@ -162,6 +172,43 @@ impl HaConnection {
             .json()
             .await
             .map_err(|_| Unusable::NoAnswer)
+    }
+
+    /// One entity by id: its reading, or why there is none.
+    // @spec WX-SRC-HA-001, WX-SRC-HA-002
+    pub async fn entity(&self, entity_id: &str) -> Result<Lookup, Unusable> {
+        // An id is a domain and a name of lowercase letters, digits and underscores;
+        // anything else is not sent, so it cannot reach another path.
+        let well_formed = entity_id.split_once('.').is_some_and(|(domain, name)| {
+            let plain = |part: &str| {
+                !part.is_empty()
+                    && part
+                        .chars()
+                        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+            };
+            plain(domain) && plain(name)
+        });
+        if !well_formed {
+            return Ok(Lookup::Missing);
+        }
+        let response = self
+            .http
+            .get(format!("{}/api/states/{entity_id}", self.address))
+            .bearer_auth(&self.token)
+            .send()
+            .await
+            .map_err(|_| Unusable::NoAnswer)?;
+        match response.status() {
+            reqwest::StatusCode::NOT_FOUND => Ok(Lookup::Missing),
+            reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN => {
+                Err(Unusable::Refused)
+            }
+            status if status.is_success() => {
+                let state: State = response.json().await.map_err(|_| Unusable::NoAnswer)?;
+                Ok(state.entity().map_or(Lookup::NotANumber, Lookup::Reading))
+            }
+            _ => Err(Unusable::NoAnswer),
+        }
     }
 
     /// Every sensor entity whose state is a number.

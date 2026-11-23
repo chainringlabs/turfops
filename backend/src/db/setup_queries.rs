@@ -122,6 +122,43 @@ pub async fn map_sensor(pool: &PgPool, new: &NewSensor) -> Result<Sensor> {
     sensor(row)
 }
 
+fn rain_name(kind: Option<RainKind>) -> Option<&'static str> {
+    kind.map(|kind| match kind {
+        RainKind::Counter => "Counter",
+        RainKind::Amount => "Amount",
+    })
+}
+
+/// Changes a mapped sensor's name and what it is mapped to. `None` when no mapped
+/// sensor has that id.
+pub async fn change_sensor(
+    pool: &PgPool,
+    id: i64,
+    name: &str,
+    input: Input,
+    rain_kind: Option<RainKind>,
+) -> Result<Option<Sensor>> {
+    let row: Option<SensorRow> = sqlx::query_as(
+        "UPDATE sensor SET name = $2, input = $3, rain_kind = $4 \
+         WHERE id = $1 AND unmapped_at IS NULL \
+         RETURNING id, name, way_in, entity_id, input, rain_kind",
+    )
+    .bind(id)
+    .bind(name)
+    .bind(input.as_str())
+    .bind(rain_name(rain_kind))
+    .fetch_optional(pool)
+    .await?;
+    row.map(sensor).transpose()
+}
+
+/// Whether any sensor was ever mapped, including ones since unmapped.
+pub async fn any_sensor_ever(pool: &PgPool) -> Result<bool> {
+    Ok(sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM sensor)")
+        .fetch_one(pool)
+        .await?)
+}
+
 /// Unmaps a sensor, keeping it and the readings stored under it. Returns whether a
 /// mapped sensor had that id.
 // @spec SETUP-MAP-009
@@ -199,4 +236,41 @@ pub async fn set_forecast_provider(pool: &PgPool, provider: ForecastProvider) ->
     .execute(pool)
     .await?;
     Ok(())
+}
+
+/// What a sensor named in the environment measures.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mapped {
+    AirTemp,
+    Humidity,
+}
+
+/// On an installation where no sensor was ever mapped, maps the Home Assistant entities
+/// the environment names. Returns the names of the sensors it mapped.
+// @spec SETUP-MAP-011
+pub async fn map_first_sensors(
+    pool: &PgPool,
+    entities: &[(&'static str, &str, Mapped)],
+) -> Result<Vec<&'static str>> {
+    if any_sensor_ever(pool).await? {
+        return Ok(Vec::new());
+    }
+    let mut mapped = Vec::new();
+    for (name, entity_id, measures) in entities {
+        if entity_id.trim().is_empty() {
+            continue;
+        }
+        let new = NewSensor {
+            name: (*name).to_string(),
+            entity_id: Some(entity_id.trim().to_string()),
+            input: match measures {
+                Mapped::AirTemp => Input::AirTemp,
+                Mapped::Humidity => Input::Humidity,
+            },
+            rain_kind: None,
+        };
+        map_sensor(pool, &new).await?;
+        mapped.push(*name);
+    }
+    Ok(mapped)
 }
