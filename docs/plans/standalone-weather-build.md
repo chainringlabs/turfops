@@ -113,9 +113,9 @@ Nothing.
   `url` back to 2.5.8, which has RUSTSEC-2026-0592, because 2.5.9 is inside the 7-day release
   wait. Renovate rebuilds it once 2.5.9 is old enough.
 - **The deployment's `TZ`.** The TurfOps container had none, so the app's clock was on UTC and
-  date-gated advice rolled over in the early evening. A change adding `TZ: "{{ timezone }}"`
-  to it in the home-builder repo was opened on 2026-11-23; once that is deployed the startup
-  log reads `Clock: TZ=America/New_York`. It stays until the cutover makes the clock follow
+  date-gated advice rolled over in the early evening. `TZ: "{{ timezone }}"` was added
+  to it in the home-builder repo on 2026-11-23 (PR #413 there); once that is deployed the
+  startup log reads `Clock: TZ=America/New_York`. It stays until the cutover makes the clock follow
   the location, after which `TZ` is not read.
 - **Confirming the backfill** on a running install: the startup log line, or
 
