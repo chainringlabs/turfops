@@ -101,7 +101,7 @@ All under `/api/v1`. Reads return the current state; writes return the state aft
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/setup/places?q=` | Candidate places for a search |
-| GET | `/sources/preview?lat=&lon=` | The basis plan the point would get, without saving anything |
+| GET | `/sources/preview?lat=&lon=` | The basis plan the point would get, without saving anything. It asks the hourly analysis for the point's elevation first, so the preview drops the same stations the saved plan will |
 | POST | `/setup/apply` | Save a location, pins and a forecast provider together; any of the three may be omitted |
 | GET | `/sources` | Inputs with basis plan, live basis and accuracy; sources with status, history and attribution; connections; location |
 | GET | `/sources/stations?input=` | Stations that report the input within 150 miles of the lawn |
