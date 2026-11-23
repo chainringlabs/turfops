@@ -104,7 +104,7 @@ async fn main() -> anyhow::Result<()> {
     // The weather record's fetch schedule. It makes no outside request until the lawn
     // has a location.
     // @spec SYNC-SCHED-001, SYNC-REFRESH-007
-    let (schedule, _weather_waker, weather_stopper) = logic::weather_sync::schedule::Schedule::new(
+    let (schedule, weather_waker, weather_stopper) = logic::weather_sync::schedule::Schedule::new(
         pool.clone(),
         logic::weather_sync::fetcher::Clients::new(),
     );
@@ -118,7 +118,8 @@ async fn main() -> anyhow::Result<()> {
         openrouter,
         mcp_token.is_some(),
         config.clock,
-    );
+    )
+    .waking(weather_waker);
 
     // Build router
     let app = Router::new()

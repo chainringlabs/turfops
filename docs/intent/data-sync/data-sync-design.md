@@ -77,7 +77,7 @@ After each backfill fetch the task returns to the top of the list, so backfill n
 
 **Failure.** A failed fetch is logged with the client's detail and recorded against its source and product. That product is next tried after 5 minutes, then 15, then every hour, until one succeeds. Other products of the same host are unaffected unless they fail themselves. The failure never reaches a page as an error: pages see it as source status and, in time, as an aging value.
 
-**What it logs.** At INFO: the plan being rebuilt with the stations it uses, a station list being refreshed, history starting to download with the number of fetches waiting, each piece of history fetched (source, span, rows, how many are left), history being complete, a soil-estimate fit, and sources removed after a plan change. A routine current fetch is logged at DEBUG. A failure is logged at WARN with the client's detail.
+**What it logs.** At INFO: once per start, where things stand (the minute of the hour, current fetches due, history fetches waiting); the plan being rebuilt with the stations it uses, a station list being refreshed, history starting to download with the number of fetches waiting, each piece of history fetched (source, span, rows, how many are left), history being complete, a soil-estimate fit, and sources removed after a plan change. A routine current fetch is logged at DEBUG. A failure is logged at WARN with the client's detail.
 
 **Catch-up.** After downtime the record's held spans are simply behind; `due(now)` reports the gap and the loop fills it in the order above. No separate catch-up mode exists.
 

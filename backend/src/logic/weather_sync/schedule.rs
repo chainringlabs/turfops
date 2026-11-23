@@ -4,11 +4,11 @@
 
 use super::fetcher::{Clients, Fetcher};
 use super::order::{ordered, Failing};
-use crate::db::weather_queries::{catalog, lawn, plan};
+use super::planning;
+use crate::db::weather_queries::lawn;
 use crate::error::Result;
 use crate::logic::soil_estimate::estimator::SoilEstimator;
 use crate::logic::weather_record::due::Fetch;
-use crate::logic::weather_record::plan::{build, Lawn};
 use crate::logic::weather_record::record::WeatherRecord;
 use crate::models::weather_record::Network;
 use crate::models::LawnLocation;
@@ -80,6 +80,8 @@ pub struct Schedule {
     last_backfill: Option<Fetch>,
     /// Whether history was still arriving at the last pass.
     backfilling: bool,
+    /// Whether this process has said where things stand.
+    announced: bool,
 }
 
 impl Schedule {
@@ -99,6 +101,7 @@ impl Schedule {
             estimated_at: None,
             last_backfill: None,
             backfilling: false,
+            announced: false,
         };
         (schedule, Waker(wake.clone()), Stopper { stopping, wake })
     }
@@ -124,7 +127,7 @@ impl Schedule {
     /// One pass: bring the plan and the estimate in line, then run what is due.
     // @spec SYNC-SCHED-002, SYNC-SCHED-003, SYNC-SCHED-004, SYNC-SCHED-011
     pub async fn pass(&mut self, now: DateTime<Utc>) -> Result<Pass> {
-        let Some((location, zone)) = self.location().await? else {
+        let Some((_, zone)) = self.location().await? else {
             // No location: no plan, nothing due, no outside request.
             return Ok(Pass::Rest);
         };
@@ -134,7 +137,7 @@ impl Schedule {
             .await?
             .unwrap_or(0);
 
-        let replanned = self.keep_plan(&location).await?;
+        let replanned = planning::rebuild(&self.pool).await?;
         if replanned || self.registered_on != Some(today) {
             self.record.register_wanted(today).await?;
             self.registered_on = Some(today);
@@ -157,6 +160,16 @@ impl Schedule {
             }
         }
         let waiting = backfill.len();
+        if !self.announced {
+            // Once per start, so a restart says where things stand.
+            tracing::info!(
+                minute_of_hour = minute,
+                current_fetches_due = current.len(),
+                history_fetches_waiting = waiting,
+                "Weather schedule running"
+            );
+            self.announced = true;
+        }
         self.note_history(waiting);
         let next = backfill.into_iter().find(|fetch| self.may_try(fetch, now));
         match next {
@@ -213,41 +226,6 @@ impl Schedule {
                 let zone = location.timezone.parse::<Tz>().ok()?;
                 Some((location, zone))
             }))
-    }
-
-    /// Rebuilds the plan when what it is built from has changed: the location, the
-    /// catalog, or the lawn's elevation becoming known. Returns whether it changed.
-    // @spec WX-REC-PLAN-002, WX-REC-PLAN-013
-    async fn keep_plan(&self, location: &LawnLocation) -> Result<bool> {
-        let lawn = Lawn {
-            latitude: location.latitude,
-            longitude: location.longitude,
-            elevation_ft: lawn::elevation_ft(&self.pool).await?,
-        };
-        let stations = catalog::stations(&self.pool).await?;
-        let wanted = build(Some(&lawn), &stations, &[], &[]);
-        let held = plan::read(&self.pool).await?;
-        let mut wanted_places: Vec<_> = wanted
-            .iter()
-            .map(|r| (r.input.as_str(), r.rank, r.source.key.as_str(), r.pinned))
-            .collect();
-        let mut held_places: Vec<_> = held
-            .iter()
-            .map(|p| (p.input.as_str(), p.rank, p.source.key.as_str(), p.pinned))
-            .collect();
-        wanted_places.sort_unstable();
-        held_places.sort_unstable();
-        if wanted_places == held_places {
-            return Ok(false);
-        }
-        plan::replace(&self.pool, &wanted).await?;
-        let measured = wanted
-            .iter()
-            .filter(|ranked| ranked.source.station_ref.is_some())
-            .map(|ranked| ranked.source.name.as_str())
-            .collect::<std::collections::BTreeSet<_>>();
-        tracing::info!(stations = ?measured, "Weather plan rebuilt");
-        Ok(true)
     }
 
     /// Brings the soil estimate up to date when rows it rests on have arrived: at once

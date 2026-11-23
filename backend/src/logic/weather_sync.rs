@@ -3,6 +3,7 @@
 
 pub mod fetcher;
 pub mod order;
+pub mod planning;
 pub mod schedule;
 
 #[cfg(all(test, feature = "db-tests"))]
