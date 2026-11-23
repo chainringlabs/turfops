@@ -42,10 +42,10 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [ ] **SETUP-MAP-005**: If the sensor's unit is not one its input accepts, or its newest reading is older than the age limit for its input (SYNC-AGE-001; rain has none), then the step shall say so and shall not save the mapping.
 - [ ] **SETUP-MAP-006**: If the sensor's current value is outside the plausible range for its input, then the step shall say so and shall let the owner save the mapping.
 - [ ] **SETUP-MAP-007**: If the owner maps a sensor to an input that already has a sensor, then the system shall ask for confirmation naming both sensors and, on confirmation, replace the earlier mapping.
-- [ ] **SETUP-MAP-008**: The system shall refuse to map one Home Assistant entity to more than one input.
-- [ ] **SETUP-MAP-009**: When a sensor is unmapped, the system shall keep the readings it has stored and return its input to the next source in the basis plan.
+- [x] **SETUP-MAP-008**: The system shall refuse to map one Home Assistant entity to more than one input.
+- [x] **SETUP-MAP-009**: When a sensor is unmapped, the system shall keep the readings it has stored and return its input to the next source in the basis plan.
 - [ ] **SETUP-MAP-010**: The owner shall be able to create a sensor that is not in Home Assistant by naming it and choosing its input, after which the step shall show the request that sends a reading to it; while `SENSOR_TOKEN` is not set, the step shall say that posted readings need it.
-- [ ] **SETUP-MAP-011**: When the server starts with `HA_TEMPERATURE_ENTITY` or `HA_HUMIDITY_ENTITY` set and no sensor mapped, the system shall map those entities to air temperature and humidity.
+- [x] **SETUP-MAP-011**: When the server starts with `HA_TEMPERATURE_ENTITY` or `HA_HUMIDITY_ENTITY` set and no sensor mapped, the system shall map those entities to air temperature and humidity; it shall do so only on an installation where no sensor was ever mapped, so that one the owner has unmapped is not mapped again.
 
 ## The Sources page
 
@@ -68,7 +68,7 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [x] **SETUP-API-006**: `PUT /api/v1/sources/forecast-provider` shall set the forecast provider and, when the request carries one, store its key; choosing OpenWeatherMap with no key given and none stored shall be a 400 saying a key is needed.
 - [x] **SETUP-API-007**: `GET`, `PUT` and `DELETE /api/v1/sources/home-assistant` shall report whether a connection is set, set the address and token, and forget them; `POST /api/v1/sources/home-assistant/test` shall try the saved connection or the one given in the request and save nothing.
 - [x] **SETUP-API-008**: `GET /api/v1/sources/home-assistant/entities` shall return the numeric sensor entities with their suggested inputs.
-- [ ] **SETUP-API-009**: `GET` and `POST /api/v1/sources/sensors`, `PUT` and `DELETE /api/v1/sources/sensors/{id}`, and `POST /api/v1/sources/sensors/check` shall list the mapped sensors, map one, change a mapping, unmap one, and return the comparison of SETUP-MAP-004 without saving.
+- [x] **SETUP-API-009**: `GET` and `POST /api/v1/sources/sensors`, `PUT` and `DELETE /api/v1/sources/sensors/{id}`, and `POST /api/v1/sources/sensors/check` shall list the mapped sensors, map one, change a mapping, unmap one, and return the comparison of SETUP-MAP-004 without saving.
 - [ ] **SETUP-API-010**: After a write that changes a pin, a sensor mapping, the forecast provider or the Home Assistant connection, the system shall have the weather record rebuild its basis plan and wake the fetch schedule before it responds.
 - [x] **SETUP-API-012**: `POST /api/v1/setup/apply` shall save, all or none, whichever of a location, a set of pins and a forecast provider the request carries, the set of pins replacing those held and each pin judged from the location being saved; it shall then have the weather record rebuild its basis plan once and wake the fetch schedule once, before it responds with the sources as they then stand.
 

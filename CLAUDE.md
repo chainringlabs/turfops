@@ -17,8 +17,8 @@ Containerized web application for tracking lawn care activities with data-driven
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (1,159 tests; no database needed)
-- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,432 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
+- `cd backend && cargo test` — Run tests (1,160 tests; no database needed)
+- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,441 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
 - `cd backend && cargo run --release --features scoring -- score-estimate --cache <dir> --out src/logic/soil_estimate/scores.json` — Re-score the soil estimate against USCRN (downloads about 1,900 public files into `<dir>` on first run; re-run when the model, the calibration rule or a consumer's crossing rule changes)
 - `cd backend && cargo test live_ -- --ignored --test-threads=1` — One real request to each outside weather source (NOAA, RCC-ACIS, USDA, Open-Meteo, National Weather Service), to confirm the parsers still match what the services send; not part of the suite
 - `cd backend && DATABASE_URL=… cargo test --features db-tests live_schedule -- --ignored` — The fetch schedule's first passes for a new lawn against the real services, into the test database; not part of the suite
@@ -51,7 +51,7 @@ turfops/
 │       ├── error.rs             # Error types with HTTP responses
 │       ├── state.rs             # AppState (pool, sync, rules engine, 1 h climate-record memo)
 │       ├── mcp/                 # Read-only MCP server at /mcp (rmcp): config.rs MCP_TOKEN, auth.rs bearer guard, instructions.rs doctrine, resources.rs (embeds docs/agronomy-methods.md + docs/timing-windows.md), trim.rs, tools/ (lawn · season · weather · disease · log · shelf) calling the api handlers
-│       ├── api/                 # Route handlers (40 paths / 55 routes) + recommendation_feed.rs shared by dashboard and feed
+│       ├── api/                 # Route handlers (43 paths / 60 routes) + recommendation_feed.rs shared by dashboard and feed
 │       ├── db/                  # PostgreSQL pool, queries, migrations
 │       ├── models/              # Data structures (shared with rules); product/ = inventory enums + LLM profile + user-owned facts
 │       ├── logic/               # Data sync + 10 agronomic rules + GDD accumulation + seasonal plan + disease risk models + seeding/pre-emergent timing windows + inventory.rs (shelf enrichment pass) + inventory/shopping.rs (shopping list)
@@ -85,6 +85,9 @@ turfops/
 | GET/PUT/DELETE | /api/v1/sources/home-assistant | Whether a Home Assistant connection is stored and its address (never the token) / store an `http(s)` address and token / forget them |
 | POST | /api/v1/sources/home-assistant/test | Try a connection, the one given or the stored one; saves nothing; says whether nothing answered or the token was refused |
 | GET | /api/v1/sources/home-assistant/entities | Numeric sensor entities, weather-like first, each with a suggested input and the input it is already mapped to |
+| GET/POST | /api/v1/sources/sensors | The mapped sensors / map one to an input (a Home Assistant entity is checked first; 409 names the sensor that already has the input unless `replace` is set, or the input the entity already has) |
+| POST | /api/v1/sources/sensors/check | A Home Assistant sensor's reading, converted, beside the value in use; what blocks saving (wrong unit, too old, not found) and what only warns (implausible); saves nothing |
+| PUT/DELETE | /api/v1/sources/sensors/:id | Rename or remap a sensor / unmap it, keeping its readings |
 | GET/POST | /api/v1/applications | List (`?type=&limit=&offset=`, type filtered in SQL) / create applications (409 on a true duplicate; optional `product_id` must be a shelf product whose category accepts the type — 400 otherwise — and fills `product_name` when empty) |
 | PUT/DELETE | /api/v1/applications/:id | Update / delete application |
 | GET | /api/v1/applications/calendar | Calendar view |

@@ -124,3 +124,36 @@ async fn no_failure_carries_the_token() {
         assert!(!text.contains(TOKEN));
     }
 }
+
+// @spec WX-SRC-HA-001, WX-SRC-HA-002
+#[tokio::test]
+async fn one_entity_is_its_reading_or_why_there_is_none() {
+    let reading = r#"{"entity_id":"sensor.patio_temperature","state":"16.4",
+        "attributes":{"unit_of_measurement":"°C"},"last_reported":"2026-11-23T14:20:00+00:00"}"#;
+    let (base, request) = stub_http_seeing(200, reading, "").await;
+    let connection = HaConnection::new(&base, TOKEN).unwrap();
+    let Lookup::Reading(found) = connection.entity("sensor.patio_temperature").await.unwrap()
+    else {
+        panic!("a reading");
+    };
+    assert_eq!((found.value, found.unit.as_deref()), (16.4, Some("°C")));
+    assert!(request
+        .await
+        .unwrap()
+        .starts_with("GET /api/states/sensor.patio_temperature "));
+
+    let off = r#"{"entity_id":"sensor.x","state":"unavailable","attributes":{},
+        "last_updated":"2026-11-23T14:20:00+00:00"}"#;
+    let base = stub_http(200, off).await;
+    let connection = HaConnection::new(&base, TOKEN).unwrap();
+    assert_eq!(connection.entity("sensor.x").await, Ok(Lookup::NotANumber));
+    let base = stub_http(404, r#"{"message":"Entity not found."}"#).await;
+    let connection = HaConnection::new(&base, TOKEN).unwrap();
+    assert_eq!(connection.entity("sensor.gone").await, Ok(Lookup::Missing));
+    // An id that is not an id is never sent.
+    let nowhere = HaConnection::new("http://127.0.0.1:1", TOKEN).unwrap();
+    assert_eq!(
+        nowhere.entity("sensor.x/../../config").await,
+        Ok(Lookup::Missing)
+    );
+}

@@ -164,6 +164,18 @@ async fn main() -> anyhow::Result<()> {
             get(api::sources::home_assistant::get_entities),
         )
         .route(
+            "/api/v1/sources/sensors",
+            get(api::sources::sensors::get_sensors).post(api::sources::sensors::post_sensor),
+        )
+        .route(
+            "/api/v1/sources/sensors/check",
+            post(api::sources::sensor_check::check_sensor),
+        )
+        .route(
+            "/api/v1/sources/sensors/{id}",
+            put(api::sources::sensors::put_sensor).delete(api::sources::sensors::delete_sensor),
+        )
+        .route(
             "/api/v1/applications",
             get(api::applications::list_applications).post(api::applications::create_application),
         )
@@ -337,6 +349,26 @@ async fn import_connections(pool: &sqlx::PgPool, config: &Config) -> anyhow::Res
         tracing::info!(
             ?service,
             "Connection imported from the environment; it is now managed in the app"
+        );
+    }
+    // @spec SETUP-MAP-011
+    use db::setup_queries::Mapped;
+    let entities = [
+        (
+            "Patio temperature",
+            ha.temperature_entity.as_str(),
+            Mapped::AirTemp,
+        ),
+        (
+            "Patio humidity",
+            ha.humidity_entity.as_str(),
+            Mapped::Humidity,
+        ),
+    ];
+    for sensor in db::setup_queries::map_first_sensors(pool, &entities).await? {
+        tracing::info!(
+            sensor,
+            "Sensor mapped from the environment; it is now managed in the app"
         );
     }
     Ok(())
