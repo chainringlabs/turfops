@@ -105,7 +105,8 @@ sources at the lawn's point: a lawn that moves gets new ones, and the old point'
 read for the new location.
 
 Distance is great-circle miles between the lawn and the station. The lawn's elevation is the
-one the hourly analysis reports for the point. Until that is known the plan is built without
+one the hourly analysis reports for the point. It is kept with the lawn profile, written by
+the first analysis fetch. Until that is known the plan is built without
 the elevation rule, and it is rebuilt when the elevation arrives. A pinned station replaces the default stations
 for that input at any distance and is labeled with its true distance.
 

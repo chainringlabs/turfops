@@ -87,6 +87,26 @@ pub async fn daily_fetched(
     Ok(())
 }
 
+/// Records a fetch that succeeded and brought nothing new: the source has not
+/// published past what is held.
+pub async fn checked(
+    pool: &PgPool,
+    source_id: i64,
+    product: &str,
+    at: DateTime<Utc>,
+) -> Result<()> {
+    sqlx::query(
+        "UPDATE weather_fetch_state SET last_attempt = $3, last_success = $3 \
+         WHERE source_id = $1 AND product = $2",
+    )
+    .bind(source_id)
+    .bind(product)
+    .bind(at)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 /// Records a failed fetch. What is held does not change.
 // @spec WX-REC-FILL-003
 pub async fn failed(

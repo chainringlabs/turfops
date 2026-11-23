@@ -15,3 +15,5 @@ pub mod soil_test_thresholds;
 pub mod timing;
 #[allow(dead_code)]
 pub mod weather_record;
+#[allow(dead_code)]
+pub mod weather_sync;
