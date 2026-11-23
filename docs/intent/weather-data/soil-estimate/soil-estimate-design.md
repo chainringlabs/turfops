@@ -67,6 +67,9 @@ The estimate is daily. It has no hourly form.
 
 - **Choosing the five** before their data is held: the five nearest by the catalog's years of
   operation. Any that turn out to have fewer than 1,000 days are replaced by the next nearest.
+  Nothing is fitted until every chosen station's days have been counted. While a basis
+  station's own history is still arriving no model is fitted on other stations either: a series
+  fitted on five neighbours and then refitted on the station alone would move under the owner.
 - **Whose air drives the series.** With no basis station the model runs on the grid's air at
   the lawn's point. Where it fills a basis station's gaps it runs on the air at that station's
   point, because it is standing in for that station's readings, not describing a different
@@ -94,7 +97,10 @@ series removes it:
   days among the 7 nearest that edge.
 - **A gap with measurements on both sides** takes the offset interpolated linearly from one
   edge to the other.
-- **A gap still open** takes the offset at its start, shrinking linearly to zero over 30 days.
+- **A gap still open** takes the offset at its start, shrinking linearly to zero over the 30
+  days after the last measured day.
+- **An edge with nothing to compare** (no estimate on any of its measured days) takes the
+  other edge's offset for the whole gap.
 - **The days before a source's first value** are not anchored. A newly mapped sensor's past
   is the unadjusted series of the next basis.
 
