@@ -67,7 +67,8 @@ async fn soil_days_come_from_the_station_and_its_holes_from_the_estimate(pool: P
         .unwrap();
     let rows: Vec<_> = series.rows.iter().map(|r| (r.date, r.avg_temp_f)).collect();
     let expected: Vec<_> = (10..=17)
-        .map(|day| (d(day), if day == 15 { 60.0 } else { 70.0 }))
+        // The 15th is the estimate, anchored to the station's 70 °F on either side.
+        .map(|day| (d(day), 70.0))
         .collect();
     assert_eq!(rows, expected, "the 18th and 19th wait for the station");
     let basis: Vec<_> = series
@@ -108,7 +109,7 @@ async fn once_the_station_is_past_its_age_limit_the_estimate_takes_its_missing_d
         .take(3)
         .map(|r| (r.date, r.avg_temp_f))
         .collect();
-    assert_eq!(last, vec![(d(19), 60.0), (d(18), 60.0), (d(17), 70.0)]);
+    assert_eq!(last, vec![(d(19), 69.3), (d(18), 69.7), (d(17), 70.0)]);
 }
 
 // @spec WX-REC-API-005

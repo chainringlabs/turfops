@@ -8,6 +8,7 @@ use crate::db::weather_queries::days;
 use crate::db::weather_queries::plan::{self, Placed};
 use crate::db::weather_queries::rows;
 use crate::error::{Result, TurfOpsError};
+use crate::logic::soil_estimate::anchor::anchored;
 use crate::models::weather_record::{HourlyRow, Input, Source, SourceKind};
 use chrono::{DateTime, Duration, NaiveDate, Utc};
 use chrono_tz::Tz;
@@ -109,6 +110,38 @@ impl WeatherRecord {
     }
 }
 
+/// How far either side of a span the measured days that anchor the estimate are looked
+/// for. A gap longer than this is anchored from the edge that is in reach.
+const ANCHOR_REACH_DAYS: i64 = 366;
+
+/// Replaces each day the soil estimate speaks for with its anchored value: the estimate
+/// shifted to meet the measured days around it.
+// @spec WX-REC-RES-006
+fn anchor(resolution: &mut Resolution<f64>) {
+    let kind_of = |rank: usize| resolution.candidates[rank].source.kind;
+    let Some(estimate) =
+        (0..resolution.candidates.len()).find(|rank| kind_of(*rank) == SourceKind::Estimate)
+    else {
+        return;
+    };
+    let measured: BTreeMap<NaiveDate, f64> = resolution
+        .days
+        .iter()
+        .filter(|(_, value)| value.from != estimate)
+        .map(|(day, value)| (*day, value.value))
+        .collect();
+    let anchored = anchored(&resolution.candidates[estimate].covered, &measured);
+    for (day, value) in resolution
+        .days
+        .iter_mut()
+        .filter(|(_, v)| v.from == estimate)
+    {
+        if let Some(shifted) = anchored.get(day) {
+            value.value = *shifted;
+        }
+    }
+}
+
 impl View<'_> {
     /// A scalar input resolved for each day from `from` through `through`.
     pub async fn resolve(
@@ -117,7 +150,24 @@ impl View<'_> {
         from: NaiveDate,
         through: NaiveDate,
     ) -> Result<Resolution<f64>> {
-        self.resolved(input, scalar(input), from, through).await
+        let estimated = |kind| self.sources(input).any(|source| source.kind == kind);
+        let anchors = matches!(input, Input::SoilTemp5 | Input::SoilTemp10)
+            && estimated(SourceKind::Estimate)
+            && (estimated(SourceKind::Station) || estimated(SourceKind::Sensor));
+        if !anchors {
+            return self.resolved(input, scalar(input), from, through).await;
+        }
+        // The offsets rest on the measured days around a gap, which may lie outside
+        // the span asked for.
+        let yesterday = self.asked.at.today - Duration::days(1);
+        let reach = Duration::days(ANCHOR_REACH_DAYS);
+        let wide = (from - reach, (through + reach).min(yesterday).max(through));
+        let mut resolution = self.resolved(input, scalar(input), wide.0, wide.1).await?;
+        anchor(&mut resolution);
+        resolution
+            .days
+            .retain(|day, _| (from..=through).contains(day));
+        Ok(resolution)
     }
 
     /// Daily air resolved for each day from `from` through `through`.
