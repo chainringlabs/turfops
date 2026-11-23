@@ -229,6 +229,8 @@ async fn once_told_to_stop_no_further_fetch_is_started(pool: PgPool) {
 #[sqlx::test(migrations = "src/db/migrations")]
 #[ignore = "calls NOAA, USDA, RCC-ACIS and Open-Meteo"]
 async fn live_schedule_fills_a_new_lawn(pool: PgPool) {
+    // Shows the schedule's own log lines with `--nocapture`.
+    let _ = tracing_subscriber::fmt().with_test_writer().try_init();
     let mut profile = crate::logic::rules::test_fixtures::profile(GrassType::TallFescue);
     profile.id = None;
     profile.location = Some(LawnLocation::at(39.86, -75.79, None).unwrap());
