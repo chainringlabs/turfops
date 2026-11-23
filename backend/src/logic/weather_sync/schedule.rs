@@ -78,6 +78,8 @@ pub struct Schedule {
     /// The backfill fetch run last, so one that succeeds without holding more is not
     /// run again at once.
     last_backfill: Option<Fetch>,
+    /// Whether history was still arriving at the last pass.
+    backfilling: bool,
 }
 
 impl Schedule {
@@ -96,6 +98,7 @@ impl Schedule {
             estimate_stale: true,
             estimated_at: None,
             last_backfill: None,
+            backfilling: false,
         };
         (schedule, Waker(wake.clone()), Stopper { stopping, wake })
     }
@@ -149,21 +152,56 @@ impl Schedule {
         }
         let (current, backfill) = ordered(due.fetches);
         for fetch in &current {
-            self.attempt(fetch, now).await;
+            if let Some(rows) = self.attempt(fetch, now).await {
+                tracing::debug!(source = %fetch.source.name, rows, "Weather fetched");
+            }
         }
+        let waiting = backfill.len();
+        self.note_history(waiting);
         let next = backfill.into_iter().find(|fetch| self.may_try(fetch, now));
         match next {
             Some(fetch) if self.last_backfill.as_ref() != Some(&fetch) => {
-                self.attempt(&fetch, now).await;
+                if let Some(rows) = self.attempt(&fetch, now).await {
+                    tracing::info!(
+                        source = %fetch.source.name,
+                        from = %fetch.span.0,
+                        through = %fetch.span.1,
+                        rows,
+                        left = waiting - 1,
+                        "Weather history fetched"
+                    );
+                }
                 self.last_backfill = Some(fetch);
                 Ok(Pass::Again)
             }
             Some(_) => Ok(Pass::Rest),
             None => {
                 self.last_backfill = None;
-                self.record.drop_replaced().await?;
+                let dropped = self.record.drop_replaced().await?;
+                if dropped > 0 {
+                    tracing::info!(
+                        sources = dropped,
+                        "Weather sources no longer in the plan removed"
+                    );
+                }
                 Ok(Pass::Rest)
             }
+        }
+    }
+
+    /// Says when history starts arriving and when it is all in. Each fetch in between
+    /// has its own line.
+    fn note_history(&mut self, waiting: usize) {
+        match (self.backfilling, waiting) {
+            (false, 1..) => {
+                tracing::info!(fetches = waiting, "Weather history is being downloaded");
+                self.backfilling = true;
+            }
+            (true, 0) => {
+                tracing::info!("Weather history is complete");
+                self.backfilling = false;
+            }
+            _ => {}
         }
     }
 
@@ -203,6 +241,12 @@ impl Schedule {
             return Ok(false);
         }
         plan::replace(&self.pool, &wanted).await?;
+        let measured = wanted
+            .iter()
+            .filter(|ranked| ranked.source.station_ref.is_some())
+            .map(|ranked| ranked.source.name.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        tracing::info!(stations = ?measured, "Weather plan rebuilt");
         Ok(true)
     }
 
@@ -238,17 +282,21 @@ impl Schedule {
     /// Runs one fetch unless the schedule is stopping or the fetch is waiting out a
     /// failure. A failure is kept to its own source and product.
     // @spec SYNC-SCHED-006, SYNC-SCHED-007, SYNC-SCHED-010
-    async fn attempt(&mut self, fetch: &Fetch, now: DateTime<Utc>) {
+    async fn attempt(&mut self, fetch: &Fetch, now: DateTime<Utc>) -> Option<usize> {
         if self.stopping.load(Ordering::SeqCst) || !self.may_try(fetch, now) {
-            return;
+            return None;
         }
         let failing = self.failing.entry(Self::key(fetch)).or_default();
         match self.fetcher.run(fetch, now).await {
-            Ok(()) => {
+            Ok(rows) => {
                 failing.succeeded();
                 self.estimate_stale = true;
+                Some(rows)
             }
-            Err(_) => failing.failed(now),
+            Err(_) => {
+                failing.failed(now);
+                None
+            }
         }
     }
 
@@ -262,6 +310,7 @@ impl Schedule {
         match self.fetcher.refresh_catalog(network).await {
             Ok(()) => {
                 failing.succeeded();
+                tracing::info!(network = network.as_str(), "Station list refreshed");
                 true
             }
             Err(error) => {

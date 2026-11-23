@@ -125,6 +125,14 @@ impl SoilEstimator {
         }
         match self.fit(scene, depth, chosen, today, now).await? {
             Some(fit) => {
+                tracing::info!(
+                    depth_cm = fit.depth_cm,
+                    fitted_on = ?fit.calibration,
+                    stations = fit.stations.len(),
+                    days = fit.training_days,
+                    rmse_f = format!("{:.2}", fit.rmse_f),
+                    "Soil estimate fitted"
+                );
                 soil_estimate_queries::store(&self.pool, &fit).await?;
                 fits.retain(|held| held.depth_cm != fit.depth_cm);
                 fits.push(fit);
