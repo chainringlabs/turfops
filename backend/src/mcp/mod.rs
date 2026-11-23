@@ -194,6 +194,10 @@ mod tests {
     fn staleness_comes_from_the_flag_not_a_limit_of_its_own() {
         let doc = instructions::INSTRUCTIONS;
         assert!(doc.contains("soil_stale"));
+        assert!(
+            doc.contains("nothing for them to fix"),
+            "late station data is not the owner's to fix"
+        );
         assert!(doc.contains("data_notes"));
         assert!(
             !doc.contains("72 h"),
