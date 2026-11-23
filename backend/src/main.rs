@@ -137,6 +137,16 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/v1/setup/places", get(api::setup::places))
         .route("/api/v1/sources/preview", get(api::sources::preview))
         .route("/api/v1/sources/stations", get(api::sources::stations_for))
+        .route("/api/v1/setup/apply", post(api::setup::apply))
+        .route("/api/v1/sources", get(api::sources::read::get_sources))
+        .route(
+            "/api/v1/sources/pins/{input}",
+            put(api::sources::write::put_pin).delete(api::sources::write::delete_pin),
+        )
+        .route(
+            "/api/v1/sources/forecast-provider",
+            put(api::sources::write::put_forecast_provider),
+        )
         .route(
             "/api/v1/applications",
             get(api::applications::list_applications).post(api::applications::create_application),
