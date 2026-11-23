@@ -8,7 +8,7 @@ mod tests;
 use crate::datasources::cadence::Product;
 use crate::logic::soil_estimate::calibration::train_from;
 use crate::models::weather_record::{FetchState, Source, SourceKind, SourceRole};
-use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, Duration, NaiveDate, Timelike, Utc};
 
 /// Years of history kept behind the current year: what the typical dates read.
 pub const HISTORY_YEARS: i32 = 15;
@@ -86,6 +86,7 @@ pub fn fetches(
     sources: &[(Source, Option<FetchState>)],
     today: NaiveDate,
     now: DateTime<Utc>,
+    minute: u32,
 ) -> Vec<Fetch> {
     let prism_through = sources
         .iter()
@@ -107,9 +108,7 @@ pub fn fetches(
             Product::NrccDays => fallback_from(prism_through, today),
             _ => current_from(product, state, today),
         };
-        let due = state
-            .last_success
-            .is_none_or(|at| now - at >= product.new_data_every());
+        let due = is_due(product, state.last_success, now, minute);
         if due && from <= today {
             current.push(fetch((from, today), Purpose::Current));
         }
@@ -125,6 +124,37 @@ pub fn fetches(
     backfill.sort_by_key(|fetch| std::cmp::Reverse(fetch.span.1));
     current.extend(backfill);
     current
+}
+
+/// A fetch may run this much sooner than its cadence, so that one made a little late
+/// does not push the next one past its minute.
+const EARLY: Duration = Duration::minutes(10);
+
+/// The newest instant at or before `now` on the installation's minute of the hour.
+pub fn slot(now: DateTime<Utc>, minute: u32) -> DateTime<Utc> {
+    let this_hour = now
+        .with_minute(minute.min(59))
+        .and_then(|t| t.with_second(0))
+        .and_then(|t| t.with_nanosecond(0))
+        .unwrap_or(now);
+    if this_hour <= now {
+        this_hour
+    } else {
+        this_hour - Duration::hours(1)
+    }
+}
+
+/// Whether a product may have something new: it has never been fetched, or its cadence
+/// has passed and the installation's minute has come round since the last success.
+// @spec WX-REC-FILL-002, SYNC-SCHED-005
+pub fn is_due(
+    product: Product,
+    last_success: Option<DateTime<Utc>>,
+    now: DateTime<Utc>,
+    minute: u32,
+) -> bool {
+    last_success
+        .is_none_or(|at| at < slot(now, minute) && now - at >= product.new_data_every() - EARLY)
 }
 
 /// Where a current fetch starts: far enough back to re-read what the source revises,

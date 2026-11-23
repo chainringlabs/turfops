@@ -101,6 +101,15 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!("OpenRouter not configured — plant plans and product profiles unavailable");
     }
 
+    // The weather record's fetch schedule. It makes no outside request until the lawn
+    // has a location.
+    // @spec SYNC-SCHED-001, SYNC-REFRESH-007
+    let (schedule, _weather_waker, weather_stopper) = logic::weather_sync::schedule::Schedule::new(
+        pool.clone(),
+        logic::weather_sync::fetcher::Clients::new(),
+    );
+    let weather_schedule = tokio::spawn(schedule.run());
+
     // Create app state
     let mcp_token = config.mcp.token.clone();
     let state = AppState::new(
@@ -265,8 +274,20 @@ async fn main() -> anyhow::Result<()> {
         .await?;
     tracing::info!("Server stopped");
 
+    // @spec SYNC-SCHED-010
+    weather_stopper.stop();
+    if tokio::time::timeout(SCHEDULE_STOP_WAIT, weather_schedule)
+        .await
+        .is_err()
+    {
+        tracing::warn!("Weather schedule was still fetching at shutdown");
+    }
+
     Ok(())
 }
+
+/// How long shutdown waits for a weather fetch in progress before leaving it.
+const SCHEDULE_STOP_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// SIGTERM (`docker stop`) or Ctrl-C: stop accepting connections and let in-flight
 /// requests finish before exiting.

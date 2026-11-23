@@ -6,18 +6,18 @@ Design: [data-sync-design.md](data-sync-design.md). Prefix `SYNC`. Facets: `SCHE
 
 ## The fetch schedule
 
-- [ ] **SYNC-SCHED-001**: The system shall run one background schedule, started after the database is reachable and migrated, that once a minute, and at once when woken, asks the weather record what is due and runs those fetches.
-- [ ] **SYNC-SCHED-002**: The schedule shall run fetches one at a time, and shall write each fetch's rows and outcome to the weather record before starting the next.
+- [x] **SYNC-SCHED-001**: The system shall run one background schedule, started after the database is reachable and migrated, that once a minute, and at once when woken, asks the weather record what is due and runs those fetches.
+- [x] **SYNC-SCHED-002**: The schedule shall run fetches one at a time, and shall write each fetch's rows and outcome to the weather record before starting the next.
 - [ ] **SYNC-SCHED-003**: The schedule shall run due fetches in this order: the owner's sensors, the forecast, current hourly data, current daily data, then backfill.
-- [ ] **SYNC-SCHED-004**: The schedule shall run backfill newest year first and, within a year, the lawn's own sources before calibration sources, and after each backfill fetch shall run any current data that has become due before the next backfill fetch.
-- [ ] **SYNC-SCHED-005**: The schedule shall run hourly and daily fetches at a minute of the hour chosen at random when the installation first gets a location and kept thereafter.
-- [ ] **SYNC-SCHED-006**: If a fetch fails, then the schedule shall log the client's detail, record the failure against that source and product, and try that product again after 5 minutes, then after 15 minutes, then once an hour until a fetch of it succeeds.
-- [ ] **SYNC-SCHED-007**: A failed fetch shall not delay or cancel the fetches of any other source or product.
+- [x] **SYNC-SCHED-004**: The schedule shall run backfill newest year first and, within a year, the lawn's own sources before calibration sources, and after each backfill fetch shall run any current data that has become due before the next backfill fetch.
+- [x] **SYNC-SCHED-005**: The schedule shall run hourly and daily fetches at a minute of the hour chosen at random when the installation first gets a location and kept thereafter; a source's first fetch, and a retry after a failure, shall not wait for that minute.
+- [x] **SYNC-SCHED-006**: If a fetch fails, then the schedule shall log the client's detail, record the failure against that source and product, and try that product again after 5 minutes, then after 15 minutes, then once an hour until a fetch of it succeeds.
+- [x] **SYNC-SCHED-007**: A failed fetch shall not delay or cancel the fetches of any other source or product.
 - [ ] **SYNC-SCHED-008**: When the lawn's location, a pinned station, a sensor mapping, the Home Assistant connection or the forecast provider changes, the system shall wake the schedule.
 - [ ] **SYNC-SCHED-009**: When `POST /api/v1/environmental/refresh` is called, the system shall wake the schedule to fetch all current data regardless of cadence, unless it did so less than a minute ago, wait up to 20 seconds for those fetches, and return the summary.
-- [ ] **SYNC-SCHED-010**: When the process is told to stop, the schedule shall start no further fetch and shall end once the fetch in progress finishes or times out.
-- [ ] **SYNC-SCHED-011**: While the lawn has no location, the schedule shall make no outside request.
-- [ ] **SYNC-SCHED-012**: The schedule shall hold no lock that a request for the summary needs while a fetch is in progress.
+- [x] **SYNC-SCHED-010**: When the process is told to stop, the schedule shall start no further fetch and shall end once the fetch in progress finishes or times out.
+- [x] **SYNC-SCHED-011**: While the lawn has no location, the schedule shall make no outside request.
+- [x] **SYNC-SCHED-012**: The schedule shall hold no lock that a request for the summary needs while a fetch is in progress.
 
 ## Startup and the clock
 

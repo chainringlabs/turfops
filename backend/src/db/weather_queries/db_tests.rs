@@ -139,3 +139,26 @@ async fn a_source_is_known_by_its_key_and_keeps_its_id_when_described_again(pool
     );
     assert_eq!(sources::all(&pool).await.unwrap().len(), 1);
 }
+
+// @spec WX-REC-PLAN-001, WX-REC-PLAN-002
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn inputs_learned_from_a_stations_data_survive_a_refresh_that_does_not_list_them(
+    pool: PgPool,
+) {
+    let mut listed = station("3761", "Avondale 2 N");
+    listed.inputs = Vec::new();
+    catalog::replace_network(&pool, Network::Uscrn, std::slice::from_ref(&listed))
+        .await
+        .unwrap();
+    let id = catalog::stations(&pool).await.unwrap()[0].0;
+    let learned = [Input::AirTemp, Input::SoilTemp10];
+    assert!(catalog::set_inputs(&pool, id, &learned).await.unwrap());
+    assert!(
+        !catalog::set_inputs(&pool, id, &learned).await.unwrap(),
+        "nothing changed"
+    );
+    catalog::replace_network(&pool, Network::Uscrn, std::slice::from_ref(&listed))
+        .await
+        .unwrap();
+    assert_eq!(catalog::stations(&pool).await.unwrap()[0].1.inputs, learned);
+}

@@ -272,3 +272,26 @@ fn the_owners_sensor_is_asked_first_and_an_air_sensor_also_speaks_for_daily_air(
         (SourceKind::Sensor, "Probe")
     );
 }
+
+// @spec WX-REC-PLAN-004, WX-REC-PLAN-005
+#[test]
+fn a_station_whose_inputs_are_not_yet_known_is_taken_to_report_everything() {
+    let plan = plan_among(vec![station(Network::Uscrn, "new", 8.0, 400.0, &[])]);
+    assert_eq!(
+        keys(&plan, Input::SoilTemp10),
+        vec!["station:Uscrn:new", ESTIMATE]
+    );
+    assert_eq!(
+        keys(&plan, Input::Humidity),
+        vec!["station:Uscrn:new", ANALYSIS]
+    );
+    assert_eq!(
+        keys(&plan, Input::SoilMoisture50),
+        vec!["station:Uscrn:new"]
+    );
+    assert_eq!(
+        keys(&plan, Input::Rain),
+        vec![PRISM, ANALYSIS],
+        "still no station for rain"
+    );
+}

@@ -6,11 +6,12 @@ use crate::datasources::grid::{Grid, GridClient};
 use crate::datasources::open_meteo::OpenMeteoClient;
 use crate::datasources::outside::Outside;
 use crate::datasources::scan::ScanClient;
+use crate::datasources::uscrn::parse::inputs_reported;
 use crate::datasources::uscrn::{StationYear, UscrnClient};
 use crate::db::weather_queries::{catalog, fetch_state, lawn};
 use crate::error::{Result, TurfOpsError};
 use crate::logic::weather_record::due::{Fetch, Purpose};
-use crate::models::weather_record::{Network, Source, Station};
+use crate::models::weather_record::{HourlyRow, Network, Source, Station};
 use chrono::{DateTime, Datelike, Duration, Utc};
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -139,6 +140,7 @@ impl Fetcher {
                 if !changed {
                     return fetch_state::checked(&self.pool, fetch.source.id, product, now).await;
                 }
+                self.learn_inputs(fetch, &rows).await?;
                 // A year's file holds the whole year; only the span asked for is new.
                 let earliest = from - Duration::days(1);
                 rows.retain(|row| row.observed_at.date_naive() >= earliest);
@@ -146,6 +148,20 @@ impl Fetcher {
         }
         fetch_state::hourly_fetched(&self.pool, fetch.source.id, product, &rows, fetch.span, now)
             .await
+    }
+
+    /// The station list does not say what a USCRN station measures; the year so far
+    /// of its own rows does. The plan is rebuilt from the catalog when this changes.
+    // @spec WX-REC-PLAN-002
+    async fn learn_inputs(&self, fetch: &Fetch, rows: &[HourlyRow]) -> Result<()> {
+        let reported = inputs_reported(rows);
+        let station_ref = fetch.source.station_ref;
+        if let (Purpose::Current, Some(station_ref), false) =
+            (fetch.purpose, station_ref, reported.is_empty())
+        {
+            catalog::set_inputs(&self.pool, station_ref, &reported).await?;
+        }
+        Ok(())
     }
 
     async fn calibration_days(&self, fetch: &Fetch, now: DateTime<Utc>) -> Result<()> {
@@ -184,10 +200,15 @@ impl Fetcher {
             .await?
             .days;
         // The grid publishes a day behind: only what it returned is held.
-        let Some(newest) = days.last().map(|day| day.day) else {
-            return fetch_state::checked(&self.pool, fetch.source.id, product, now).await;
+        let span = match (days.last(), fetch.purpose) {
+            (Some(newest), _) => (from, newest.day),
+            // A past span the grid has nothing for is held as empty, or it would be
+            // asked for again without end.
+            (None, Purpose::Backfill) => fetch.span,
+            (None, Purpose::Current) => {
+                return fetch_state::checked(&self.pool, fetch.source.id, product, now).await;
+            }
         };
-        let span = (from, newest);
         fetch_state::daily_fetched(&self.pool, &fetch.source, product, &days, span, now).await
     }
 

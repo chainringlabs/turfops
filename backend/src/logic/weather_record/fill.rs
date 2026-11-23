@@ -84,10 +84,11 @@ impl WeatherRecord {
         Ok(())
     }
 
-    /// What should be fetched now. Only sources in the plan are reported, so a lawn
+    /// What should be fetched now, for an installation whose hourly and daily fetches
+    /// run at `minute` past the hour. Only sources in the plan are reported, so a lawn
     /// with no location, whose plan is empty, wants nothing.
     // @spec WX-REC-FILL-002, WX-REC-FILL-006, WX-REC-FILL-008
-    pub async fn due(&self, now: DateTime<Utc>, today: NaiveDate) -> Result<Due> {
+    pub async fn due(&self, now: DateTime<Utc>, today: NaiveDate, minute: u32) -> Result<Due> {
         if self.in_use().await?.is_empty() {
             return Ok(Due::default());
         }
@@ -103,7 +104,7 @@ impl WeatherRecord {
             .collect();
         Ok(Due {
             catalogs: self.catalogs_due(now).await?,
-            fetches: due::fetches(&with_state, today, now),
+            fetches: due::fetches(&with_state, today, now, minute),
         })
     }
 

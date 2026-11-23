@@ -71,6 +71,8 @@ One background task, started once the database is reachable and the migrations h
 
 After each backfill fetch the task returns to the top of the list, so backfill never delays a current fetch by more than one request.
 
+**Each pass** first brings the plan in line with what it is built from (the location, the catalog, the lawn's elevation) and the soil estimate with the rows it rests on: at once on a new plan, at most hourly while history is still arriving. Then it runs every current fetch that is due and one backfill fetch, and starts over at once while backfill remains.
+
 **Rhythm.** A product is due when its source's cadence says there may be something new: hourly for stations, the analysis and the forecast; daily for the grids; every 5 minutes for Home Assistant. Hourly and daily fetches run at a minute offset chosen at random when the installation is first set up and kept thereafter, so installations do not all call a public host at the top of the hour.
 
 **Failure.** A failed fetch is logged with the client's detail and recorded against its source and product. That product is next tried after 5 minutes, then 15, then every hour, until one succeeds. Other products of the same host are unaffected unless they fail themselves. The failure never reaches a page as an error: pages see it as source status and, in time, as an aging value.
@@ -79,7 +81,7 @@ After each backfill fetch the task returns to the top of the list, so backfill n
 
 **Waking.** A change to the location, a pinned station, a sensor mapping or the forecast provider wakes the task so the new plan starts filling at once. `POST /environmental/refresh` wakes it too, asking for every current product regardless of rhythm, at most once a minute.
 
-**Stopping.** On shutdown the task finishes the fetch in progress or abandons it at the client's timeout, and starts no other. An interrupted backfill resumes from the record's held spans at next start.
+**Stopping.** On shutdown the task starts no other fetch. The process waits five seconds for the fetch in progress and then exits; what that fetch would have written is fetched again at next start. An interrupted backfill resumes from the record's held spans at next start.
 
 **Nothing to do.** With no location set the plan is empty, nothing is due, and the task makes no requests.
 

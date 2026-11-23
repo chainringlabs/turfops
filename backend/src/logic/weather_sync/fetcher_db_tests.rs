@@ -13,8 +13,8 @@ use crate::logic::weather_record::due::{Fetch, Purpose};
 use crate::logic::weather_record::lab::{
     d, noon, Lab, ANALYSIS as ANALYSIS_SOURCE, NRCC, PRISM, STATION,
 };
-use crate::models::weather_record::FetchState;
 use crate::models::weather_record::Network;
+use crate::models::weather_record::{FetchState, Input};
 use crate::test_support::{stub_http, stub_http_sequence};
 use chrono::NaiveDate;
 use chrono::TimeZone;
@@ -227,6 +227,10 @@ async fn a_station_fetch_reads_each_years_file_and_keeps_the_span_asked_for(pool
         Some((dec, jan(20))),
         "a year with no file is held as empty"
     );
+    // What the station measures is learned from its rows.
+    let learned = &catalog::stations(&lab.pool).await.unwrap()[0].1.inputs;
+    assert!(learned.contains(&Input::SoilMoisture100) && learned.contains(&Input::AirTemp));
+    assert_eq!(learned.len(), 13, "{learned:?}");
 
     // An hour later the file has not changed: a success that writes nothing.
     let later = now + Duration::hours(1);

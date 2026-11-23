@@ -152,7 +152,7 @@ async fn with_too_little_from_the_basis_station_the_five_nearest_are_held_and_wa
     assert_eq!(state.held, None);
 
     // The record now asks for them.
-    let due = lab.record.due(noon(20).at.now, d(20)).await.unwrap();
+    let due = lab.record.due(noon(20).at.now, d(20), 0).await.unwrap();
     let for_b: Vec<_> = due
         .fetches
         .iter()
