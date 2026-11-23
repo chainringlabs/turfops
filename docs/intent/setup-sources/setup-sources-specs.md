@@ -29,9 +29,9 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 
 ## Connecting Home Assistant
 
-- [ ] **SETUP-HA-001**: The sensors step shall let the owner enter a Home Assistant address and access token and test them, reporting on success what answered and how many numeric sensor entities it has.
+- [ ] **SETUP-HA-001**: The sensors step shall let the owner enter a Home Assistant address and access token and test them, reporting on success the name and version of the Home Assistant that answered and how many numeric sensor entities it has.
 - [ ] **SETUP-HA-002**: While a Home Assistant connection is stored, the sensors step shall show it as connected with a way to change it, and go directly to the entity list.
-- [ ] **SETUP-HA-003**: The system shall accept a Home Assistant address only when its scheme is `http` or `https`.
+- [x] **SETUP-HA-003**: The system shall accept a Home Assistant address only when its scheme is `http` or `https`.
 
 ## Mapping sensors
 
@@ -66,8 +66,8 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [x] **SETUP-API-004**: `GET /api/v1/sources/stations?input=` shall return the stations within 150 miles of the lawn, or of the point given as `lat` and `lon`, that report that input or whose reported inputs are not yet known, nearest first.
 - [x] **SETUP-API-005**: `PUT` and `DELETE /api/v1/sources/pins/{input}` shall pin a station for the input and remove the pin; a pin on a station that does not report the input, that is more than 150 miles from the lawn, or that is not in the station list shall be a 400 saying which.
 - [x] **SETUP-API-006**: `PUT /api/v1/sources/forecast-provider` shall set the forecast provider and, when the request carries one, store its key; choosing OpenWeatherMap with no key given and none stored shall be a 400 saying a key is needed.
-- [ ] **SETUP-API-007**: `GET`, `PUT` and `DELETE /api/v1/sources/home-assistant` shall report whether a connection is set, set the address and token, and forget them; `POST /api/v1/sources/home-assistant/test` shall try the saved connection or the one given in the request and save nothing.
-- [ ] **SETUP-API-008**: `GET /api/v1/sources/home-assistant/entities` shall return the numeric sensor entities with their suggested inputs.
+- [x] **SETUP-API-007**: `GET`, `PUT` and `DELETE /api/v1/sources/home-assistant` shall report whether a connection is set, set the address and token, and forget them; `POST /api/v1/sources/home-assistant/test` shall try the saved connection or the one given in the request and save nothing.
+- [x] **SETUP-API-008**: `GET /api/v1/sources/home-assistant/entities` shall return the numeric sensor entities with their suggested inputs.
 - [ ] **SETUP-API-009**: `GET` and `POST /api/v1/sources/sensors`, `PUT` and `DELETE /api/v1/sources/sensors/{id}`, and `POST /api/v1/sources/sensors/check` shall list the mapped sensors, map one, change a mapping, unmap one, and return the comparison of SETUP-MAP-004 without saving.
 - [ ] **SETUP-API-010**: After a write that changes a pin, a sensor mapping, the forecast provider or the Home Assistant connection, the system shall have the weather record rebuild its basis plan and wake the fetch schedule before it responds.
 - [x] **SETUP-API-012**: `POST /api/v1/setup/apply` shall save, all or none, whichever of a location, a set of pins and a forecast provider the request carries, the set of pins replacing those held and each pin judged from the location being saved; it shall then have the weather record rebuild its basis plan once and wake the fetch schedule once, before it responds with the sources as they then stand.
@@ -75,8 +75,8 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 ## Stored credentials
 
 - [ ] **SETUP-CRED-001**: The system shall store a Home Assistant token or an OpenWeatherMap key entered in the app, and no endpoint shall return it, no log line shall contain it, and no error shall include it.
-- [ ] **SETUP-CRED-002**: When the server starts and no Home Assistant connection has ever been stored, the system shall store `HA_URL` and `HA_TOKEN` as the connection when both are set; when no OpenWeatherMap key has ever been stored, it shall store `OWM_API_KEY` when set; it shall read those variables at no other time, and a connection or key the owner has forgotten shall not be restored from them.
-- [ ] **SETUP-CRED-003**: When the owner forgets a connection, the system shall delete its stored address and secret.
+- [x] **SETUP-CRED-002**: When the server starts and no Home Assistant connection has ever been stored, the system shall store `HA_URL` and `HA_TOKEN` as the connection when both are set; when no OpenWeatherMap key has ever been stored, it shall store `OWM_API_KEY` when set; it shall read those variables at no other time, and a connection or key the owner has forgotten shall not be restored from them.
+- [x] **SETUP-CRED-003**: When the owner forgets a connection, the system shall delete its stored address and secret.
 - [ ] **SETUP-CRED-004**: The Sources page shall state that a credential entered in the app is stored in the application database and is therefore contained in backups of it.
 
 ## Failures

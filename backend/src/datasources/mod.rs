@@ -17,6 +17,8 @@ pub mod outside;
 #[allow(dead_code)]
 pub mod scan;
 #[allow(dead_code)]
+pub mod sensor_units;
+#[allow(dead_code)]
 pub mod uscrn;
 pub mod weather;
 

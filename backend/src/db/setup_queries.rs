@@ -10,10 +10,11 @@ mod apply;
 mod credentials;
 
 pub use apply::{apply, Applied};
-// The Home Assistant endpoints, which forget and import connections, come next.
+// `credential_ever_stored` is read by the tests of forgetting and importing.
 #[allow(unused_imports)]
 pub use credentials::{
-    credential, credential_ever_stored, forget_credential, store_credential, Credential, Service,
+    credential, credential_ever_stored, forget_credential, import_once, store_credential,
+    Credential, Service,
 };
 
 /// How a sensor's readings reach TurfOps.

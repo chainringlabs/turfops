@@ -55,11 +55,18 @@ pub fn pinnable(
 /// the sources as they now stand.
 // @spec SETUP-API-010, SYNC-SCHED-008
 pub async fn after_write(state: &AppState) -> Result<Json<SourcesView>, TurfOpsError> {
+    replanned(state).await?;
+    Ok(Json(sources_view(state).await?))
+}
+
+/// Brings the plan in line with what was just saved and starts a fetch pass.
+// @spec SETUP-API-010, SYNC-SCHED-008
+pub async fn replanned(state: &AppState) -> Result<(), TurfOpsError> {
     planning::rebuild(&state.pool).await?;
     if let Some(waker) = &state.weather_waker {
         waker.wake();
     }
-    Ok(Json(sources_view(state).await?))
+    Ok(())
 }
 
 #[derive(Debug, Deserialize)]

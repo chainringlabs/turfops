@@ -58,8 +58,8 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 - [ ] **WX-SRC-HA-001**: When reading Home Assistant, the system shall read each mapped entity independently and return, for each whose state is a number, the value converted from the entity's own unit of measurement and the time the entity last reported: its `last_reported` time, or its `last_updated` time where Home Assistant gives no `last_reported`.
 - [ ] **WX-SRC-HA-002**: If a mapped Home Assistant entity's state is not numeric, then the system shall log a warning, return no reading for that sensor, and still return the other sensors' readings.
 - [ ] **WX-SRC-HA-003**: When a mapped entity's reported time (WX-SRC-HA-001) is unchanged since the previous read, the system shall return no new reading for that sensor.
-- [ ] **WX-SRC-HA-004**: The Home Assistant entity listing shall return every entity in the `sensor` domain whose state is a number, with its entity id, friendly name, state, unit of measurement, device class, state class and reported time (WX-SRC-HA-001).
-- [ ] **WX-SRC-HA-005**: The Home Assistant probe shall report whether one authenticated request to the given address succeeded and, when it did not, whether the address did not answer or the token was refused.
+- [x] **WX-SRC-HA-004**: The Home Assistant entity listing shall return every entity in the `sensor` domain whose state is a number, with its entity id, friendly name, state, unit of measurement, device class, state class and reported time (WX-SRC-HA-001).
+- [x] **WX-SRC-HA-005**: The Home Assistant probe shall report whether one authenticated request to the given address succeeded and, when it did not, whether the address did not answer or the token was refused.
 - [ ] **WX-SRC-HA-006**: For a sensor mapped to rain as a counter, the system shall return as the rain amount the increase in the entity's value since the previous reading, and zero when the value has decreased.
 - [ ] **WX-SRC-HA-007**: For a sensor mapped to rain as an amount, the system shall return the entity's value as the rain amount.
 

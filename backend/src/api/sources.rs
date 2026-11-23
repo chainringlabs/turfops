@@ -1,11 +1,14 @@
 //! The lawn's weather sources as the owner sees and chooses them (SETUP).
 
+pub mod home_assistant;
 pub mod read;
 pub mod view;
 pub mod write;
 
 #[cfg(all(test, feature = "db-tests"))]
 mod db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod home_assistant_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod read_db_tests;
 #[cfg(all(test, feature = "db-tests"))]

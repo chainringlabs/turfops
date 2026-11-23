@@ -90,3 +90,41 @@ pub async fn forget_credential(pool: &PgPool, service: Service) -> Result<()> {
     .await?;
     Ok(())
 }
+
+/// Stores the connections given in the environment, each only when none was ever stored
+/// for its service: a first run imports them, and a connection the owner has changed or
+/// forgotten since is left as the owner left it. Returns which were imported.
+// @spec SETUP-CRED-002
+pub async fn import_once(
+    pool: &PgPool,
+    home_assistant: Option<(&str, &str)>,
+    openweathermap_key: Option<&str>,
+) -> Result<Vec<Service>> {
+    let mut imported = Vec::new();
+    let given = [
+        (
+            Service::HomeAssistant,
+            home_assistant.map(|(address, token)| (Some(address), token)),
+        ),
+        (
+            Service::OpenWeatherMap,
+            openweathermap_key.map(|key| (None, key)),
+        ),
+    ];
+    for (service, connection) in given {
+        let Some((address, secret)) = connection.filter(|(_, secret)| !secret.trim().is_empty())
+        else {
+            continue;
+        };
+        if credential_ever_stored(pool, service).await? {
+            continue;
+        }
+        let held = Credential {
+            address: address.map(str::to_string),
+            secret: secret.to_string(),
+        };
+        store_credential(pool, service, &held).await?;
+        imported.push(service);
+    }
+    Ok(imported)
+}
