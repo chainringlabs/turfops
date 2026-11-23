@@ -21,20 +21,20 @@ Design: [soil-estimate-design.md](soil-estimate-design.md). Parent: [weather-dat
 - [ ] **WX-EST-CAL-004**: The system shall fit on every day from 2012 on for which a calibration station has both a soil value and usable trailing means.
 - [ ] **WX-EST-CAL-005**: The system shall refit each model monthly and whenever its calibration set changes, and after a refit shall recompute the whole estimate series.
 - [ ] **WX-EST-CAL-006**: The system shall store, with each fit, the fit date, the stations used with their distances from the lawn, the number of training days and the root-mean-square daily error of the fit.
-- [ ] **WX-EST-CAL-008**: The system shall choose the five-nearest calibration set from the catalog's stations in order of distance among those the catalog shows operating for at least three years, and when a chosen station proves to hold fewer than 1,000 days of soil temperature at the depth, shall replace it with the next nearest.
+- [x] **WX-EST-CAL-008**: The system shall choose the five-nearest calibration set from the catalog's stations in order of distance among those the catalog shows operating for at least three years, and when a chosen station proves to hold fewer than 1,000 days of soil temperature at the depth, shall replace it with the next nearest.
 - [ ] **WX-EST-CAL-007**: The system shall ask the weather record to hold, for each calibration station, its daily soil temperature and the grid's daily air at its point from 2012 on.
 
 ## The anchored series
 
-- [ ] **WX-EST-ANCHOR-001**: The offset at an edge of a gap in a measured series shall be the mean of the measured value minus the estimate over the measured days among the 7 days nearest that edge.
-- [ ] **WX-EST-ANCHOR-002**: For a gap with measured days on both sides, the anchored value on each day shall be the estimate plus an offset interpolated linearly between the offsets at the two edges.
-- [ ] **WX-EST-ANCHOR-003**: For a gap with measured days before it and none after, the anchored value on each day shall be the estimate plus the offset at the gap's start reduced linearly to zero over the 30 days after that start, and the estimate alone thereafter.
-- [ ] **WX-EST-ANCHOR-004**: For days before the first value of a measured series, the anchored value shall be the estimate without an offset.
+- [x] **WX-EST-ANCHOR-001**: The offset at an edge of a gap in a measured series shall be the mean of the measured value minus the estimate over the measured days among the 7 days nearest that edge on its measured side; where an edge has no such day with an estimate, the gap shall take the other edge's offset throughout.
+- [x] **WX-EST-ANCHOR-002**: For a gap with measured days on both sides, the anchored value on each day shall be the estimate plus an offset interpolated linearly between the offsets at the two edges.
+- [x] **WX-EST-ANCHOR-003**: For a gap with measured days before it and none after, the anchored value on each day shall be the estimate plus the offset at the gap's start reduced linearly to zero over the 30 days after that start, and the estimate alone thereafter.
+- [x] **WX-EST-ANCHOR-004**: For days before the first value of a measured series, the anchored value shall be the estimate without an offset.
 
 ## The forward series
 
-- [ ] **WX-EST-FWD-001**: When given a daily air series that continues past the days the weather record holds, the system shall return the estimate at the requested depth for each later day whose trailing means are usable, using the fitted model unchanged.
-- [ ] **WX-EST-FWD-002**: Where the forward series follows measured days, the system shall apply the offset of WX-EST-ANCHOR-003, taking the last measured day as the gap's start.
+- [x] **WX-EST-FWD-001**: When given a daily air series that continues past the days the weather record holds, the system shall return the estimate at the requested depth for each later day whose trailing means are usable, using the fitted model unchanged.
+- [x] **WX-EST-FWD-002**: Where the forward series follows measured days, the system shall apply the offset of WX-EST-ANCHOR-003, taking the last measured day as the gap's start.
 
 ## Which crossings may be dated
 
