@@ -3,6 +3,7 @@ use crate::datasources::weather::ClimateRecord;
 use crate::datasources::OpenRouterClient;
 use crate::logic::data_sync::DataSyncService;
 use crate::logic::rules::RulesEngine;
+use crate::logic::weather_sync::schedule::Waker;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -22,9 +23,18 @@ pub struct AppState {
     pub mcp_enabled: bool,
     /// The lawn's clock: every "today" and date gate.
     pub clock: Clock,
+    /// Starts a pass of the weather fetch schedule; absent where none runs.
+    pub weather_waker: Option<Waker>,
 }
 
 impl AppState {
+    /// The same state, able to wake the weather fetch schedule.
+    // @spec SYNC-SCHED-008
+    pub fn waking(mut self, waker: Waker) -> Self {
+        self.weather_waker = Some(waker);
+        self
+    }
+
     pub fn new(
         pool: sqlx::PgPool,
         sync_service: DataSyncService,
@@ -40,6 +50,7 @@ impl AppState {
             climate_cache: Arc::new(RwLock::new(None)),
             mcp_enabled,
             clock,
+            weather_waker: None,
         }
     }
 }

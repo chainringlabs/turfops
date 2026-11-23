@@ -124,14 +124,14 @@ The location is a field of the lawn profile (applications). Setup saves it throu
 
 | Table | Holds |
 |---|---|
-| `weather_setting` | The forecast provider and the installation's fetch-minute offset |
+| `weather_setting` | The forecast provider. No row means the default, Open-Meteo. (The installation's fetch minute and the lawn's elevation are kept with the lawn profile.) |
 | `sensor` | Name, way in (Home Assistant entity or posted), entity id, input, depth, rain kind, when mapped and unmapped |
 | `station_pin` | Input and the pinned station |
 | `service_credential` | Service (Home Assistant, OpenWeatherMap), address, secret, when set |
 
-**Credentials are write-only.** A secret is accepted by a PUT, used by its client, and never returned by any endpoint, written to a log, or included in an error. Reads report only that one is set. Forgetting a connection deletes the row.
+**Credentials are write-only.** A secret is accepted by a PUT, used by its client, and never returned by any endpoint, written to a log, or included in an error. Reads report only that one is set. Forgetting a connection deletes its address and secret.
 
-**One source.** The stored row is the only connection the app uses. `HA_URL` and `HA_TOKEN` together, and `OWM_API_KEY`, are copied into it on a start that finds no row for that service, and are not read again; forgetting a connection in the app is not undone by a restart, because a marker of the import is kept.
+**One source.** The stored row is the only connection the app uses. `HA_URL` and `HA_TOKEN` together, and `OWM_API_KEY`, are copied into it on a start that finds no row for that service, and are not read again; forgetting a connection in the app is not undone by a restart: forgetting deletes the address and the secret and keeps the emptied row, which is the mark that the service was once set.
 
 **First run.** `HA_TEMPERATURE_ENTITY` and `HA_HUMIDITY_ENTITY`, when set and no sensor is mapped, become mappings to air temperature and humidity.
 

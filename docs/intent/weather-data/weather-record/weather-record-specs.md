@@ -18,7 +18,7 @@ Design: [weather-record-design.md](weather-record-design.md). Parent: [weather-d
 ## Station catalog and basis plan
 
 - [x] **WX-REC-PLAN-001**: The record shall hold a catalog of the USCRN and SCAN stations in the contiguous United States with, for each, its network, the network's station id, name, state, latitude, longitude, elevation in feet and the inputs it reports.
-- [ ] **WX-REC-PLAN-002**: The record shall rebuild the plan when the lawn's location is set or changed, when a sensor is mapped or unmapped, when a station is pinned or unpinned, and when a catalog refresh changes a station that is in the plan.
+- [x] **WX-REC-PLAN-002**: The record shall rebuild the plan when the lawn's location is set or changed, when a sensor is mapped or unmapped, when a station is pinned or unpinned, and when a catalog refresh changes a station that is in the plan.
 - [x] **WX-REC-PLAN-003**: The plan shall rank, for each input, the owner's sensor mapped to that input first, then stations, then the input's estimate source.
 - [x] **WX-REC-PLAN-004**: For soil temperature and soil moisture at each depth, the plan shall include the nearest USCRN station within 50 miles of the lawn that reports the input, followed by the nearest SCAN station within 50 miles that reports it. A station whose reported inputs the catalog does not yet know shall be taken to report every input until its own data has shown what it reports.
 - [x] **WX-REC-PLAN-005**: For hourly air temperature and humidity, the plan shall include the nearest USCRN station within 10 miles of the lawn that reports them, followed by the nearest SCAN station within 10 miles that reports them.
