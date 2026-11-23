@@ -34,6 +34,15 @@ export const sharedStyles: Record<string, React.CSSProperties> = {
 		marginBottom: "1rem",
 		fontSize: "0.85rem",
 	},
+	/** Something the owner should know that needs nothing from them. */
+	notice: {
+		padding: "0.5rem 1rem",
+		backgroundColor: "#fefcbf",
+		color: "#744210",
+		borderRadius: 6,
+		marginBottom: "1rem",
+		fontSize: "0.85rem",
+	},
 	card: {
 		backgroundColor: "#fff",
 		borderRadius: 8,

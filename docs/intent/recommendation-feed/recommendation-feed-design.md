@@ -193,7 +193,7 @@ PATCH semantics (`api/recommendations.rs`):
 The dashboard is a composition. The feed owns only the Active Alerts column and the layout. In order:
 
 1. A header with the profile name, grass type, zone and last-updated time.
-2. With no location set, one notice linking to setup in place of items 3 to 5's weather content. Otherwise a stale-soil banner when the summary's `soil_stale` flag is set (data sync owns the rule).
+2. With no location set, one notice linking to setup in place of items 3 to 5's weather content. Otherwise the stale-soil notice (environmental views) when the summary's `soil_stale` flag is set (data sync owns the rule).
 3. A source-status line: "All sources current", or the names of the sources whose last fetch failed, and while history is loading its progress. It links to the Sources page. One dot per source would not fit a list whose length depends on the lawn.
 4. Four gauges, each with its basis label: 10 cm soil temp (with 7-day average and trend), ambient temp (with 7-day average), humidity, and soil moisture (with 7-day precipitation; "No source for this location" where nothing measures it).
 5. A widget grid with GDD, Disease Risk, Timing, the compact Shopping List, Nitrogen Budget and the Soil Temp Forecast. Each is owned by its feature LLD.

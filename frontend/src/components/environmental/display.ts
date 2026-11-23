@@ -56,12 +56,21 @@ export function soilObservedLine(summary: EnvironmentalSummary): string | null {
 	return `Station soil observed ${when}`;
 }
 
-/** The banner shown while the station's soil data is too old to describe today. */
+/**
+ * The notice shown while the weather station's soil readings are too old to describe
+ * today. The delay is the station network's, so it says there is nothing to fix.
+ */
+// @spec WX-VIEW-PAGE-008
 export function staleSoilMessage(summary: EnvironmentalSummary): string {
-	const at = summary.soil_observed_at
-		? new Date(summary.soil_observed_at).toLocaleDateString()
-		: "an earlier date";
-	return `Station soil data stopped on ${at}. Soil readings are hidden and soil-based advice is paused until the feed catches up.`;
+	const since = summary.soil_observed_at
+		? ` since ${new Date(summary.soil_observed_at).toLocaleDateString()}`
+		: " for several days";
+	return (
+		`The weather station hasn't published new soil readings${since}. ` +
+		"The network publishes late from time to time and there is nothing you need to do: " +
+		"TurfOps keeps checking and will pick the readings up when they appear. " +
+		"Until then soil readings are hidden and soil-based advice is paused."
+	);
 }
 
 /** The recent line the prediction chart plots: the last `days` days of the series. */

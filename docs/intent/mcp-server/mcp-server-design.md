@@ -194,7 +194,7 @@ Totals: `rain_total_in` sums the days that have `rain_in`, and `gdd50_total` sum
 5. **Timing windows.** The eight window states and the four date sources. `date: null` means later than usual, never unknown.
 6. **Disease risk.** Only tiers are comparable, and `Protected` has a fixed meaning. Red thread is treated with nitrogen. TurfOps has no symptom input, so the model asks the owner before recommending a curative. Rotate classes, and call `disease_detail` before naming a fungicide.
 7. **Recommendations.** Cite an active rec instead of re-deriving it. The meanings of `inventory.state`. Answered recs return on escalation or when the episode ends.
-8. **Answer style.** Name the driving values, and state staleness plainly from what TurfOps reports, with no age limit of the model's own: the environmental summary's `soil_stale` flag, `data_notes`, or an unavailable source.
+8. **Answer style.** Name the driving values, and state staleness plainly from what TurfOps reports, with no age limit of the model's own: the environmental summary's `soil_stale` flag, `data_notes`, or an unavailable source. A set `soil_stale` flag means the station network is publishing late; the model says so and tells the owner there is nothing to fix.
 
 A test pins the presence of `lawn_snapshot` and `verify against your label` (`mod.rs:179-182`); the second assertion encodes the divergent rates wording and changes with it. The doctrine's vocabulary (window states, date sources, `inventory.state`) mirrors enums owned by Timing windows and Product inventory. Changing those enums requires changing this text.
 

@@ -107,9 +107,11 @@ scheduled fetch. Data sync assembles them for `/health`, the dashboard connectio
   previous range's data under the new selector.
 - **Header.** "Last updated" (`last_updated`), the soil trend, and "Soil observed …"
   (`soil_observed_at`, the source's own time for the soil values; for an estimate, the day it
-  is for). When data sync marks the soil stale (`soil_stale`), a banner says when soil data
-  stopped and that soil readings and soil-based advice are paused, worded as on the
-  dashboard.
+  is for). When data sync marks the soil stale (`soil_stale`), a notice says the weather station has not
+  published new soil readings since that date, that the network publishes late from time to
+  time and there is nothing for the owner to do, and that readings and soil-based advice are
+  paused until it does. It is a notice, not an error: nothing is broken on the owner's side.
+  The dashboard shows the same notice.
 - **Gauges.** Four `Gauge`s (`frontend/src/components/Gauge.tsx`, configs in
   `components/gaugeConfigs.ts`, `gaugeLevel`). The bar is green, turns amber at `warn` and red
   at `critical` — and, on a gauge with a dry side, amber below its dry `warn` and red below its

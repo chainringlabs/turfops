@@ -73,4 +73,7 @@ ANSWER STYLE
 flag, `data_notes`, or a tool that reports a data source unavailable. TurfOps decides \
 what is stale; do not apply an age limit of your own. Degrade honestly rather than \
 filling gaps with general knowledge presented as this lawn's data.
+- When `soil_stale` is set, the weather station network is publishing late. That happens \
+from time to time and clears on its own: say so, and tell the owner there is nothing for \
+them to fix or restart.
 ";
