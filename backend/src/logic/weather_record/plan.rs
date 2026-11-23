@@ -148,6 +148,14 @@ pub fn nearby(lawn: &Lawn, catalog: &[(i64, Station)], within_miles: f64) -> Vec
     near
 }
 
+/// Whether a station with these catalog inputs may report `input`. A network's station
+/// list does not always say what a station measures; until its own data has shown it,
+/// a station is taken to report everything.
+// @spec WX-REC-PLAN-004, WX-REC-PLAN-005
+pub fn reports(inputs: &[Input], input: Input) -> bool {
+    inputs.is_empty() || inputs.contains(&input)
+}
+
 /// The sensor that speaks for `input`. Daily air is the day's hours of an air sensor.
 fn sensor_for(input: Input, sensors: &[MappedSensor]) -> Option<NewSource> {
     let measured = match input {
@@ -211,7 +219,7 @@ fn default_stations(
     };
     let qualifies = |n: &&Nearby| {
         n.distance_miles <= within
-            && needed.iter().all(|i| n.inputs.contains(i))
+            && needed.iter().all(|i| reports(&n.inputs, *i))
             && (lawn.elevation_ft.is_none()
                 || n.elevation_difference_ft
                     .is_none_or(|feet| feet.abs() <= ELEVATION_GUARD_FT))

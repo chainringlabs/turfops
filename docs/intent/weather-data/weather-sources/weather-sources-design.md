@@ -111,7 +111,9 @@ the outcome of scheduled fetches (data sync).
   carries the reference network's regional networks (`USRCRN`, `Alabama-USRCRN`), which
   publish the same products from the same instruments, and stations abroad and closed. Rows
   of any of the three networks that are in the contiguous United States and operating are
-  kept; the accuracy figures were scored on that set. Which depths a station reports is learned from its data.
+  kept; the accuracy figures were scored on that set. The list does not say what a station measures. That is learned from the year so far of
+  its own hourly rows on each current fetch and kept in the catalog; a later refresh of the
+  list does not erase it.
 - **Hourly (`hourly02`):** air temperature (the hour's average, with the hour's maximum and
   minimum), precipitation, relative humidity (dropped when its flag is not 0), and soil
   temperature and moisture at the five depths. The file's UTC time is the end of the observed

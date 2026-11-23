@@ -58,7 +58,8 @@ pub async fn replace_network(pool: &PgPool, network: Network, stations: &[Statio
                ON CONFLICT (network, station_id) DO UPDATE SET
                    name = EXCLUDED.name, state = EXCLUDED.state, latitude = EXCLUDED.latitude,
                    longitude = EXCLUDED.longitude, elevation_ft = EXCLUDED.elevation_ft,
-                   inputs = EXCLUDED.inputs, first_year = EXCLUDED.first_year,
+                   inputs = CASE WHEN cardinality(EXCLUDED.inputs) = 0 THEN weather_station.inputs
+                                 ELSE EXCLUDED.inputs END, first_year = EXCLUDED.first_year,
                    last_year = EXCLUDED.last_year, locator = EXCLUDED.locator,
                    utc_offset_hours = EXCLUDED.utc_offset_hours, refreshed_at = NOW()"#,
         )
@@ -118,4 +119,18 @@ pub async fn refreshed(pool: &PgPool) -> Result<Vec<(Network, chrono::DateTime<c
         .into_iter()
         .filter_map(|(network, at)| Some((Network::parse(&network)?, at)))
         .collect())
+}
+
+/// Records which inputs a station's own data shows it reports. Returns whether that
+/// changed what the catalog held.
+pub async fn set_inputs(pool: &PgPool, station_ref: i64, inputs: &[Input]) -> Result<bool> {
+    let names: Vec<&str> = inputs.iter().map(Input::as_str).collect();
+    let changed = sqlx::query(
+        "UPDATE weather_station SET inputs = $2 WHERE id = $1 AND inputs IS DISTINCT FROM $2",
+    )
+    .bind(station_ref)
+    .bind(names)
+    .execute(pool)
+    .await?;
+    Ok(changed.rows_affected() > 0)
 }

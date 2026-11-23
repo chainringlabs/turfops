@@ -104,6 +104,10 @@ needs the two from one instrument. A grid, the hourly analysis and the soil esti
 sources at the lawn's point: a lawn that moves gets new ones, and the old point's rows are not
 read for the new location.
 
+A station whose inputs the catalog does not know yet is a candidate for every input. USCRN's
+station list does not say what a station measures, so a new installation plans on the nearest
+one, fetches it, learns what it reports, and rebuilds the plan if it lacks an input.
+
 Distance is great-circle miles between the lawn and the station. The lawn's elevation is the
 one the hourly analysis reports for the point. It is kept with the lawn profile, written by
 the first analysis fetch. Until that is known the plan is built without

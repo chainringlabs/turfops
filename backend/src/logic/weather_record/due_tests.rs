@@ -14,8 +14,11 @@ fn today() -> NaiveDate {
     day(TODAY.0, TODAY.1, TODAY.2)
 }
 
+/// The minute of the hour this installation fetches at.
+const MINUTE: u32 = 7;
+
 fn now() -> DateTime<Utc> {
-    Utc.with_ymd_and_hms(2026, 7, 20, 16, 0, 0).unwrap()
+    Utc.with_ymd_and_hms(2026, 7, 20, 16, 7, 0).unwrap()
 }
 
 fn source(id: i64, key: &str, kind: SourceKind) -> Source {
@@ -64,7 +67,7 @@ fn state(
 }
 
 fn due(sources: &[(Source, Option<FetchState>)]) -> Vec<(Purpose, i64, NaiveDate, NaiveDate)> {
-    fetches(sources, today(), now())
+    fetches(sources, today(), now(), MINUTE)
         .into_iter()
         .map(|f| (f.purpose, f.source.id, f.span.0, f.span.1))
         .collect()
@@ -116,11 +119,48 @@ fn a_station_is_due_hourly_and_rereads_its_last_three_days() {
             state(&station, day(2011, 1, 1), held, Some(ago)),
         )])
     };
-    assert!(at(Duration::minutes(59)).is_empty(), "nothing new yet");
-    assert_eq!(
-        at(Duration::minutes(60)),
-        vec![(Purpose::Current, 1, day(2026, 7, 16), today())]
+    assert!(
+        at(Duration::minutes(30)).is_empty(),
+        "fetched since this hour's minute"
     );
+    assert_eq!(
+        at(Duration::seconds(59 * 60 + 30)),
+        vec![(Purpose::Current, 1, day(2026, 7, 16), today())],
+        "fetched just after the last hour's minute"
+    );
+}
+
+// @spec SYNC-SCHED-005
+#[test]
+fn fetches_keep_to_the_installations_minute_of_the_hour() {
+    let at = |h, m, s| Utc.with_ymd_and_hms(2026, 7, 20, h, m, s).unwrap();
+    assert_eq!(slot(at(16, 7, 0), 7), at(16, 7, 0));
+    assert_eq!(slot(at(16, 6, 59), 7), at(15, 7, 0));
+    let hourly = |last, now| is_due(Product::StationHours, Some(last), now, 7);
+    assert!(
+        !hourly(at(15, 7, 30), at(16, 6, 59)),
+        "a second before the minute"
+    );
+    assert!(hourly(at(15, 7, 30), at(16, 7, 0)));
+    // A fetch that ran late does not move the next one off the minute.
+    assert!(hourly(at(15, 14, 0), at(16, 7, 0)));
+    assert!(
+        !hourly(at(15, 58, 0), at(16, 7, 0)),
+        "only nine minutes ago"
+    );
+    assert!(
+        is_due(Product::StationHours, None, at(16, 0, 0), 7),
+        "a first fetch does not wait"
+    );
+    // A daily product comes round at the same minute a day on.
+    let yesterday = Utc.with_ymd_and_hms(2026, 7, 19, 16, 7, 30).unwrap();
+    assert!(!is_due(
+        Product::PrismDays,
+        Some(yesterday),
+        at(15, 7, 0),
+        7
+    ));
+    assert!(is_due(Product::PrismDays, Some(yesterday), at(16, 7, 0), 7));
 }
 
 // @spec WX-REC-FILL-002
@@ -166,7 +206,7 @@ fn the_grid_is_due_daily_and_rereads_its_last_seven_days() {
     };
     assert!(at(Duration::hours(23)).is_empty());
     assert_eq!(
-        at(Duration::hours(24)),
+        at(Duration::seconds(24 * 3600 - 30)),
         vec![(Purpose::Current, 2, day(2026, 7, 12), today())]
     );
 }

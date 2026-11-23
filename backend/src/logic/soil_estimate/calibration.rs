@@ -7,6 +7,7 @@ mod tests;
 
 use super::scores::Calibration;
 use crate::geo::miles_between;
+use crate::logic::weather_record::plan::reports;
 use crate::models::weather_record::{Input, Network, Station};
 use chrono::NaiveDate;
 use std::collections::HashMap;
@@ -59,7 +60,7 @@ pub fn candidates(
     let mut near: Vec<Calibrator> = catalog
         .iter()
         .filter(|(_, station)| station.network == Network::Uscrn)
-        .filter(|(_, station)| station.inputs.contains(&depth))
+        .filter(|(_, station)| reports(&station.inputs, depth))
         .filter(|(_, station)| {
             let last = station.last_year.unwrap_or(this_year);
             station

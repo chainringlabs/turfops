@@ -75,7 +75,7 @@ async fn each_fetched_source_in_the_plan_is_registered_with_what_it_is_wanted_fo
 async fn a_new_lawn_is_due_its_present_then_its_history_and_the_missing_catalog(pool: PgPool) {
     let lab = new_lawn(pool).await;
     lab.record.register_wanted(d(20)).await.unwrap();
-    let due = lab.record.due(noon(20).at.now, d(20)).await.unwrap();
+    let due = lab.record.due(noon(20).at.now, d(20), 0).await.unwrap();
     assert_eq!(
         due.catalogs,
         vec![Network::Scan],
@@ -116,7 +116,7 @@ async fn a_new_lawn_is_due_its_present_then_its_history_and_the_missing_catalog(
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn with_no_plan_nothing_is_due(pool: PgPool) {
     let record = WeatherRecord::new(pool);
-    let due = record.due(noon(20).at.now, d(20)).await.unwrap();
+    let due = record.due(noon(20).at.now, d(20), 0).await.unwrap();
     assert!(due.catalogs.is_empty() && due.fetches.is_empty());
     // Setup may still ask which station lists are missing.
     assert_eq!(record.catalogs_due(noon(20).at.now).await.unwrap().len(), 2);
