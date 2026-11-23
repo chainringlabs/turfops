@@ -22,7 +22,7 @@ Design: [soil-estimate-design.md](soil-estimate-design.md). Parent: [weather-dat
 - [ ] **WX-EST-CAL-005**: The system shall refit each model monthly and whenever its calibration set changes, and after a refit shall recompute the whole estimate series.
 - [ ] **WX-EST-CAL-006**: The system shall store, with each fit, the fit date, the stations used with their distances from the lawn, the number of training days and the root-mean-square daily error of the fit.
 - [x] **WX-EST-CAL-008**: The system shall choose the five-nearest calibration set from the catalog's stations in order of distance among those the catalog shows operating for at least three years, and when a chosen station proves to hold fewer than 1,000 days of soil temperature at the depth, shall replace it with the next nearest.
-- [ ] **WX-EST-CAL-007**: The system shall ask the weather record to hold, for each calibration station, its daily soil temperature and the grid's daily air at its point from 2012 on.
+- [x] **WX-EST-CAL-007**: The system shall ask the weather record to hold, for each calibration station, its daily soil temperature and the grid's daily air at its point from 2012 on; for a basis station fitted on alone, the grid's daily air at its point only; and it shall keep the daily soil temperature of a station it passed over for holding fewer than 1,000 days while that station is nearer than the farthest one chosen.
 
 ## The anchored series
 

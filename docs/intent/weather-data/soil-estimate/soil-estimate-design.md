@@ -77,6 +77,12 @@ The estimate is daily. It has no hourly form.
 
 Calibration stations are fetched as daily values only. They are never a basis for the lawn.
 
+A station passed over for holding too few days stays in the record, without the grid at its
+point, while it is nearer than the farthest station chosen. Its count is the reason it was
+passed over, so letting it go would have it chosen again; and a young station grows into
+qualifying. A basis station fitted on alone needs only the grid at its point: its soil is
+already held as its hourly rows.
+
 ## What It Publishes
 
 | Output | Form |

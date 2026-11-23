@@ -13,7 +13,7 @@ Design: [weather-record-design.md](weather-record-design.md). Parent: [weather-d
 - [x] **WX-REC-STORE-005**: The record shall compute every daily value of an hourly source on read, by grouping that source's hours into local days, and shall store no daily copy of an hourly source.
 - [x] **WX-REC-STORE-006**: When a sensor reading arrives, the record shall store the reading as received and recompute that sensor source's hourly row for the reading's hour from all of that hour's readings: the mean for temperature, humidity and soil moisture, and the total for rain.
 - [x] **WX-REC-STORE-007**: The record shall delete stored sensor readings older than 7 days and shall keep the sensor source's hourly rows without limit.
-- [ ] **WX-REC-STORE-008**: The record shall want, for each source in the plan, this span: for a station that is the basis for an input, the grids at the lawn's point and the soil estimate, 15 complete calendar years before the current year plus the current year; for the hourly analysis, from 93 days before the installation first had a location; for calibration stations and calibration grid points, the span the soil estimate asks for.
+- [x] **WX-REC-STORE-008**: The record shall want, for each source in the plan, this span: for a station that is the basis for an input, the grids at the lawn's point and the soil estimate, 15 complete calendar years before the current year plus the current year; for the hourly analysis, from 93 days before the installation first had a location; for calibration stations and calibration grid points, the span the soil estimate asks for.
 
 ## Station catalog and basis plan
 
