@@ -148,6 +148,9 @@ Three refinements:
 - **An estimate inside a measured series is anchored.** Where the soil estimate fills days
   between or after a station's or sensor's values, the record uses the estimate's anchored form
   for those days, which `WX-EST` defines, so a change of basis is not a step in the series.
+  This holds for every contract and for the live reading. So that a day gets the same value
+  whatever span it is asked in, the record looks for the measured days around a gap up to a
+  year either side of the span; a gap longer than that is anchored from the edge in reach.
 - **Rain's newest days.** A lawn day PRISM has not yet published takes its total from the
   hourly analysis and is replaced when PRISM arrives. Rain is never held back for a pending
   source: a rain sensor that reports only when it rains would otherwise leave every dry day

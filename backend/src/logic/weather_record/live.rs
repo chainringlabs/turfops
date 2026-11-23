@@ -123,10 +123,29 @@ impl View<'_> {
             };
             let limit = self.asked.limits.of(source.kind, input);
             if limit.is_none_or(|limit| now - newest.aged_from <= limit) {
+                let newest = self.met(source, input, newest).await?;
                 return Ok(Some(Speaking { rank, newest }));
             }
         }
         Ok(None)
+    }
+
+    /// The soil estimate's newest value as it stands after measured days: anchored, so
+    /// the reading does not step when a station goes quiet.
+    // @spec WX-REC-RES-006
+    async fn met(&self, source: &Source, input: Input, newest: Newest) -> Result<Newest> {
+        if source.kind != SourceKind::Estimate {
+            return Ok(newest);
+        }
+        let day = newest.observed_at.with_timezone(&self.zone).date_naive();
+        let resolved = self.resolve(input, day, day).await?;
+        let from_estimate = |rank: usize| resolved.candidates[rank].source.id == source.id;
+        let value = resolved
+            .days
+            .get(&day)
+            .filter(|value| from_estimate(value.from))
+            .map_or(newest.value, |value| value.value);
+        Ok(Newest { value, ..newest })
     }
 
     /// A source's newest non-null value of `input`. A probe that skipped its last hour

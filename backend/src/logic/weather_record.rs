@@ -14,6 +14,8 @@ pub mod resolve;
 pub mod summary;
 
 #[cfg(all(test, feature = "db-tests"))]
+mod anchored_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
 mod daily_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod disease_db_tests;
