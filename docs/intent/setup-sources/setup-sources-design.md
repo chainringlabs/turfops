@@ -69,11 +69,11 @@ Soil depth is chosen from the record's five depths; the owner picks the one near
 
 ### 4. Your lawn
 
-The lawn profile form (applications): grass type, size, soil type, irrigation.
+The lawn profile form (applications), the same form Settings shows, filled in from the stored profile: grass type, size, soil type, irrigation. Saving it never changes the location, which only the location step sets.
 
 ### 5. Loading history
 
-Progress of the backfill per source: years held against years wanted. The step says what works already (current conditions, the forecast, disease risk for recent days) and what waits for the history (typical dates on the Timing page, the seasonal plan), and offers the dashboard. The same progress is on the Sources page afterwards.
+Progress of the backfill per source: years held against years wanted. While any source is still loading, the step says what works already (current conditions, the forecast, disease risk for recent days) and what waits for the history (typical dates on the Timing page, the seasonal plan); once everything is held, it says so. The step reads the progress when it opens and again when the owner asks (Check again); it does not poll, since a backfill takes minutes and the Sources page shows the same progress afterwards. Finishing offers the dashboard, with the Sources page beside it.
 
 ## The Sources Page
 
@@ -120,7 +120,7 @@ All under `/api/v1`. Reads return the current state; writes return the state aft
 
 The location is a field of the lawn profile (applications). Setup saves it through `/setup/apply`; `PUT /profile` also accepts it.
 
-**Where a step leads.** Walked through from the location step, saving What we found goes on to Your sensors, and leaving Your sensors (Done or Skip) returns to the Sources page. Opened from the Sources page on one step, setup returns there once that step is saved or left. After a save of the location and what we found, the Sources page says the new sources start downloading now and that history can take several minutes.
+**Where a step leads.** Walked through from the location step, each step goes on to the next when the owner saves or skips it, and the last step ends at the dashboard, with the Sources page offered beside it. What we found has no Skip: it is where the location is saved, and saving it with what was found unchanged is the skip. Your sensors, Your lawn and Loading history each have Skip. Opened from the Sources page on one step, setup returns there once that step is saved or left. After a save of the location and what we found, the Sources page says the new sources start downloading now and that history can take several minutes.
 
 **After any write** that changes what the record should use (a pin, a mapping, the provider, the Home Assistant connection) the record rebuilds its basis plan and the fetch schedule is woken, before the response.
 

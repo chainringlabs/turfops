@@ -54,14 +54,28 @@ vi.mock("../components/setup/FoundStep", () => ({
 	),
 }));
 vi.mock("../components/setup/SensorsStep", () => ({
-	default: (props: { postedEnabled: boolean; onDone: () => void }) => (
+	default: (props: {
+		postedEnabled: boolean;
+		doneLabel: string;
+		onDone: () => void;
+	}) => (
 		<div>
 			sensors step, posted {String(props.postedEnabled)}
 			<button type="button" onClick={props.onDone}>
-				done
+				{props.doneLabel}
 			</button>
 		</div>
 	),
+}));
+vi.mock("../components/setup/LawnStep", () => ({
+	default: (props: { onNext: () => void }) => (
+		<button type="button" onClick={props.onNext}>
+			lawn step next
+		</button>
+	),
+}));
+vi.mock("../components/setup/HistoryStep", () => ({
+	default: () => <div>history step</div>,
 }));
 
 const sources = vi.mocked(getSources);
@@ -144,7 +158,9 @@ describe("the steps", () => {
 			await screen.findByText("location step, stored: none"),
 		).toBeInTheDocument();
 		const steps = screen.getByRole("list", { name: "Setup steps" });
-		expect(steps).toHaveTextContent(/Location.*What we found.*Your sensors/);
+		expect(steps).toHaveTextContent(
+			/Location.*What we found.*Your sensors.*Your lawn.*Loading history/,
+		);
 	});
 
 	it("goes on to what we found with the point chosen, without saving anything", async () => {
@@ -190,21 +206,22 @@ describe("opened on a step", () => {
 	});
 });
 
-// @spec SETUP-FLOW-006, SETUP-PLAN-006
+// @spec SETUP-FLOW-006, SETUP-PLAN-006, SETUP-FLOW-002, SETUP-FLOW-003
 describe("where a step leads", () => {
-	it("goes on from what we found to your sensors when walked through, then back to Sources", async () => {
+	it("goes through every step when walked through, ending on loading history", async () => {
 		const user = userEvent.setup();
 		sources.mockResolvedValue(stored({ location: null }));
 		show("/setup");
 		await user.click(await screen.findByRole("button", { name: "pick" }));
 		await user.click(await screen.findByRole("button", { name: "save found" }));
 		expect(
-			await screen.findByText("sensors step, posted false"),
+			await screen.findByText(/sensors step, posted false/),
 		).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "done" }));
-		expect(
-			await screen.findByText("landed on /sources with the saved notice"),
-		).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "Continue" }));
+		await user.click(
+			await screen.findByRole("button", { name: "lawn step next" }),
+		);
+		expect(await screen.findByText("history step")).toBeInTheDocument();
 	});
 
 	it("returns to Sources with the saved notice when opened on what we found", async () => {
@@ -231,9 +248,9 @@ describe("where a step leads", () => {
 		);
 		show("/setup?step=sensors");
 		expect(
-			await screen.findByText("sensors step, posted true"),
+			await screen.findByText(/sensors step, posted true/),
 		).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "done" }));
+		await user.click(screen.getByRole("button", { name: "Done" }));
 		expect(await screen.findByText("landed on /sources")).toBeInTheDocument();
 	});
 });
