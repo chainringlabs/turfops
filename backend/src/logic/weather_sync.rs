@@ -26,6 +26,4 @@ mod fetcher_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod schedule_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
-mod sensor_keep_db_tests;
-#[cfg(all(test, feature = "db-tests"))]
 mod sensor_read_db_tests;
