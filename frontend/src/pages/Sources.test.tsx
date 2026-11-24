@@ -305,3 +305,58 @@ it("shows a failed load as its owner sentence", async () => {
 		await screen.findByText("The weather record could not be read."),
 	).toBeInTheDocument();
 });
+
+// @spec SETUP-PAGE-005, SETUP-PAGE-006, SETUP-PAGE-007
+describe("changing what the lawn reads", () => {
+	it("opens the location step from Location and what we found from the forecast and each input", async () => {
+		mocked.mockResolvedValue(view());
+		show();
+		const location = await screen.findByRole("region", { name: "Location" });
+		expect(
+			within(location).getByRole("link", { name: "Change" }),
+		).toHaveAttribute("href", "/setup?step=location");
+		const connections = screen.getByRole("region", { name: "Connections" });
+		expect(
+			within(connections).getByRole("link", {
+				name: "Change forecast provider",
+			}),
+		).toHaveAttribute("href", "/setup?step=found");
+		const pins = screen.getAllByRole("link", {
+			name: /Pin a station|Change pin/,
+		});
+		expect(pins.length).toBeGreaterThan(0);
+		for (const pin of pins)
+			expect(pin).toHaveAttribute("href", "/setup?step=found");
+		const moisture = screen.getByRole("region", { name: "Soil moisture" });
+		expect(
+			within(moisture).getByRole("link", { name: "Change pin" }),
+		).toBeInTheDocument();
+	});
+
+	it("offers setup in place of the inputs while the lawn has no location", async () => {
+		mocked.mockResolvedValue(
+			view({ location: null, inputs: moistureNone, sources: [] }),
+		);
+		show();
+		expect(
+			await screen.findByRole("link", { name: "Set the location" }),
+		).toHaveAttribute("href", "/setup?step=location");
+	});
+});
+
+// @spec SETUP-PLAN-006
+it("says the new sources are downloading after setup saved", async () => {
+	mocked.mockResolvedValue(view());
+	render(
+		<MemoryRouter
+			initialEntries={[{ pathname: "/sources", state: { saved: true } }]}
+		>
+			<Sources />
+		</MemoryRouter>,
+	);
+	expect(
+		await screen.findByText(
+			"Saved. The new sources start downloading now; history can take several minutes.",
+		),
+	).toBeInTheDocument();
+});

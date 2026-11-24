@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import type { InputView } from "../../types/sources";
 import BasisLabel from "./BasisLabel";
 import { accuracyLines, formatValue, observedText } from "./display";
@@ -40,6 +41,10 @@ export default function InputCard({ input, now, timeZone }: InputCardProps) {
 				<div style={styles.meta}>Then: {behind.join(", ")}</div>
 			)}
 			{pinned && <div style={styles.meta}>Pinned: {pinned.name}</div>}
+			{/* @spec SETUP-PAGE-007 */}
+			<Link to="/setup?step=found" style={styles.action}>
+				{pinned ? "Change pin" : "Pin a station"}
+			</Link>
 			{input.estimate_accuracy && (
 				<div style={styles.accuracy}>
 					{accuracyLines(input.estimate_accuracy).map((line) => (
@@ -64,6 +69,13 @@ const styles: Record<string, React.CSSProperties> = {
 	label: { fontSize: "0.8rem", fontWeight: 600, color: "#4a5568" },
 	value: { fontSize: "1.4rem", fontWeight: 700, color: "#1a202c" },
 	meta: { fontSize: "0.8rem", color: "#4a5568" },
+	action: {
+		fontSize: "0.8rem",
+		color: "#2f855a",
+		fontWeight: 600,
+		textDecoration: "none",
+		marginTop: "0.2rem",
+	},
 	accuracy: {
 		marginTop: "0.4rem",
 		paddingTop: "0.4rem",

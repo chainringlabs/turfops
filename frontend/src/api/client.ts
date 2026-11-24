@@ -31,6 +31,13 @@ import type {
 	StockStatus,
 } from "../types/inventory";
 import { factsOf } from "../types/inventory";
+import type {
+	ApplyRequest,
+	Pins,
+	Place,
+	Preview,
+	StationChoice,
+} from "../types/setup";
 import type { SourcesView } from "../types/sources";
 import type { TimingResponse } from "../types/timing";
 import { ApiError, sentenceForStatus } from "./errors";
@@ -246,6 +253,54 @@ export const getDiseaseRisk = (signal?: AbortSignal) =>
 // @spec SETUP-PAGE-001
 export const getSources = (signal?: AbortSignal) =>
 	fetchJson<SourcesView>(`${BASE}/sources`, { signal });
+
+/** Candidate places for what the owner typed; the text goes to the place-search service. */
+// @spec SETUP-LOC-001
+export const getPlaces = (q: string) =>
+	fetchJson<Place[]>(`${BASE}/setup/places?q=${encodeURIComponent(q)}`);
+
+/** The `pins` query value: `input:station` pairs separated by commas. */
+export function pinsParam(pins: Pins): string {
+	return Object.entries(pins)
+		.map(([input, station]) => `${input}:${station}`)
+		.join(",");
+}
+
+// @spec SETUP-LOC-003, SETUP-PLAN-001, SETUP-PLAN-003
+export const getPreview = (
+	latitude: number,
+	longitude: number,
+	pins: Pins = {},
+) => {
+	const query = new URLSearchParams({
+		lat: String(latitude),
+		lon: String(longitude),
+	});
+	const pinned = pinsParam(pins);
+	if (pinned) query.set("pins", pinned);
+	return fetchJson<Preview>(`${BASE}/sources/preview?${query}`);
+};
+
+// @spec SETUP-PLAN-002
+export const getStations = (
+	input: string,
+	latitude: number,
+	longitude: number,
+) => {
+	const query = new URLSearchParams({
+		input,
+		lat: String(latitude),
+		lon: String(longitude),
+	});
+	return fetchJson<StationChoice[]>(`${BASE}/sources/stations?${query}`);
+};
+
+// @spec SETUP-PLAN-005
+export const applySetup = (request: ApplyRequest) =>
+	fetchJson<SourcesView>(`${BASE}/setup/apply`, {
+		method: "POST",
+		body: JSON.stringify(request),
+	});
 
 export const getTimingWindows = (signal?: AbortSignal) =>
 	fetchJson<TimingResponse>(`${BASE}/timing-windows`, { signal });

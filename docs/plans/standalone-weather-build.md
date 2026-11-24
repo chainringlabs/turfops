@@ -5,7 +5,7 @@ on a decision. The research behind the design is in
 [standalone-weather-sources.md](standalone-weather-sources.md); the design and specs are under
 `docs/intent/`. This file is the place to start when picking the work up.
 
-Status as of 2026-11-24, with `main` at PR #376 and the Sources page (UI part 1 of 4) in review.
+Status as of 2026-11-24, with `main` at PR #377 and setup steps 1 and 2 (UI part 2 of 4) in review.
 
 ## The goal
 
@@ -51,8 +51,8 @@ bump (#345).
 ### Slice 7, remaining
 
 1. **The UI**, in four PRs, each usable once merged:
-   1. The Sources page at `/sources`, read-only, with the shared basis label (this PR).
-   2. Setup steps 1 and 2 (location, what we found), opened from the Sources page's Change.
+   1. The Sources page at `/sources`, read-only, with the shared basis label (#377).
+   2. Setup steps 1 and 2 (location, what we found), opened from the Sources page's Change (this PR).
    3. Setup step 3 (your sensors), with map and unmap from the Sources page.
    4. Setup steps 4 and 5 (your lawn, loading history) and the no-location notice.
    The basis label on every other weather page waits for the cutover (slice 8), when those
@@ -130,7 +130,7 @@ Nothing.
 
 - `cd backend && cargo test`: the suite with no database (1,184 tests).
 - `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests`:
-  everything, against PostgreSQL (1,489 tests). The container is
+  everything, against PostgreSQL (1,490 tests). The container is
   `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`.
 - `cd backend && cargo test live_ -- --ignored --test-threads=1`: one real request to each
   outside source.

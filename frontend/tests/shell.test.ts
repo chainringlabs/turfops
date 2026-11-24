@@ -57,7 +57,7 @@ describe("page data", () => {
 			].sort(),
 		);
 		const pages = sources(join(src, "pages"));
-		expect(pages.length).toBe(13);
+		expect(pages.length).toBe(14);
 		for (const page of pages) {
 			expect(text(page), page).toMatch(/useEffect\(/);
 			expect(text(page), page).toMatch(/from "\.\.\/api\/client"/);

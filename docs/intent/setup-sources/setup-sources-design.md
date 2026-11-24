@@ -22,25 +22,25 @@ Principles:
 
 - The lawn profile has no location: every weather-dependent page shows one notice, "Tell TurfOps where your lawn is", linking to setup and saying that dates use UTC until the location is set, in place of its weather content. The application log, inventory, soil tests and landscape plants work as usual.
 - Setup can be reopened at any time from the Sources page. It opens on the step asked for, with current values filled in.
-- An installation whose location was seeded from the environment skips to "What we found" the first time the Sources page is opened.
 
 ## The Setup Flow
 
-Route `/setup`. Five steps; each saves when the owner continues, so leaving partway keeps what was done.
+Route `/setup`, with the step in the address (`/setup?step=location`, `?step=found`, …) so the Sources page can open the step it means. Five steps; each saves when the owner continues, so leaving partway keeps what was done. Location and What we found are one save: the location is not stored until the owner continues from What we found, because the plan is built from the location, the pins and the provider together. Opened on a step, setup fills in what is stored: the location, the pinned stations, the forecast provider.
 
 ### 1. Location
 
-- **Search** by place name or postal code. The typed text goes to the place-search client (weather sources); the step says so beside the box. Results list the place, state and coordinates.
+- **Search** by place name or postal code. The typed text goes to the place-search client (weather sources) only when the owner presses Search, never while typing; the step says so beside the box. Results list the place, state and coordinates.
 - **Or type** latitude and longitude.
 - A point outside the contiguous United States is refused with the reason: no data is available there yet.
 - Before saving, the step shows the place name, the coordinates rounded as they will be stored, the timezone that follows from them, and the nearest soil station with its distance, as a check that the right place was found.
+- When the lawn already has a location and the owner picks a different point, the step warns that station and grid history for the old point will be replaced and reloaded, and that sensor history is kept.
 
 ### 2. What we found
 
-The basis plan the weather record would build for this point, one row per input: the source that will speak, its distance if it is a station, and what stands behind it. In words under the table: what is measured, what is estimated, and what has no source here (soil moisture without a station).
+The basis plan the weather record would build for this point, counting the sensors already mapped, one row per input: the source that will speak, its distance if it is a station, and what stands behind it. In words under the table: what is measured, what is estimated, and what has no source here (soil moisture without a station).
 
-- **Pin a different station** for an input: a list of the stations that report it within 150 miles, with network, distance, elevation difference from the lawn, and years of record. Choosing one shows the same table again with the change.
-- **Forecast provider:** Open-Meteo unless changed. Choosing OpenWeatherMap asks for its key.
+- **Pin a different station** for any input: a list of the stations that report it within 150 miles, with network, distance, elevation difference from the lawn, and years of record, opened in place under the input's row. Choosing one shows the same table again with the change; a pinned input can be unpinned the same way.
+- **Forecast provider:** Open-Meteo unless changed. Choosing OpenWeatherMap asks for its key when none is stored; when one is, the step says so and offers to replace it.
 - Continuing saves the location, the pins and the provider in one request. The basis plan is built once, from all three, and only then does the fetch schedule start, so history is never downloaded for a station the owner has just replaced.
 
 ### 3. Your sensors (optional)
@@ -117,6 +117,8 @@ All under `/api/v1`. Reads return the current state; writes return the state aft
 | PUT / DELETE | `/sources/sensors/{id}` | Change a mapping; unmap |
 
 The location is a field of the lawn profile (applications). Setup saves it through `/setup/apply`; `PUT /profile` also accepts it.
+
+**After saving setup's location and what we found**, the owner returns to the Sources page, which says the new sources start downloading now and that history can take several minutes.
 
 **After any write** that changes what the record should use (a pin, a mapping, the provider, the Home Assistant connection) the record rebuilds its basis plan and the fetch schedule is woken, before the response.
 
