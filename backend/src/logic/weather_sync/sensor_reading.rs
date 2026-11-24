@@ -63,8 +63,8 @@ impl Problem {
                  that this is the right sensor."
             ),
             Problem::Ahead(at) => format!(
-                "Home Assistant dated this sensor's reading {}, ahead of this server's clock. \
-                 Check the clock where Home Assistant runs.",
+                "This sensor's reading is dated {}, more than 5 minutes ahead of this \
+                 server's clock. Check the clock of whatever sends it.",
                 at.format("%b %-d at %H:%M UTC")
             ),
         }

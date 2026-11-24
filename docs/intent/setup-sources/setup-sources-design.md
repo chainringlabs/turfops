@@ -63,7 +63,7 @@ Soil depth is chosen from the record's five depths; the owner picks the one near
 
 **Sensors that are not in Home Assistant.** The owner names a sensor and its input; the step then shows the exact request to send readings to it. It needs `SENSOR_TOKEN` to be set, and says so when it is not.
 
-**Rules.** One sensor per input: mapping a second to the same input replaces the first after a confirmation naming both. One entity maps to one input. Unmapping returns the input to its station or estimate and keeps the sensor's history.
+**Rules.** One sensor per input: mapping a second to the same input replaces the first after a confirmation naming both. One entity maps to one input. No two mapped sensors share a name, letter case and surrounding space aside, because a posted reading names its sensor; a sensor being replaced gives up its name to the one replacing it. Unmapping returns the input to its station or estimate and keeps the sensor's history.
 
 ### 4. Your lawn
 
@@ -103,7 +103,7 @@ All under `/api/v1`. Reads return the current state; writes return the state aft
 | GET | `/setup/places?q=` | Candidate places for a search |
 | GET | `/sources/preview?lat=&lon=` | The basis plan the point would get, without saving anything. It asks the hourly analysis for the point's elevation first, so the preview drops the same stations the saved plan will |
 | POST | `/setup/apply` | Save a location, pins and a forecast provider together; any of the three may be omitted |
-| GET | `/sources` | Inputs with basis plan, live basis and accuracy; sources with status, history and attribution; connections; location |
+| GET | `/sources` | Inputs with basis plan, live basis and accuracy; sources with status, history and attribution; connections, including whether posted readings are enabled; location |
 | GET | `/sources/stations?input=` | Stations that report the input within 150 miles of the lawn |
 | PUT / DELETE | `/sources/pins/{input}` | Pin a station for an input; remove the pin |
 | PUT | `/sources/forecast-provider` | Choose the provider; carries the key when the provider needs one |
@@ -157,6 +157,7 @@ The location is a field of the lawn profile (applications). Setup saves it throu
 | Secret at rest | Stored as given in the application database | Encrypted with a key from the environment | A key in the environment restores the requirement to edit configuration first, and protects only against someone who has the database but not the host. Database backups therefore contain the secret, which the page states. |
 | Mapping a sensor | The owner picks from discovered entities; the app suggests the input from device class and state class | Automatic mapping by device class; typing entity ids | Device class cannot tell air from soil or give a depth, and a wrong automatic mapping would feed a garage thermometer into fertilizer advice. Typing ids is the lookup the flow exists to remove. |
 | Check before saving | Show the sensor beside the value it replaces; block a wrong unit or a reading older than its input's age limit | Save and let the owner notice | The comparison is the one moment a mis-mapped sensor is obvious. |
+| Sensor names | Unique among mapped sensors, ignoring case, checked when mapping and renaming | Unique per way in; a unique index | A posted reading finds its sensor by name, and two sensors called "Garden probe" would make the owner guess which one is meant on the Sources page too. A database index would fail its migration on an installation that already holds two such names; the handler's check refuses new clashes and leaves old ones for the owner to rename. |
 | One sensor per input | Yes | Average several sensors | An average of two instruments is a series neither recorded, and hides the one that is wrong. |
 | Pinning range | Stations within 150 miles | Only within the cut-off; any station | The owner may reasonably prefer a farther station in the same valley; past 150 miles a neighbour's soil dates are no better than the calendar. |
 | Where source status and accuracy are shown | One Sources page, linked from every basis label | On Settings; on each feature page | One place answers "where does this come from" for every number; feature pages stay about their feature. |

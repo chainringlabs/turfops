@@ -53,6 +53,7 @@ fn config(silver: &str, clock: Clock) -> Config {
             max_connections: 1,
         },
         mcp: McpConfig { token: None },
+        sensor_readings: Default::default(),
         clock,
     }
 }

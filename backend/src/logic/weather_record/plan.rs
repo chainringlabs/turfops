@@ -165,16 +165,21 @@ fn sensor_for(input: Input, sensors: &[MappedSensor]) -> Option<NewSource> {
     sensors
         .iter()
         .find(|s| s.input == measured)
-        .map(|s| NewSource {
-            key: s.key.clone(),
-            kind: SourceKind::Sensor,
-            name: s.name.clone(),
-            station_ref: None,
-            latitude: None,
-            longitude: None,
-            distance_miles: None,
-            role: SourceRole::Basis,
-        })
+        .map(|s| sensor_source(&s.key, &s.name))
+}
+
+/// The weather source that holds one of the owner's sensors' readings.
+pub fn sensor_source(key: &str, name: &str) -> NewSource {
+    NewSource {
+        key: key.to_string(),
+        kind: SourceKind::Sensor,
+        name: name.to_string(),
+        station_ref: None,
+        latitude: None,
+        longitude: None,
+        distance_miles: None,
+        role: SourceRole::Basis,
+    }
 }
 
 /// The station the owner pinned for `input`, at whatever distance or elevation.

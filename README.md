@@ -250,6 +250,22 @@ TurfOps can serve a read-only [Model Context Protocol](https://modelcontextproto
 
 Tools: `lawn_snapshot` (call first — profile, conditions, full recommendation feed, recent applications, timing windows, disease headlines, nitrogen totals), `lawn_profile`, `current_conditions`, `weather_history`, `recommendations`, `timing_windows`, `seasonal_plan`, `gdd`, `soil_temp_outlook`, `nitrogen_budget`, `disease_risk`, `disease_detail`, `applications`, `soil_tests`, `soil_test_advice`, `products`, `shopping_list`, `plants`. Resources: `turfops://docs/agronomy` ([docs/agronomy-methods.md](docs/agronomy-methods.md)) and `turfops://docs/timing-windows`. `GET /api/v1/health` reports `mcp: "enabled" | "disabled"`. Try it with `npx @modelcontextprotocol/inspector` against `http://localhost:3000/mcp` and the bearer header.
 
+### Posted sensor readings
+
+Any hub or script can send readings from sensors that are not in Home Assistant. Map the sensor in the app under a name and an input, then post to `/api/v1/sensor-readings`:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/sensor-readings \
+  -H "Authorization: Bearer $SENSOR_TOKEN" -H "Content-Type: application/json" \
+  -d '{"readings": [{"sensor": "Garden probe", "value": 61.2, "unit": "°F", "observed_at": "2026-11-24T15:00:00Z"}]}'
+```
+
+`observed_at` is optional (default: when the request arrives) and must carry a UTC offset. Units: °F or °C; mm or in; % for humidity; % or a fraction for soil moisture. The answer lists the readings `stored`, `unchanged` (already held, so resending is safe) and `rejected` with the reason; it is 200 unless every reading was rejected.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SENSOR_TOKEN` | Bearer token senders must use; at least 32 characters (`openssl rand -hex 32`) | *(empty — the route is not mounted)* |
+
 ### Server
 
 | Variable | Description | Default |
@@ -304,6 +320,9 @@ OPENROUTER_API_KEY=your_openrouter_key_here
 
 # MCP server for LLM clients (optional; at least 32 characters, e.g. `openssl rand -hex 32`)
 # MCP_TOKEN=your_generated_token_here
+
+# Posted sensor readings from hubs and scripts (optional; at least 32 characters)
+# SENSOR_TOKEN=your_generated_token_here
 
 # Logging
 RUST_LOG=info
@@ -361,6 +380,7 @@ RUST_LOG=info
 | `POST` | `/api/v1/products/:id/link-applications` | Link past applications logged under this product's name |
 | `GET` | `/api/v1/inventory/suggestions` | Product names in your log that are not on the shelf |
 | `GET` | `/api/v1/inventory/shopping-list` | What to buy or restock, from the active recommendations |
+| `POST` | `/api/v1/sensor-readings` | Readings from the owner's hubs and scripts — only when `SENSOR_TOKEN` is set; requires `Authorization: Bearer $SENSOR_TOKEN` |
 | `POST` | `/mcp` | MCP server (streamable HTTP, read-only tools) — only when `MCP_TOKEN` is set; requires `Authorization: Bearer $MCP_TOKEN` |
 
 ## Pages

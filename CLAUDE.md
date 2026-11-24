@@ -17,8 +17,8 @@ Containerized web application for tracking lawn care activities with data-driven
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (1,170 tests; no database needed)
-- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,462 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
+- `cd backend && cargo test` — Run tests (1,181 tests; no database needed)
+- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,486 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
 - `cd backend && cargo run --release --features scoring -- score-estimate --cache <dir> --out src/logic/soil_estimate/scores.json` — Re-score the soil estimate against USCRN (downloads about 1,900 public files into `<dir>` on first run; re-run when the model, the calibration rule or a consumer's crossing rule changes)
 - `cd backend && cargo test live_ -- --ignored --test-threads=1` — One real request to each outside weather source (NOAA, RCC-ACIS, USDA, Open-Meteo, National Weather Service), to confirm the parsers still match what the services send; not part of the suite
 - `cd backend && DATABASE_URL=… cargo test --features db-tests live_schedule -- --ignored` — The fetch schedule's first passes for a new lawn against the real services, into the test database; not part of the suite
@@ -115,6 +115,7 @@ turfops/
 | GET | /api/v1/inventory/shopping-list | Buy (unmet needs of active recs) + Restock (Low/Out products an active rec calls for), sorted by urgency; re-evaluates the feed |
 | GET | /api/v1/frac-classes | FRAC class options for the application form + the classes a `?product=` name resolves to |
 | GET | /api/v1/disease-risk | Per-disease risk tiers, 11-day series, contributing factors, methodology |
+| POST | /api/v1/sensor-readings | Readings from the owner's hubs and scripts (`{"readings": [{sensor, value, unit, observed_at?}]}`); mounted only when `SENSOR_TOKEN` is set, `Authorization: Bearer` required; answers stored / unchanged / rejected, 400 only when every reading was rejected |
 | POST | /mcp | MCP server (streamable HTTP, stateless JSON, read-only tools); mounted only when `MCP_TOKEN` is set, `Authorization: Bearer` required |
 
 ## Data Sources
@@ -169,6 +170,7 @@ See `backend/.env.example` for full list:
 - `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_ENABLED` — landscape-plant care plans (503 without a key)
 - `CORS_ALLOWED_ORIGIN` — only when the SPA is served from another origin
 - `MCP_TOKEN` — bearer token for `/mcp` (≥ 32 chars; unset = not mounted)
+- `SENSOR_TOKEN` — bearer token for `POST /api/v1/sensor-readings` (≥ 32 chars; unset = not mounted)
 - `TZ` — the lawn's timezone for every `Local::now()` date gate (compose default `America/New_York`)
 - `DB_PASSWORD` — required by compose (no default); flows to Postgres and `DATABASE_PASSWORD`
 - `LAWN_*` — Default lawn profile settings, read once to create the profile. `LAWN_LATITUDE` / `LAWN_LONGITUDE` (contiguous US; `OWM_LATITUDE` / `OWM_LONGITUDE` when only those are set) also give a location to an existing profile that has none; the profile's timezone is derived from it (`models/lawn_profile/location.rs`, tzf-rs)

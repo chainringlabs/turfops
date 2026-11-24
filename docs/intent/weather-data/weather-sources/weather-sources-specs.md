@@ -72,12 +72,21 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 
 ## Posted sensor readings
 
-- [ ] **WX-SRC-POST-001**: While `SENSOR_TOKEN` is set, the system shall accept `POST /api/v1/sensor-readings` carrying one or more readings, each with a sensor name, a value, a unit and optionally the time observed, and shall require the token as a bearer token.
-- [ ] **WX-SRC-POST-002**: While `SENSOR_TOKEN` is not set, the system shall not mount `/api/v1/sensor-readings`.
-- [ ] **WX-SRC-POST-003**: If a request to `/api/v1/sensor-readings` lacks the bearer token or carries a wrong one, then the system shall answer 401 and store nothing.
-- [ ] **WX-SRC-POST-004**: If a posted reading names a sensor that is not mapped, gives a unit its sensor's input does not accept, gives a value outside that input's plausible range, or is dated more than 5 minutes after the current time, then the system shall reject that reading with a message naming the sensor and the problem and shall store the other readings in the request; it shall answer 200 listing what was stored and what was rejected when at least one reading was stored, and 400 when none was.
-- [ ] **WX-SRC-POST-005**: When a posted reading gives no time observed, the system shall take the time the request was received.
-- [ ] **WX-SRC-POST-006**: The system shall treat a posted reading for a sensor mapped to rain as WX-SRC-HA-006, WX-SRC-HA-007, WX-SRC-HA-009 and WX-SRC-HA-010 treat a Home Assistant reading.
+- [x] **WX-SRC-POST-001**: While `SENSOR_TOKEN` is set, the system shall accept `POST /api/v1/sensor-readings` with a body `{"readings": [...]}` of one or more readings, each with a sensor name (`sensor`), a value (`value`), a unit (`unit`) and optionally the time observed (`observed_at`), and shall require the token as a bearer token.
+- [x] **WX-SRC-POST-002**: While `SENSOR_TOKEN` is not set, the system shall not mount `/api/v1/sensor-readings`.
+- [x] **WX-SRC-POST-003**: If a request to `/api/v1/sensor-readings` lacks the bearer token or carries a wrong one, then the system shall answer 401 and store nothing.
+- [x] **WX-SRC-POST-004**: If a posted reading names no mapped sensor, names more than one mapped sensor, names a sensor that takes its readings from Home Assistant, gives no unit or a value that is not a number, gives a time observed that is not an RFC 3339 time with a UTC offset, gives a unit its sensor's input does not accept, gives a value outside that input's plausible range (WX-SRC-HA-008), or is dated more than 5 minutes after the current time, then the system shall reject that reading with a message naming the sensor and the problem and shall still take the other readings in the request.
+- [x] **WX-SRC-POST-005**: When a posted reading gives no time observed, the system shall take the time the request was received.
+- [x] **WX-SRC-POST-006**: The system shall treat a posted reading for a sensor mapped to rain as WX-SRC-HA-006, WX-SRC-HA-007, WX-SRC-HA-009 and WX-SRC-HA-010 treat a Home Assistant reading.
+- [x] **WX-SRC-POST-007**: The system shall match a posted reading's sensor name to a mapped sensor's name ignoring letter case and surrounding space.
+- [x] **WX-SRC-POST-008**: The system shall take each sensor's readings in a request oldest first, whatever order they were sent in.
+- [x] **WX-SRC-POST-009**: When a posted reading is dated at or before its sensor's previous reading, the system shall store nothing for it and report it as unchanged, not as rejected.
+- [x] **WX-SRC-POST-010**: The system shall answer a request to `/api/v1/sensor-readings` with the readings stored, those unchanged and those rejected with their messages, with status 200 unless every reading in the request was rejected and 400 then.
+- [x] **WX-SRC-POST-011**: When the system takes a posted reading, it shall record against its sensor's source a success when the reading was stored or unchanged, and otherwise a failure with the rejection's message.
+- [x] **WX-SRC-POST-012**: The system shall log at INFO a posted sensor's first stored reading since the server started, and at WARN a rejected posted reading unless that sensor has had a rejection logged since it last stored a reading.
+- [x] **WX-SRC-POST-013**: The system shall store an accepted posted reading whether or not the lawn has a location.
+- [x] **WX-SRC-POST-014**: The system shall take the requests to `/api/v1/sensor-readings` one at a time.
+- [x] **WX-SRC-POST-015**: If a request's body is not a JSON object whose `readings` is a list of at least one entry, then the system shall answer 400 and store nothing.
 
 ## Forecast providers
 

@@ -29,7 +29,7 @@ pub async fn require_bearer(
 
 /// The auth scheme is case-insensitive (RFC 9110); the token comparison is constant-time.
 // @spec MCP-AUTH-001, MCP-AUTH-002
-fn authorized(headers: &HeaderMap, token: &str) -> bool {
+pub(crate) fn authorized(headers: &HeaderMap, token: &str) -> bool {
     let Some((scheme, presented)) = headers
         .get(AUTHORIZATION)
         .and_then(|value| value.to_str().ok())

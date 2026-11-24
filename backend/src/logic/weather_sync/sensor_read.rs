@@ -2,19 +2,15 @@
 //! sensor on its own, each outcome recorded as that sensor's status.
 
 use super::order::Failing;
-use super::sensor_reading::{judge, Judged, Previous};
-use crate::datasources::cadence::Product;
-use crate::datasources::homeassistant::connection::{HaConnection, Lookup, Unusable};
+use super::sensor_store::{take, Taken, PRODUCT};
+use crate::datasources::homeassistant::connection::{HaConnection, Unusable};
 use crate::db::setup_queries::{self, Sensor, Service, WayIn};
-use crate::db::weather_queries::sensors::{self, NewReading};
+use crate::db::weather_queries::sensors;
 use crate::db::weather_queries::{fetch_state, sources as weather_sources};
 use crate::error::Result;
 use chrono::{DateTime, Duration, NaiveDate, Utc};
 use sqlx::PgPool;
 use std::collections::HashSet;
-
-/// The product a sensor's status is recorded under.
-const PRODUCT: &str = Product::SensorEntities.as_str();
 
 /// How often the owner's sensors are read.
 pub const READ_EVERY: Duration = Duration::minutes(5);
@@ -108,8 +104,12 @@ impl SensorReader {
                 Ok(lookup) => lookup,
                 Err(unusable) => return self.failed(pool, &mapped, unusable, now).await,
             };
-            if take(pool, sensor, *source_id, lookup, now).await? {
-                stored += 1;
+            match take(pool, sensor, *source_id, lookup, now).await? {
+                Taken::Stored => stored += 1,
+                Taken::Refused(said) => {
+                    tracing::warn!(sensor = %sensor.name, problem = %said, "Sensor reading not used")
+                }
+                Taken::Starting | Taken::Unchanged => {}
             }
         }
         self.failing.succeeded();
@@ -185,56 +185,4 @@ async fn mapped(pool: &PgPool, today: NaiveDate) -> Result<Vec<(Sensor, i64)>> {
         mapped.push((sensor, source.id));
     }
     Ok(mapped)
-}
-
-/// Judges one answer, stores what it gives and records the sensor's status. Returns
-/// whether a reading was stored.
-async fn take(
-    pool: &PgPool,
-    sensor: &Sensor,
-    source_id: i64,
-    lookup: Lookup,
-    now: DateTime<Utc>,
-) -> Result<bool> {
-    let previous = sensors::previous_reading(pool, sensor.id)
-        .await?
-        .map(|(value, at)| Previous { value, at });
-    let kept = |keep: Previous| (keep.value, keep.at);
-    let stored = match judge(sensor.input, sensor.rain_kind, lookup, previous, now) {
-        Judged::Store {
-            at,
-            value,
-            keep,
-            jumped,
-        } => {
-            if jumped {
-                tracing::warn!(
-                    sensor = %sensor.name,
-                    "Rain counter rose more than 300 mm in one reading; counted as no rain"
-                );
-            }
-            let reading = NewReading {
-                source_id,
-                input: sensor.input,
-                observed_at: at,
-                value,
-            };
-            sensors::keep_reading(pool, sensor.id, kept(keep), Some(reading)).await?;
-            true
-        }
-        Judged::Starting { keep } => {
-            sensors::keep_reading(pool, sensor.id, kept(keep), None).await?;
-            false
-        }
-        Judged::Unchanged => false,
-        Judged::Refused(problem) => {
-            let entity_id = sensor.entity_id.as_deref().unwrap_or_default();
-            let said = problem.sentence(sensor.input, entity_id);
-            tracing::warn!(sensor = %sensor.name, problem = %said, "Sensor reading not used");
-            fetch_state::failed(pool, source_id, PRODUCT, &said, now).await?;
-            return Ok(false);
-        }
-    };
-    fetch_state::checked(pool, source_id, PRODUCT, now).await?;
-    Ok(stored)
 }
