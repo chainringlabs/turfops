@@ -53,6 +53,17 @@ pub struct ScoreFile {
     pub crossings: Vec<CrossingScore>,
 }
 
+/// One scored crossing at a depth, as the Sources page states it.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct CrossingAccuracy {
+    pub threshold_f: f64,
+    pub direction: Direction,
+    pub median_days: f64,
+    pub p80_days: f64,
+    /// Whether the estimate may date it (`datable`).
+    pub datable: bool,
+}
+
 /// The scored error of a crossing the estimate may date.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Accuracy {
@@ -85,6 +96,29 @@ impl ScoreFile {
             median_days: score.median_days,
             p80_days: score.p80_days,
         })
+    }
+}
+
+impl ScoreFile {
+    /// Every crossing scored at `depth_cm` under `calibration`, lowest threshold first.
+    // @spec SETUP-API-014
+    pub fn crossings_at(&self, depth_cm: u32, calibration: Calibration) -> Vec<CrossingAccuracy> {
+        let mut found: Vec<CrossingAccuracy> = self
+            .crossings
+            .iter()
+            .filter(|s| s.depth_cm == depth_cm && s.calibration == calibration)
+            .map(|s| CrossingAccuracy {
+                threshold_f: s.threshold_f,
+                direction: s.direction,
+                median_days: s.median_days,
+                p80_days: s.p80_days,
+                datable: self
+                    .datable(depth_cm, s.threshold_f, s.direction, calibration)
+                    .is_some(),
+            })
+            .collect();
+        found.sort_by(|a, b| a.threshold_f.total_cmp(&b.threshold_f));
+        found
     }
 }
 

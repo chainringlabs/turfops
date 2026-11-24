@@ -14,6 +14,7 @@ const NAV_ITEMS = [
 	{ to: "/timing", label: "Seed & Pre-Em Timing" },
 	{ to: "/soil-tests", label: "Soil Tests" },
 	{ to: "/seasonal-plan", label: "Seasonal Plan" },
+	{ to: "/sources", label: "Sources" },
 	{ to: "/settings", label: "Settings" },
 ];
 

@@ -16,7 +16,7 @@ Design: [environmental-views-design.md](environmental-views-design.md). Parent: 
 ## How a basis is shown
 
 - [ ] **WX-VIEW-BASIS-001**: Every page that shows a weather-dependent value shall show its basis with one shared label component: "Measured · *station name*, *N* mi" for a station, "Your sensor · *sensor name*" for the owner's sensor, "Estimated for your location" for an estimate, with "· approximate" added when the basis is approximate and "· mixed" when a period drew on more than one basis.
-- [ ] **WX-VIEW-BASIS-002**: The basis label shall carry a mark as well as its words (a solid dot for a station, a solid square for a sensor, a hollow dot for an estimate), never distinguishing a basis by color alone, and shall link to the Sources page.
+- [ ] **WX-VIEW-BASIS-002**: The basis label shall carry a mark as well as its words (a solid dot for a station, a solid square for a sensor, a hollow dot for an estimate), never distinguishing a basis by color alone, and shall link to the Sources page everywhere but on the Sources page itself.
 - [ ] **WX-VIEW-BASIS-003**: A chart of a weather series shall draw measured stretches as a solid line and estimated stretches as a dotted line of the same hue, mark each change of basis with a vertical marker, list the spans in its caption, and give its table view a basis column; a dashed line shall mean forecast only.
 - [ ] **WX-VIEW-BASIS-004**: Where an input has no source in the lawn's basis plan, a page shall show "No source for this location" with a link to the Sources page in place of the value; where the input has a source but no current value, it shall show `--`.
 
