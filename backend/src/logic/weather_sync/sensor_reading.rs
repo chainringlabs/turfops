@@ -10,12 +10,19 @@ use crate::datasources::homeassistant::connection::Lookup;
 use crate::datasources::sensor_units::{accepted_units, convert, plausible};
 use crate::db::setup_queries::RainKind;
 use crate::models::weather_record::Input;
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Duration, SubsecRound, Utc};
 
 /// No hour's rain reaches this; a reading of more is not rain (WX-SRC-NORM-002).
 pub const RAIN_CEILING_MM: f64 = 300.0;
 /// How far ahead of this server's clock a reported time may be.
 const CLOCK_SKEW: Duration = Duration::minutes(5);
+
+/// An instant as the record stores it: PostgreSQL keeps microseconds, so a reading's time
+/// is cut to them on the way in, or a time with nanoseconds would always look newer than
+/// the same time read back.
+pub fn record_instant(at: DateTime<Utc>) -> DateTime<Utc> {
+    at.trunc_subsecs(6)
+}
 
 /// A sensor's previous reading: its value in record units and its reported time. For a
 /// rain counter the value is the counter's total, not an amount.
@@ -63,8 +70,8 @@ impl Problem {
                  that this is the right sensor."
             ),
             Problem::Ahead(at) => format!(
-                "Home Assistant dated this sensor's reading {}, ahead of this server's clock. \
-                 Check the clock where Home Assistant runs.",
+                "This sensor's reading is dated {}, more than 5 minutes ahead of this \
+                 server's clock. Check the clock of whatever sends it.",
                 at.format("%b %-d at %H:%M UTC")
             ),
         }
@@ -106,7 +113,7 @@ pub fn judge(
         Lookup::NotANumber => return Judged::Refused(Problem::NotANumber),
         Lookup::Missing => return Judged::Refused(Problem::NotFound),
     };
-    let at = entity.reported_at;
+    let at = record_instant(entity.reported_at);
     if at > now + CLOCK_SKEW {
         return Judged::Refused(Problem::Ahead(at));
     }

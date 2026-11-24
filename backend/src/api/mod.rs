@@ -16,6 +16,7 @@ pub mod profile;
 pub mod recommendation_feed;
 pub mod recommendations;
 pub mod seasonal_plan;
+pub mod sensor_readings;
 pub mod setup;
 pub mod soil_temp_prediction;
 pub mod soil_tests;

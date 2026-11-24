@@ -242,3 +242,44 @@ async fn a_mapping_can_be_changed_and_removed_and_removal_keeps_the_sensor(pool:
     let again = delete_sensor(State(state), Path(probe)).await.unwrap_err();
     assert_eq!(reply(again).await.0, StatusCode::NOT_FOUND);
 }
+
+// @spec SETUP-MAP-012
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn no_two_mapped_sensors_share_a_name(pool: PgPool) {
+    let state = located(&pool).await;
+    let probe = map(
+        &state,
+        json!({"name": "Garden probe", "input": "soil_temp_10"}),
+    )
+    .await
+    .unwrap()[0]
+        .id;
+    let same = json!({"name": " GARDEN probe", "input": "soil_moisture_10"});
+    let (status, message) = map(&state, same).await.expect_err("taken");
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert!(message.contains("Garden probe"), "{message}");
+
+    let replacing = json!({"name": "garden probe", "input": "soil_temp_10", "replace": true});
+    let sensors = map(&state, replacing).await.unwrap();
+    assert_eq!(sensors.len(), 1, "the sensor replaced gives up its name");
+
+    let other = map(&state, json!({"name": "Air", "input": "air_temp"}))
+        .await
+        .unwrap();
+    let air = other.iter().find(|s| s.name == "Air").unwrap().id;
+    let request: ChangeRequest =
+        serde_json::from_value(json!({"name": "Garden Probe", "input": "air_temp"})).unwrap();
+    let renamed = put_sensor(State(state.clone()), Path(air), Json(request)).await;
+    let (status, message) = reply(renamed.unwrap_err()).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert!(message.contains("garden probe"), "{message}");
+    let keep: ChangeRequest =
+        serde_json::from_value(json!({"name": "AIR", "input": "air_temp"})).unwrap();
+    assert!(
+        put_sensor(State(state), Path(air), Json(keep))
+            .await
+            .is_ok(),
+        "a sensor may keep its own name"
+    );
+    let _ = probe;
+}

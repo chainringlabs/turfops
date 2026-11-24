@@ -115,6 +115,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Create app state
     let mcp_token = config.mcp.token.clone();
+    let sensor_token = config.sensor_readings.token.clone();
     let state = AppState::new(
         pool,
         sync_service,
@@ -123,6 +124,7 @@ async fn main() -> anyhow::Result<()> {
         config.clock,
     )
     .waking(weather_waker)
+    .posting_when(sensor_token.is_some())
     .fetching(logic::weather_sync::fetcher::Fetcher::new(
         pool_for_setup,
         logic::weather_sync::fetcher::Clients::new(),
@@ -279,11 +281,21 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/api/v1/soil-tests/{id}",
             put(api::soil_tests::update_soil_test).delete(api::soil_tests::delete_soil_test),
-        )
-        // @spec UI-SRV-003
-        .layer(RequestBodyLimitLayer::new(1024 * 1024)); // 1MB request body limit
-                                                         // Every /api/v1 error is JSON with a plain message, including unknown paths and
-                                                         // requests rejected before a handler runs.
+        );
+    // Readings posted by the owner's hubs: mounted only with SENSOR_TOKEN.
+    // @spec WX-SRC-POST-002, DEPLOY-LOG-002
+    let app = api::sensor_readings::mount(app, sensor_token.as_deref());
+    // @spec UI-SRV-003
+    let app = app.layer(RequestBodyLimitLayer::new(1024 * 1024)); // 1 MB request body limit
+    if sensor_token.is_some() {
+        tracing::info!(
+            "Posted sensor readings accepted at /api/v1/sensor-readings (bearer token required)"
+        );
+    } else {
+        tracing::info!("SENSOR_TOKEN not set — /api/v1/sensor-readings not mounted");
+    }
+    // Every /api/v1 error is JSON with a plain message, including unknown paths and
+    // requests rejected before a handler runs.
     let app = api::json_errors::with_json_errors(app)
         .layer(web::cors_layer(
             config.server.cors_allowed_origin.as_deref(),

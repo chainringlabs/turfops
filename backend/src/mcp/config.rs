@@ -18,16 +18,23 @@ impl std::fmt::Debug for McpConfig {
     }
 }
 
-/// Shortest bearer token accepted for `/mcp`; the gateway in front of it is open.
+/// Shortest bearer token accepted for `/mcp` or `/api/v1/sensor-readings`.
 const MIN_MCP_TOKEN_LEN: usize = 32;
 
 /// An empty value means "not configured" (compose passes unset keys as ""); a token
 /// that is set but short is a config error rather than a silently weak endpoint.
 // @spec MCP-CFG-001, MCP-CFG-002, MCP-CFG-003
 pub fn parse_token(raw: Option<String>) -> Result<Option<String>> {
+    bearer_token("MCP_TOKEN", raw)
+}
+
+/// A bearer token that guards a route: trimmed, empty means not set, and a token that is
+/// set but shorter than 32 characters is a configuration error naming `setting`.
+// @spec MCP-CFG-002, DEPLOY-CONFIG-014
+pub fn bearer_token(setting: &str, raw: Option<String>) -> Result<Option<String>> {
     match raw.map(|t| t.trim().to_string()).filter(|t| !t.is_empty()) {
         Some(token) if token.len() < MIN_MCP_TOKEN_LEN => Err(TurfOpsError::Config(format!(
-            "MCP_TOKEN must be at least {MIN_MCP_TOKEN_LEN} characters"
+            "{setting} must be at least {MIN_MCP_TOKEN_LEN} characters"
         ))),
         token => Ok(token),
     }

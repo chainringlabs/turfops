@@ -208,6 +208,9 @@ pub fn from_vars(get: Lookup) -> Result<(Config, Vec<String>)> {
         mcp: McpConfig {
             token: crate::mcp::parse_token(var(get, "MCP_TOKEN"))?,
         },
+        sensor_readings: crate::api::sensor_readings::SensorReadingsConfig {
+            token: crate::api::sensor_readings::parse_token(var(get, "SENSOR_TOKEN"))?,
+        },
     };
     Ok((config, warnings))
 }

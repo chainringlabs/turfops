@@ -17,9 +17,11 @@ pub const AGE_LIMITS: AgeLimits = AgeLimits {
 };
 pub mod order;
 pub mod planning;
+pub mod posted;
 pub mod schedule;
 pub mod sensor_read;
 pub mod sensor_reading;
+pub mod sensor_store;
 
 #[cfg(all(test, feature = "db-tests"))]
 mod fetcher_db_tests;

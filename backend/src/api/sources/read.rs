@@ -81,6 +81,8 @@ pub struct Connections {
     pub home_assistant: bool,
     /// Whether an OpenWeatherMap key is stored. Never the key.
     pub openweathermap_key: bool,
+    /// Whether posted sensor readings are taken: whether `SENSOR_TOKEN` is set.
+    pub posted_readings: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -170,6 +172,7 @@ fn accuracy_of(fit: &StoredFit) -> Option<EstimateAccuracy> {
 }
 
 /// The view every sources read and write answers with.
+// @spec SETUP-API-013
 pub async fn sources_view(state: &AppState) -> Result<SourcesView, TurfOpsError> {
     let pool = &state.pool;
     let location = crate::db::queries::get_default_lawn_profile(pool)
@@ -233,6 +236,7 @@ pub async fn sources_view(state: &AppState) -> Result<SourcesView, TurfOpsError>
             openweathermap_key: setup_queries::credential(pool, Service::OpenWeatherMap)
                 .await?
                 .is_some(),
+            posted_readings: state.sensor_readings.is_some(),
         },
     })
 }

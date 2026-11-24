@@ -26,7 +26,8 @@ mod trim;
 #[cfg(test)]
 mod trim_model_tests;
 
-pub use config::{parse_token, McpConfig};
+pub(crate) use auth::authorized;
+pub use config::{bearer_token, parse_token, McpConfig};
 
 use crate::state::AppState;
 use axum::Router;

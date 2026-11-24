@@ -269,3 +269,38 @@ fn each_problem_has_a_sentence_naming_it() {
         assert!(said.ends_with('.') && said.len() > 20, "{said}");
     }
 }
+
+// @spec WX-SRC-HA-003, WX-SRC-POST-009
+#[test]
+fn a_reported_time_is_kept_to_the_microsecond_the_record_stores() {
+    let stored = Previous {
+        value: 60.0,
+        at: now() - Duration::minutes(2) + Duration::microseconds(903_139),
+    };
+    let finer = Lookup::Reading(Entity {
+        entity_id: "sensor.probe".into(),
+        friendly_name: "Probe".into(),
+        value: 61.0,
+        unit: Some("°F".into()),
+        device_class: None,
+        state_class: None,
+        reported_at: stored.at + Duration::nanoseconds(783),
+    });
+    assert_eq!(
+        judge(Input::AirTemp, None, finer.clone(), Some(stored), now()),
+        Judged::Unchanged,
+        "nanoseconds the database cannot hold do not make a reading newer"
+    );
+    let (at, ..) = stored_parts(judge(Input::AirTemp, None, finer, None, now()));
+    assert_eq!(
+        at, stored.at,
+        "the time is stored as the database will hold it"
+    );
+}
+
+fn stored_parts(judged: Judged) -> (DateTime<Utc>, f64) {
+    match judged {
+        Judged::Store { at, value, .. } => (at, value),
+        other => panic!("expected a reading to store, got {other:?}"),
+    }
+}

@@ -31,6 +31,8 @@ pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
     pub mcp: McpConfig,
+    #[serde(default)]
+    pub sensor_readings: crate::api::sensor_readings::SensorReadingsConfig,
     /// The lawn's clock, resolved from `TZ`.
     #[serde(skip)]
     pub clock: crate::clock::Clock,

@@ -46,6 +46,7 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [x] **SETUP-MAP-009**: When a sensor is unmapped, the system shall keep the readings it has stored and return its input to the next source in the basis plan.
 - [ ] **SETUP-MAP-010**: The owner shall be able to create a sensor that is not in Home Assistant by naming it and choosing its input, after which the step shall show the request that sends a reading to it; while `SENSOR_TOKEN` is not set, the step shall say that posted readings need it.
 - [x] **SETUP-MAP-011**: When the server starts with `HA_TEMPERATURE_ENTITY` or `HA_HUMIDITY_ENTITY` set and no sensor mapped, the system shall map those entities to air temperature and humidity; it shall do so only on an installation where no sensor was ever mapped, so that one the owner has unmapped is not mapped again.
+- [x] **SETUP-MAP-012**: If the owner maps or renames a sensor to a name that another mapped sensor has, ignoring letter case and surrounding space, then the system shall refuse with a conflict naming that sensor; a sensor the mapping replaces (SETUP-MAP-007) does not count.
 
 ## The Sources page
 
@@ -71,6 +72,7 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [x] **SETUP-API-009**: `GET` and `POST /api/v1/sources/sensors`, `PUT` and `DELETE /api/v1/sources/sensors/{id}`, and `POST /api/v1/sources/sensors/check` shall list the mapped sensors, map one, change a mapping, unmap one, and return the comparison of SETUP-MAP-004 without saving.
 - [ ] **SETUP-API-010**: After a write that changes a pin, a sensor mapping, the forecast provider or the Home Assistant connection, the system shall have the weather record rebuild its basis plan and wake the fetch schedule before it responds.
 - [x] **SETUP-API-012**: `POST /api/v1/setup/apply` shall save, all or none, whichever of a location, a set of pins and a forecast provider the request carries, the set of pins replacing those held and each pin judged from the location being saved; it shall then have the weather record rebuild its basis plan once and wake the fetch schedule once, before it responds with the sources as they then stand.
+- [x] **SETUP-API-013**: `GET /api/v1/sources` shall report under `connections` whether posted readings are enabled, which is whether `SENSOR_TOKEN` is set, never the token.
 
 ## Stored credentials
 

@@ -4,6 +4,7 @@ use crate::datasources::OpenRouterClient;
 use crate::logic::data_sync::DataSyncService;
 use crate::logic::rules::RulesEngine;
 use crate::logic::weather_sync::fetcher::Fetcher;
+use crate::logic::weather_sync::posted::PostedLog;
 use crate::logic::weather_sync::schedule::Waker;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -29,6 +30,9 @@ pub struct AppState {
     /// Reaches the outside weather sources for what setup asks at once: a place search,
     /// a station list that is not loaded yet.
     pub weather: Option<Arc<Fetcher>>,
+    /// Present while `/api/v1/sensor-readings` is mounted: held for the length of each
+    /// request, so they are taken one at a time, and what has been logged about them.
+    pub sensor_readings: Option<Arc<tokio::sync::Mutex<PostedLog>>>,
 }
 
 impl AppState {
@@ -36,6 +40,22 @@ impl AppState {
     pub fn fetching(mut self, fetcher: Fetcher) -> Self {
         self.weather = Some(Arc::new(fetcher));
         self
+    }
+
+    /// The same state, taking posted sensor readings.
+    // @spec WX-SRC-POST-014
+    pub fn posting(mut self) -> Self {
+        self.sensor_readings = Some(Arc::new(tokio::sync::Mutex::new(PostedLog::default())));
+        self
+    }
+
+    /// The same state, taking posted sensor readings when `enabled`.
+    pub fn posting_when(self, enabled: bool) -> Self {
+        if enabled {
+            self.posting()
+        } else {
+            self
+        }
     }
 
     /// The same state, able to wake the weather fetch schedule.
@@ -62,6 +82,7 @@ impl AppState {
             clock,
             weather_waker: None,
             weather: None,
+            sensor_readings: None,
         }
     }
 }

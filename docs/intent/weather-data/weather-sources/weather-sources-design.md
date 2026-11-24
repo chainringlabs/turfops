@@ -183,14 +183,34 @@ mapping is made in the app and stored there.
   backup cannot write over newer readings; one stamped more than 5 minutes in the future is
   refused, as a posted reading is, so a clock running ahead cannot keep a value looking
   current.
-- **Posted readings.** `POST /api/v1/sensor-readings` accepts one or more readings: sensor
-  name, value, unit, and optionally the time observed (default: now). The route exists only
-  when `SENSOR_TOKEN` is set and requires it as a bearer token. A reading for a sensor that is
-  not mapped, in a unit the input does not accept, outside the plausibility range, or dated
-  more than 5 minutes in the future is rejected with a message naming the problem and the rest
-  of the batch is stored. The answer is 200, listing what was stored and what was rejected,
-  when anything was stored, and 400 when nothing was, so a sender that retries on an error
-  never re-sends readings that were accepted.
+- **Posted readings.** `POST /api/v1/sensor-readings` accepts one or more readings as
+  `{"readings": [{"sensor": "Garden probe", "value": 61.2, "unit": "°F", "observed_at":
+  "2026-11-24T15:00:00Z"}]}`; `observed_at` is optional and defaults to when the request
+  arrived. The route exists only when `SENSOR_TOKEN` is set and requires it as a bearer token;
+  without it, or with a wrong one, the answer is 401 and nothing is stored. A reading names its
+  sensor by the name it was mapped under, matched without regard to case or surrounding space,
+  and only sensors mapped for posted readings take them: a name that belongs to a Home Assistant
+  sensor is refused, because two ways in would interleave one sensor's readings. Each sensor's
+  readings in a request are taken oldest first, whatever order they were sent in, so a hub that
+  buffered readings while offline builds a counter's rises correctly. A posted reading is then
+  judged as a Home Assistant one is (units, plausibility, the 5-minute limit on future times, the
+  rain rules, the previous reading), so the two ways in cannot drift apart. A reading not later
+  than the sensor's previous reading is *unchanged*: not stored and not an error, so a sender
+  resending a batch that was already accepted is told so rather than failed. Any other problem
+  rejects that reading with a message naming the sensor and the problem, and the rest of the
+  request is stored. Problems of one reading include a value that is not a number, a missing
+  unit (an empty one is a unit, which only soil moisture as a fraction accepts), a name more
+  than one mapped sensor has, and a time with no UTC offset, which would otherwise be guessed
+  hours wrong. A body that is not a non-empty `readings` list fails the whole request. The
+  answer lists what was stored, what was unchanged and what was rejected; it is 200 unless
+  every reading was rejected, and 400 then. Readings are stored whether or not the lawn has a
+  location yet, so a hub set up first loses nothing. Requests are taken one at a time: two at
+  once for the same rain counter would each measure its rise from the same previous reading.
+- **Status.** Each posted sensor's outcome is its source status, as for a Home Assistant
+  sensor: an accepted or unchanged reading is a success, a rejected one a failure carrying the
+  message. The first reading a sensor has accepted since the server started is logged at INFO;
+  a rejection is logged at WARN once until that sensor next accepts one, so a misconfigured hub
+  posting every minute does not flood the log.
 - **Units** are converted from what the sensor declares: °C or °F; mm or inches; percent or
   fraction for soil moisture.
 - **Rain** is mapped as one of two kinds. A *counter* reports a running total; the amount is
@@ -302,6 +322,10 @@ a station id or a point as an argument and read no setting at all.
 | Forecast slot length | Carried on each point; `hours_covered` is the sum | Assume 3 h | Providers differ, and a day's coverage must mean the same thing for each. |
 | A quantity a provider lacks | `None` | Zero | "No rain forecast" and "rain not forecast this far out" lead to different advice. |
 | Provider not usable | Forecast off, reason shown | Fall back to the default provider | The owner chose a provider; answering from another without saying so breaks "every answer names its basis". |
+| Posted request body | `{"readings": [...]}`, one shape for one reading or many | A bare reading or a bare array as well | One shape is one thing to document and show in setup; a list of one costs a sender nothing. |
+| A posted reading not newer than the sensor's previous one | Unchanged: not stored, not an error | Rejected; stored over the earlier reading | A sender that resends an accepted batch after a lost response would otherwise be failed and retry forever; storing it would let an old reading rewrite a counter's starting point. |
+| Matching a posted reading to its sensor | By name, case and surrounding space ignored, among sensors mapped for posted readings | By sensor id; by name among every sensor | A hub is configured by a person who reads the name in the app; an id is opaque. A Home Assistant sensor already has a way in. |
+| Logging posted readings | INFO for a sensor's first accepted reading after a start; WARN for a rejection once until the sensor next accepts one | Every request; nothing | The owner needs to see a new hub working without a line a minute; a hub that keeps sending a bad unit says so once. |
 | Posted readings | A bearer-guarded route, mounted only with `SENSOR_TOKEN` | Open to the local network; MQTT; a plug-in per hub | The product must not require Home Assistant (HLD tenet: the product stands alone), and an HTTP POST is what every hub and script can make. A write route with no guard would let anything on the network alter the lawn's record. |
 | Home Assistant reading time | The entity's `last_reported`, else `last_updated` | The server clock at read time; `last_updated` alone | A stuck sensor otherwise looks current forever. `last_updated` moves only when the value changes, so a rain counter in a dry week or a steady soil probe would look dead. |
 | Home Assistant units | Read from the entity | A unit setting per entity | The entity already declares it; a setting can only disagree with it. |

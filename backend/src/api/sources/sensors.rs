@@ -6,6 +6,7 @@ use super::write::{input_named, replanned};
 use crate::datasources::sensor_units::mappable;
 use crate::db::setup_queries::{self, NewSensor, RainKind, Sensor, WayIn};
 use crate::error::TurfOpsError;
+use crate::logic::weather_sync::posted::same_name;
 use crate::models::weather_record::Input;
 use crate::state::AppState;
 use axum::extract::{Path, State};
@@ -100,6 +101,21 @@ fn mapping(
     Ok((input, kind))
 }
 
+/// Refuses a name one of `others` already has: a posted reading finds its sensor by name.
+// @spec SETUP-MAP-012
+fn name_is_free<'a>(
+    mut others: impl Iterator<Item = &'a Sensor>,
+    name: &str,
+) -> Result<(), TurfOpsError> {
+    match others.find(|sensor| same_name(&sensor.name, name)) {
+        None => Ok(()),
+        Some(taken) => Err(TurfOpsError::Conflict(format!(
+            "{} already has that name. Give this sensor another one.",
+            taken.name
+        ))),
+    }
+}
+
 /// Refuses an entity that is already mapped to another input.
 // @spec SETUP-MAP-008
 fn entity_is_free(
@@ -124,6 +140,7 @@ fn entity_is_free(
 
 /// Maps a sensor to an input.
 // @spec SETUP-API-009, SETUP-MAP-005, SETUP-MAP-007, SETUP-MAP-008, SETUP-MAP-010, SETUP-API-010
+// @spec SETUP-MAP-012
 pub async fn post_sensor(
     State(state): State<AppState>,
     Json(request): Json<MappingRequest>,
@@ -140,6 +157,8 @@ pub async fn post_sensor(
         .filter(|id| !id.is_empty());
     let mapped = setup_queries::sensors(&state.pool).await?;
     entity_is_free(&mapped, entity_id, input)?;
+    // The sensor this one would replace gives up its name with its input.
+    name_is_free(mapped.iter().filter(|sensor| sensor.input != input), name)?;
     if let Some(id) = entity_id {
         let checked = check(&state, id, input).await?;
         if let Some(problem) = checked.blocking.first() {
@@ -178,7 +197,7 @@ pub struct ChangeRequest {
 }
 
 /// Renames a sensor or maps it to another input.
-// @spec SETUP-API-009, SETUP-API-010
+// @spec SETUP-API-009, SETUP-API-010, SETUP-MAP-012
 pub async fn put_sensor(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -190,6 +209,7 @@ pub async fn put_sensor(
     }
     let (input, rain_kind) = mapping(&request.input, request.rain_kind.as_deref())?;
     let mapped = setup_queries::sensors(&state.pool).await?;
+    name_is_free(mapped.iter().filter(|sensor| sensor.id != id), name)?;
     if let Some(holder) = mapped.iter().find(|s| s.input == input && s.id != id) {
         return Err(TurfOpsError::Conflict(format!(
             "{} already supplies {}. Unmap it first.",
