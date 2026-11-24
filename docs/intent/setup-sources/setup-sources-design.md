@@ -125,7 +125,7 @@ The location is a field of the lawn profile (applications). Setup saves it throu
 | Table | Holds |
 |---|---|
 | `weather_setting` | The forecast provider. No row means the default, Open-Meteo. (The installation's fetch minute and the lawn's elevation are kept with the lawn profile.) |
-| `sensor` | Name, way in (Home Assistant entity or posted), entity id, input, depth, rain kind, when mapped and unmapped |
+| `sensor` | Name, way in (Home Assistant entity or posted), entity id, input, depth, rain kind, when mapped and unmapped, and its previous reading (weather sources) |
 | `station_pin` | Input and the pinned station |
 | `service_credential` | Service (Home Assistant, OpenWeatherMap), address, secret, when set |
 

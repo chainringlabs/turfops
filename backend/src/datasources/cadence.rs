@@ -25,7 +25,7 @@ pub enum Product {
 
 impl Product {
     /// The name the record keeps a fetch under.
-    pub fn as_str(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Product::StationHours => "station_hours",
             Product::CalibrationDays => "calibration_days",

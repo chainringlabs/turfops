@@ -129,8 +129,9 @@ fn rain_name(kind: Option<RainKind>) -> Option<&'static str> {
     })
 }
 
-/// Changes a mapped sensor's name and what it is mapped to. `None` when no mapped
-/// sensor has that id.
+/// Changes a mapped sensor's name and what it is mapped to; a change of input or rain
+/// kind discards its previous reading. `None` when no mapped sensor has that id.
+// @spec WX-SRC-HA-012
 pub async fn change_sensor(
     pool: &PgPool,
     id: i64,
@@ -139,7 +140,12 @@ pub async fn change_sensor(
     rain_kind: Option<RainKind>,
 ) -> Result<Option<Sensor>> {
     let row: Option<SensorRow> = sqlx::query_as(
-        "UPDATE sensor SET name = $2, input = $3, rain_kind = $4 \
+        // A value in one input's units says nothing about another's (WX-SRC-HA-012).
+        "UPDATE sensor SET name = $2, input = $3, rain_kind = $4, \
+           previous_value = CASE WHEN input = $3 AND rain_kind IS NOT DISTINCT FROM $4 \
+                            THEN previous_value END, \
+           previous_at = CASE WHEN input = $3 AND rain_kind IS NOT DISTINCT FROM $4 \
+                         THEN previous_at END \
          WHERE id = $1 AND unmapped_at IS NULL \
          RETURNING id, name, way_in, entity_id, input, rain_kind",
     )

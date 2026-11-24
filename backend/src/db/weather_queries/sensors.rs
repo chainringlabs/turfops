@@ -4,7 +4,7 @@
 use crate::error::{Result, TurfOpsError};
 use crate::models::weather_record::Input;
 use chrono::{DateTime, Duration, DurationRound, Utc};
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 
 /// Raw readings older than this are dropped; the hourly rows they made stay.
 pub const READINGS_KEPT: Duration = Duration::days(7);
@@ -60,31 +60,44 @@ pub async fn record_reading(
     observed_at: DateTime<Utc>,
     value: f64,
 ) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    let reading = NewReading {
+        source_id,
+        input,
+        observed_at,
+        value,
+    };
+    record_in(&mut tx, &reading).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+async fn record_in(conn: &mut PgConnection, reading: &NewReading) -> Result<()> {
+    let input = reading.input;
     let fold = fold_statement(input).ok_or_else(|| {
         TurfOpsError::Internal(format!("a sensor cannot be mapped to {}", input.as_str()))
     })?;
-    let hour = observed_at
+    let hour = reading
+        .observed_at
         .duration_trunc(Duration::hours(1))
         .map_err(|e| TurfOpsError::Internal(format!("reading time: {e}")))?;
-    let mut tx = pool.begin().await?;
     sqlx::query(
         r#"INSERT INTO weather_sensor_reading (source_id, input, observed_at, value)
            VALUES ($1, $2, $3, $4)
            ON CONFLICT (source_id, input, observed_at) DO UPDATE SET value = EXCLUDED.value"#,
     )
-    .bind(source_id)
+    .bind(reading.source_id)
     .bind(input.as_str())
-    .bind(observed_at)
-    .bind(value)
-    .execute(&mut *tx)
+    .bind(reading.observed_at)
+    .bind(reading.value)
+    .execute(&mut *conn)
     .await?;
     sqlx::query(fold)
-        .bind(source_id)
+        .bind(reading.source_id)
         .bind(input.as_str())
         .bind(hour)
-        .execute(&mut *tx)
+        .execute(&mut *conn)
         .await?;
-    tx.commit().await?;
     Ok(())
 }
 
@@ -112,4 +125,50 @@ pub async fn latest_reading(
     .bind(input.as_str())
     .fetch_optional(pool)
     .await?)
+}
+
+/// A reading to store under a sensor's source.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NewReading {
+    pub source_id: i64,
+    pub input: Input,
+    pub observed_at: DateTime<Utc>,
+    pub value: f64,
+}
+
+/// A sensor's previous reading: its value in record units and its reported time.
+// @spec WX-SRC-HA-011
+pub async fn previous_reading(
+    pool: &PgPool,
+    sensor_id: i64,
+) -> Result<Option<(f64, DateTime<Utc>)>> {
+    let row: Option<(Option<f64>, Option<DateTime<Utc>>)> =
+        sqlx::query_as("SELECT previous_value, previous_at FROM sensor WHERE id = $1")
+            .bind(sensor_id)
+            .fetch_optional(pool)
+            .await?;
+    Ok(row.and_then(|(value, at)| Some((value?, at?))))
+}
+
+/// Keeps `previous` as the sensor's previous reading and stores `reading`, if any, in one
+/// step, so a counter's rise is never counted twice.
+// @spec WX-SRC-HA-011
+pub async fn keep_reading(
+    pool: &PgPool,
+    sensor_id: i64,
+    previous: (f64, DateTime<Utc>),
+    reading: Option<NewReading>,
+) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    if let Some(reading) = &reading {
+        record_in(&mut tx, reading).await?;
+    }
+    sqlx::query("UPDATE sensor SET previous_value = $2, previous_at = $3 WHERE id = $1")
+        .bind(sensor_id)
+        .bind(previous.0)
+        .bind(previous.1)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(())
 }
