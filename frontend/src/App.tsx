@@ -13,6 +13,7 @@ const Landscape = lazy(() => import("./pages/Landscape"));
 const Recommendations = lazy(() => import("./pages/Recommendations"));
 // @spec SOIL-UI-001
 const SoilTests = lazy(() => import("./pages/SoilTests"));
+const Sources = lazy(() => import("./pages/Sources"));
 const SeasonalPlan = lazy(() => import("./pages/SeasonalPlan"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Timing = lazy(() => import("./pages/Timing"));
@@ -107,6 +108,7 @@ export default function App() {
 							<Route path="timing" element={<Timing />} />
 							<Route path="soil-tests" element={<SoilTests />} />
 							<Route path="seasonal-plan" element={<SeasonalPlan />} />
+							<Route path="sources" element={<Sources />} />
 							<Route path="settings" element={<Settings />} />
 							<Route path="*" element={<NotFound />} />
 						</Route>

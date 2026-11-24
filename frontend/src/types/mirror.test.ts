@@ -1,10 +1,14 @@
 // The hand-written mirror of the Rust models, checked against the Rust source (runtime) and
 // against its own declared shapes (compile time: `tsc -b` type-checks this file).
 import { describe, expect, expectTypeOf, it } from "vitest";
+import sourcesViewRs from "../../../backend/src/api/sources/view.rs?raw";
+import scoresRs from "../../../backend/src/logic/soil_estimate/scores.rs?raw";
 import applicationRs from "../../../backend/src/models/application.rs?raw";
+import forecastRs from "../../../backend/src/models/forecast.rs?raw";
 import lawnProfileRs from "../../../backend/src/models/lawn_profile.rs?raw";
 import plantRs from "../../../backend/src/models/plant.rs?raw";
 import recommendationRs from "../../../backend/src/models/recommendation.rs?raw";
+import weatherBasisRs from "../../../backend/src/models/weather_basis.rs?raw";
 import type {
 	Application,
 	ApplicationType,
@@ -23,6 +27,12 @@ import {
 	SEVERITY_COLORS,
 	SEVERITY_SYMBOLS,
 } from ".";
+import type { Calibration, Direction } from "./sources";
+import {
+	BASIS_KIND_LABELS,
+	FORECAST_PROVIDER_NAMES,
+	STANDING_LABELS,
+} from "./sources";
 
 /** The variant names of `pub enum <name>` in a Rust source file. */
 function rustVariants(source: string, name: string): string[] {
@@ -47,12 +57,25 @@ describe("type mirror", () => {
 			[applicationRs, "ApplicationType", APPLICATION_TYPE_LABELS],
 			[recommendationRs, "Severity", SEVERITY_COLORS],
 			[plantRs, "PlantType", PLANT_TYPE_LABELS],
+			[forecastRs, "ForecastProvider", FORECAST_PROVIDER_NAMES],
+			[weatherBasisRs, "BasisKind", BASIS_KIND_LABELS],
+			[sourcesViewRs, "Standing", STANDING_LABELS],
 		];
 		for (const [source, name, map] of cases) {
 			expect(Object.keys(map).sort(), name).toEqual(
 				rustVariants(source, name).sort(),
 			);
 		}
+		expectTypeOf<Direction>().toEqualTypeOf<"Rising" | "Falling">();
+		expect(rustVariants(scoresRs, "Direction").sort()).toEqual([
+			"Falling",
+			"Rising",
+		]);
+		expectTypeOf<Calibration>().toEqualTypeOf<"NearestFive" | "StationAlone">();
+		expect(rustVariants(scoresRs, "Calibration").sort()).toEqual([
+			"NearestFive",
+			"StationAlone",
+		]);
 		expectTypeOf<SoilType>().toEqualTypeOf<
 			"Clay" | "Loam" | "Sandy" | "SiltLoam" | "ClayLoam" | "SandyLoam"
 		>();

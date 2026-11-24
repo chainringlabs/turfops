@@ -16,7 +16,7 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 
 ## Navigation
 
-- [ ] **UI-NAV-001**: The web UI sidebar shall be a navigation landmark labelled "Main navigation" with the "TurfOps" wordmark and thirteen links in this order: Dashboard, Applications, Inventory, Landscape, Calendar, Environmental, Recommendations, Disease Risk, Seed & Pre-Em Timing, Soil Tests, Seasonal Plan, Sources, Settings.
+- [x] **UI-NAV-001**: The web UI sidebar shall be a navigation landmark labelled "Main navigation" with the "TurfOps" wordmark and thirteen links in this order: Dashboard, Applications, Inventory, Landscape, Calendar, Environmental, Recommendations, Disease Risk, Seed & Pre-Em Timing, Soil Tests, Seasonal Plan, Sources, Settings.
 - [x] **UI-NAV-002**: The web UI sidebar shall mark the active link by bold weight as well as color and background, and shall mark the Dashboard link active only on `/` itself.
 - [ ] **UI-NAV-003**: While the browser viewport is too narrow for the 220 px web UI sidebar beside the page (phone width), the web UI shall collapse the sidebar into a narrow-screen layout that gives the page the full width and keeps all thirteen nav links reachable from a menu control inside the "Main navigation" landmark.
 

@@ -17,6 +17,7 @@ const NAV_LABELS = [
 	"Seed & Pre-Em Timing",
 	"Soil Tests",
 	"Seasonal Plan",
+	"Sources",
 	"Settings",
 ];
 
@@ -55,7 +56,7 @@ afterEach(() => {
 
 describe("sidebar", () => {
 	// @spec UI-NAV-001
-	it("is the Main navigation landmark with the wordmark and twelve links in order", () => {
+	it("is the Main navigation landmark with the wordmark and thirteen links in order", () => {
 		viewport(false);
 		renderAt("/");
 		const nav = screen.getByRole("navigation", { name: "Main navigation" });
@@ -96,7 +97,7 @@ describe("sidebar", () => {
 	});
 
 	// @spec UI-NAV-003
-	it("collapses to a menu inside the landmark at phone width, with all twelve links", async () => {
+	it("collapses to a menu inside the landmark at phone width, with all thirteen links", async () => {
 		viewport(true);
 		renderAt("/applications");
 		const nav = screen.getByRole("navigation", { name: "Main navigation" });

@@ -8,7 +8,7 @@ use crate::db::soil_estimate_queries;
 use crate::db::weather_queries::plan;
 use crate::error::TurfOpsError;
 use crate::logic::soil_estimate::fit::StoredFit;
-use crate::logic::soil_estimate::scores::{self, Calibration};
+use crate::logic::soil_estimate::scores::{self, Calibration, CrossingAccuracy};
 use crate::logic::weather_record::live::LiveReading;
 use crate::logic::weather_record::record::{Asked, WeatherRecord};
 use crate::logic::weather_sync::AGE_LIMITS;
@@ -46,6 +46,9 @@ pub struct EstimateAccuracy {
     /// Root-mean-square daily error, °F.
     pub typical_error_f: f64,
     pub fitted_on: Calibration,
+    /// Each crossing scored at the depth under that calibration, and whether the
+    /// estimate may date it.
+    pub crossings: Vec<CrossingAccuracy>,
 }
 
 #[derive(Debug, Serialize)]
@@ -158,7 +161,7 @@ async fn input_views(
 }
 
 /// The published daily error of a fit's depth under what it was fitted on.
-// @spec WX-EST-SCORE-003
+// @spec WX-EST-SCORE-003, SETUP-API-014
 fn accuracy_of(fit: &StoredFit) -> Option<EstimateAccuracy> {
     let depth = fit.depth_cm as u32;
     let found = scores::embedded()
@@ -168,6 +171,7 @@ fn accuracy_of(fit: &StoredFit) -> Option<EstimateAccuracy> {
     Some(EstimateAccuracy {
         typical_error_f: found.rmse_f,
         fitted_on: fit.calibration,
+        crossings: scores::embedded().crossings_at(depth, fit.calibration),
     })
 }
 

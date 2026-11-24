@@ -50,14 +50,17 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 
 ## The Sources page
 
-- [ ] **SETUP-PAGE-001**: The Sources page (`/sources`, in the navigation as "Sources") shall show, for each input, the basis in use with the shared basis label, the sources that stand behind it in order, and the newest value with the time it was observed.
-- [ ] **SETUP-PAGE-002**: For an input whose basis is an estimate, the Sources page shall state the estimate's scored accuracy in plain words and any crossing it may not date, taking both from the soil estimate's published figures.
-- [ ] **SETUP-PAGE-003**: For an input with no source, the Sources page shall say that nothing measures it at this location and what would.
-- [ ] **SETUP-PAGE-004**: The Sources page shall list every source in use with its name, kind, the inputs it speaks for, its last successful fetch, its last failure with that failure's owner sentence, the history held against wanted, and its attribution, with failing sources first.
+- [x] **SETUP-PAGE-001**: The Sources page (`/sources`, in the navigation as "Sources") shall show, for each input, the basis in use with the shared basis label, the sources that stand behind it in order, and the newest value with the time it was observed.
+- [x] **SETUP-PAGE-002**: For an input whose basis is an estimate, the Sources page shall state the estimate's scored accuracy in plain words and any crossing it may not date, taking both from the soil estimate's published figures.
+- [x] **SETUP-PAGE-003**: For the inputs with no source, the Sources page shall say in one line per group which inputs nothing measures at this location and what would.
+- [x] **SETUP-PAGE-004**: The Sources page shall list every source in use with its name, kind, the inputs it speaks for, its last successful fetch, its last failure with that failure's owner sentence, the history held against wanted, and its attribution, with failing sources first.
 - [ ] **SETUP-PAGE-005**: The Sources page shall show the state of the Home Assistant connection (connected or not set up), the forecast provider, and whether posted readings are enabled, each with a way to test and change it where it can be changed.
 - [ ] **SETUP-PAGE-006**: The Sources page shall show the lawn's place, coordinates and timezone, and before a change of location is saved shall warn that station and grid history for the old point will be replaced and reloaded and that sensor history is kept.
-- [ ] **SETUP-PAGE-008**: The Sources page shall credit the timezone boundary data to OpenStreetMap contributors under the Open Database License.
+- [x] **SETUP-PAGE-008**: The Sources page shall credit the timezone boundary data to OpenStreetMap contributors under the Open Database License.
 - [ ] **SETUP-PAGE-007**: From each input on the Sources page, the owner shall be able to pin or unpin a station and map or unmap a sensor.
+- [x] **SETUP-PAGE-009**: The Sources page shall group the inputs as air, soil temperature and soil moisture, and shall show each newest value in °F, percent (humidity and soil moisture) or inches (rain), with the time it was observed in the lawn's timezone and how long ago that was.
+- [x] **SETUP-PAGE-010**: The Sources page shall order the sources failing first and then by kind (sensors, stations, grids, the hourly analysis, the estimate), and shall show a source's history as "Complete" when everything wanted is held, as the years held against the years wanted while it is not, and as nothing for a sensor.
+- [x] **SETUP-PAGE-011**: While the lawn has no location, the Sources page shall say so in place of the inputs.
 
 ## The endpoints
 
@@ -73,6 +76,7 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [ ] **SETUP-API-010**: After a write that changes a pin, a sensor mapping, the forecast provider or the Home Assistant connection, the system shall have the weather record rebuild its basis plan and wake the fetch schedule before it responds.
 - [x] **SETUP-API-012**: `POST /api/v1/setup/apply` shall save, all or none, whichever of a location, a set of pins and a forecast provider the request carries, the set of pins replacing those held and each pin judged from the location being saved; it shall then have the weather record rebuild its basis plan once and wake the fetch schedule once, before it responds with the sources as they then stand.
 - [x] **SETUP-API-013**: `GET /api/v1/sources` shall report under `connections` whether posted readings are enabled, which is whether `SENSOR_TOKEN` is set, never the token.
+- [x] **SETUP-API-014**: For an input the soil estimate stands behind, `GET /api/v1/sources` shall give the estimate's daily error and, for each crossing scored at that input's depth under the calibration the estimate was fitted on, its threshold, direction, median and one-in-five error in days, and whether the estimate may date it (WX-EST-DATE-001).
 
 ## Stored credentials
 

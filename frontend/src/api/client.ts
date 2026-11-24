@@ -31,6 +31,7 @@ import type {
 	StockStatus,
 } from "../types/inventory";
 import { factsOf } from "../types/inventory";
+import type { SourcesView } from "../types/sources";
 import type { TimingResponse } from "../types/timing";
 import { ApiError, sentenceForStatus } from "./errors";
 
@@ -241,6 +242,10 @@ export const patchRecommendation = (
 // GDD
 export const getDiseaseRisk = (signal?: AbortSignal) =>
 	fetchJson<DiseaseRiskResponse>(`${BASE}/disease-risk`, { signal });
+
+// @spec SETUP-PAGE-001
+export const getSources = (signal?: AbortSignal) =>
+	fetchJson<SourcesView>(`${BASE}/sources`, { signal });
 
 export const getTimingWindows = (signal?: AbortSignal) =>
 	fetchJson<TimingResponse>(`${BASE}/timing-windows`, { signal });

@@ -17,8 +17,8 @@ Containerized web application for tracking lawn care activities with data-driven
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (1,183 tests; no database needed)
-- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,488 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
+- `cd backend && cargo test` — Run tests (1,184 tests; no database needed)
+- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,489 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
 - `cd backend && cargo run --release --features scoring -- score-estimate --cache <dir> --out src/logic/soil_estimate/scores.json` — Re-score the soil estimate against USCRN (downloads about 1,900 public files into `<dir>` on first run; re-run when the model, the calibration rule or a consumer's crossing rule changes)
 - `cd backend && cargo test live_ -- --ignored --test-threads=1` — One real request to each outside weather source (NOAA, RCC-ACIS, USDA, Open-Meteo, National Weather Service), to confirm the parsers still match what the services send; not part of the suite
 - `cd backend && DATABASE_URL=… cargo test --features db-tests live_schedule -- --ignored` — The fetch schedule's first passes for a new lawn against the real services, into the test database; not part of the suite
@@ -58,11 +58,11 @@ turfops/
 │       └── datasources/         # WeatherLake (DuckDB/parquet), HomeAssistant, OpenWeatherMap, OpenRouter (openrouter/plant.rs + product.rs = prompts + strict JSON schemas)
 ├── frontend/
 │   └── src/
-│       ├── App.tsx              # React Router, 14 routes + wildcard
+│       ├── App.tsx              # React Router, 15 routes + wildcard
 │       ├── api/client.ts        # Fetch wrapper for all API endpoints
 │       ├── types/               # TypeScript interfaces matching Rust models (index.ts; disease.ts for disease risk; timing.ts for timing windows; inventory.ts + inventoryTargets.ts for products)
-│       ├── pages/               # Dashboard, Applications, Inventory, Landscape, Calendar, Environmental, Recommendations, DiseaseRisk, Timing, SoilTests, SeasonalPlan, Settings
-│       └── components/          # Layout, Gauge, AlertCard, ProductPicker (application form ↔ shelf), InventoryBadge (on hand / need to buy chip), TrendChart, GddWidget, NitrogenBudgetWidget, SoilTempForecastWidget, PredictionChart, disease/ (TierBadge, RiskMeter, DailyRiskChart, DiseaseDetail, ManagementPanel, DiseaseRiskWidget), timing/ (StateBadge, WindowTimeline, WindowCard, SoilSeasonChart, SoilSeasonTable, TimingMethod, TimingWidget), inventory/ (StockBadge, AddProductForm, EditProductForm, CategoryFields, ProductRow, ProductDetails, LogSuggestions, ShoppingListPanel, useProductActions)
+│       ├── pages/               # Dashboard, Applications, Inventory, Landscape, Calendar, Environmental, Recommendations, DiseaseRisk, Timing, SoilTests, SeasonalPlan, Sources, Settings
+│       └── components/          # Layout, Gauge, AlertCard, ProductPicker (application form ↔ shelf), InventoryBadge (on hand / need to buy chip), TrendChart, GddWidget, NitrogenBudgetWidget, SoilTempForecastWidget, PredictionChart, disease/ (TierBadge, RiskMeter, DailyRiskChart, DiseaseDetail, ManagementPanel, DiseaseRiskWidget), timing/ (StateBadge, WindowTimeline, WindowCard, SoilSeasonChart, SoilSeasonTable, TimingMethod, TimingWidget), sources/ (BasisLabel = shared basis label with mark, InputCard, SourcesTable, display.ts), inventory/ (StockBadge, AddProductForm, EditProductForm, CategoryFields, ProductRow, ProductDetails, LogSuggestions, ShoppingListPanel, useProductActions)
 ├── Dockerfile                   # Multi-stage: Node → Rust → slim runtime
 └── docker-compose.yml           # app + PostgreSQL 18
 ```

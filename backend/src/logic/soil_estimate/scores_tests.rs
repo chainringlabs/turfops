@@ -115,3 +115,37 @@ fn the_embedded_file_gives_the_daily_error_at_both_depths_and_calibrations() {
         }
     }
 }
+
+// @spec SETUP-API-014
+#[test]
+fn the_crossings_at_a_depth_under_a_calibration_say_whether_each_may_be_dated() {
+    let rows = [
+        row(55.0, "NearestFive", 2.0, 6.0),
+        row(70.0, "NearestFive", 8.0, 6.0),
+        row(45.0, "StationAlone", 1.0, 6.0),
+    ]
+    .join(",");
+    let scores = file(&rows);
+    let got = scores.crossings_at(5, Calibration::NearestFive);
+    assert_eq!(
+        got,
+        vec![
+            CrossingAccuracy {
+                threshold_f: 55.0,
+                direction: Direction::Rising,
+                median_days: 2.0,
+                p80_days: 13.0,
+                datable: true,
+            },
+            CrossingAccuracy {
+                threshold_f: 70.0,
+                direction: Direction::Rising,
+                median_days: 8.0,
+                p80_days: 13.0,
+                datable: false,
+            },
+        ],
+        "only this calibration's crossings, in threshold order"
+    );
+    assert!(scores.crossings_at(10, Calibration::NearestFive).is_empty());
+}
