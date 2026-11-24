@@ -1,11 +1,12 @@
 // Setup: the steps that tell TurfOps where the lawn is and what to read for it. The step
 // is in the address, so the Sources page can open the one it means.
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { getPreview, getSources } from "../api/client";
 import { describeError } from "../api/errors";
 import FoundStep from "../components/setup/FoundStep";
 import LocationStep from "../components/setup/LocationStep";
+import SensorsStep from "../components/setup/SensorsStep";
 import { sharedStyles } from "../styles/shared";
 import type { ChosenPoint, Pins } from "../types/setup";
 import type { SourcesView } from "../types/sources";
@@ -13,6 +14,7 @@ import type { SourcesView } from "../types/sources";
 const STEPS = [
 	{ id: "location", title: "Location" },
 	{ id: "found", title: "What we found" },
+	{ id: "sensors", title: "Your sensors" },
 ] as const;
 
 /** The pins stored for each input. */
@@ -24,9 +26,12 @@ function storedPins(view: SourcesView): Pins {
 	);
 }
 
-// @spec SETUP-FLOW-002, SETUP-FLOW-004
+// @spec SETUP-FLOW-002, SETUP-FLOW-004, SETUP-FLOW-006
 export default function Setup() {
 	const [params, setParams] = useSearchParams();
+	const navigate = useNavigate();
+	/** Whether the location and what we found were saved on this visit. */
+	const [saved, setSaved] = useState(false);
 	const [stored, setStored] = useState<SourcesView | null>(null);
 	const [chosen, setChosen] = useState<ChosenPoint | null>(null);
 	const [pins, setPins] = useState<Pins>({});
@@ -63,8 +68,27 @@ export default function Setup() {
 	if (error) return <div style={sharedStyles.error}>{error}</div>;
 	if (!stored) return <div style={sharedStyles.loading}>Loading setup…</div>;
 
-	// A later step needs a point; without one, setup starts at the location.
-	const step = params.get("step") === "found" && chosen ? "found" : "location";
+	// What we found needs a point; without one, setup starts at the location. Your
+	// sensors needs none.
+	const asked = params.get("step");
+	const step =
+		asked === "sensors"
+			? "sensors"
+			: asked === "found" && chosen
+				? "found"
+				: "location";
+
+	// Opened on one step from the Sources page, setup goes back there after it;
+	// walked through, it goes on.
+	function foundSaved() {
+		if (openedOn === "found") {
+			navigate("/sources", { state: { saved: true } });
+			return;
+		}
+		setSaved(true);
+		setParams({ step: "sensors" });
+	}
+	const done = () => navigate("/sources", { state: { saved } });
 
 	function next(point: ChosenPoint) {
 		const at = stored?.location;
@@ -99,6 +123,12 @@ export default function Setup() {
 						provider={stored.forecast_provider}
 						keyStored={stored.connections.openweathermap_key}
 						onBack={() => setParams({ step: "location" })}
+						onSaved={foundSaved}
+					/>
+				) : step === "sensors" ? (
+					<SensorsStep
+						postedEnabled={stored.connections.posted_readings}
+						onDone={done}
 					/>
 				) : (
 					<LocationStep stored={stored.location} onNext={next} />

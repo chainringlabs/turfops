@@ -45,9 +45,9 @@ The basis plan the weather record would build for this point, counting the senso
 
 ### 3. Your sensors (optional)
 
-**Connect Home Assistant.** Address and a long-lived access token, then Test, which makes one real request and reports what answered and how many sensor entities it has. When a connection is already stored, the step shows it as connected, with Change, and goes straight to the list.
+**Connect Home Assistant.** Address and a long-lived access token, then Test, which makes one real request and reports what answered and how many sensor entities it has. Save stores the connection, and is offered only once a Test of the same address and token has answered, so a mistyped token is never stored. When a connection is already stored, the step shows it as connected, with Change, and goes straight to the list. Forget removes the stored connection after a confirmation saying that its sensors stop being read; their mappings and history are kept.
 
-**Pick and map.** Numeric sensor entities are listed with friendly name, current value, unit and last update; those whose device class is temperature, humidity, moisture or precipitation come first, and a search box filters the rest.
+**Pick and map.** Numeric sensor entities are listed with friendly name, current value, unit and last update; those whose device class is temperature, humidity, moisture or precipitation come first, and a search box filters the rest. Map opens a form under the entity: the name (the friendly name to start with), the input (the suggestion to start with), and for rain whether it is a counter or an amount.
 
 | Entity looks like | The app suggests | The owner confirms |
 |---|---|---|
@@ -61,7 +61,9 @@ Soil depth is chosen from the record's five depths; the owner picks the one near
 
 **Check.** Before a mapping is saved the step shows the sensor's current value, converted, beside the value the lawn would otherwise use for that input, with its basis: "Your sensor 61 °F · Estimated for your location 58 °F". A value outside the plausible range for the input, a unit the input does not accept, or a reading older than the input's age limit (data sync: 1 hour for air and humidity, 6 hours for soil; rain has none) is called out, and the last two prevent saving.
 
-**Sensors that are not in Home Assistant.** The owner names a sensor and its input; the step then shows the exact request to send readings to it. It needs `SENSOR_TOKEN` to be set, and says so when it is not.
+**Sensors that are not in Home Assistant.** The owner names a sensor and its input; the step then shows the exact request to send readings to it, addressed to this server and with `$SENSOR_TOKEN` standing for the token, which the app never shows. It needs `SENSOR_TOKEN` to be set, and says so when it is not.
+
+**Mapped sensors.** The step lists the sensors mapped, each with its input and way in, and Unmap. Unmapping keeps the sensor's history, so it asks for no confirmation. Replacing a mapped sensor is confirmed in the step itself, naming both sensors.
 
 **Rules.** One sensor per input: mapping a second to the same input replaces the first after a confirmation naming both. One entity maps to one input. No two mapped sensors share a name, letter case and surrounding space aside, because a posted reading names its sensor; a sensor being replaced gives up its name to the one replacing it. Unmapping returns the input to its station or estimate and keeps the sensor's history.
 
@@ -86,13 +88,13 @@ Route `/sources`, in the navigation as "Sources".
 | Newest value and when it was observed | The live reading |
 | For an estimate: its scored accuracy in plain words ("typically within 2 to 3 days of a measured station for soil-temperature crossings; in one year in five, off by 12 days or more"), and what it may not date | The soil estimate's published figures |
 | For soil moisture with no source: that nothing measures it here and what would (a probe) | The basis plan |
-| Change: pin a station, map or unmap a sensor | Steps 2 and 3 of setup, opened in place |
+| Change: pin a station, map or unmap a sensor | Steps 2 and 3 of setup, opened on that step |
 
 Inputs are grouped as air (temperature, humidity, rain, the daily high and low), soil temperature by depth, and soil moisture by depth. Values are shown as the rest of the app shows them: °F, percent for humidity and soil moisture, inches for rain (the newest hour's amount). Each value carries the time it was observed in the lawn's timezone and how long ago that was. The estimate's accuracy reads, for example, "Daily values typically within 1.8 °F of a measured station. Crossing dates typically within 2 to 3 days; one year in five, off by 12 days or more. Not dated by the estimate: 70 °F falling." The range covers the crossings scored at that depth under the calibration the estimate was fitted on that it may date; the crossings it may not date are named. Inputs with no source are not given a card each: one line per group names them and what would measure them ("Nothing measures soil moisture at 20, 50 or 100 cm here; a probe you map as a sensor would"; for soil temperature, a station within 50 miles as well). Rain's newest value is the newest hour's amount, which is what the record holds. The daily error is worded as "typically within", not by its statistic. The basis label on this page does not link, since the page it would link to is this one. Connections and location show their state only until the setup steps they open exist: Home Assistant connected or not set up, the forecast provider's name, posted readings on or off with what turns them on; the place, the coordinates to four decimals, the timezone and the OpenStreetMap credit. The page loads once and does not poll. While the lawn has no location the page says so in place of the inputs, since none has a source.
 
-**By source.** A table of every source in use: name, kind, the inputs it speaks for, last successful fetch, last failure with the owner sentence, history held against wanted, and its attribution line. A source that is failing is at the top; the rest follow by kind (your sensors, stations, grids, the hourly analysis, the estimate). History reads "Complete" once everything wanted is held, "Loading: 2019–2026 of 2011–2026" while it arrives, and is left blank for a sensor, which keeps no history to download.
+**By source.** A table of every source in use: name, kind, the inputs it speaks for, last successful fetch, last failure with the owner sentence, history held against wanted, and its attribution line. A source that is failing is at the top; the rest follow by kind (your sensors, stations, grids, the hourly analysis, the estimate). History reads "Complete" once everything wanted is held, "Loading: 2019–2026 of 2011–2026" while it arrives, and is left blank for a sensor, which keeps no history to download. The inputs a source speaks for are listed in the page's order, soil depths together ("Air temperature, humidity, soil temperature at 5, 10 and 20 cm").
 
-**Connections.** Home Assistant (connected or not set up), the forecast provider, and whether posted readings are enabled, each with Test and Change.
+**Connections.** Home Assistant (connected or not set up), the forecast provider, and whether posted readings are enabled. Home Assistant has Test, which tries the stored connection in place, and Change, which opens Your sensors; the forecast provider has Change, which opens What we found; posted readings say what turns them on.
 
 **Location.** The place, coordinates and timezone, with Change, and the credit the timezone boundary data requires (© OpenStreetMap contributors, ODbL). Changing it warns that station and grid history for the old point will be replaced and reloaded, and that sensor history is kept.
 
@@ -118,7 +120,7 @@ All under `/api/v1`. Reads return the current state; writes return the state aft
 
 The location is a field of the lawn profile (applications). Setup saves it through `/setup/apply`; `PUT /profile` also accepts it.
 
-**After saving setup's location and what we found**, the owner returns to the Sources page, which says the new sources start downloading now and that history can take several minutes.
+**Where a step leads.** Walked through from the location step, saving What we found goes on to Your sensors, and leaving Your sensors (Done or Skip) returns to the Sources page. Opened from the Sources page on one step, setup returns there once that step is saved or left. After a save of the location and what we found, the Sources page says the new sources start downloading now and that history can take several minutes.
 
 **After any write** that changes what the record should use (a pin, a mapping, the provider, the Home Assistant connection) the record rebuilds its basis plan and the fetch schedule is woken, before the response.
 

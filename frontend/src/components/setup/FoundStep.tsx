@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
 import { applySetup, getPreview, getStations } from "../../api/client";
 import { describeError } from "../../api/errors";
 import { sharedStyles } from "../../styles/shared";
@@ -22,11 +21,13 @@ interface FoundStepProps {
 	/** Whether an OpenWeatherMap key is stored. */
 	keyStored: boolean;
 	onBack: () => void;
+	/** The location, pins and provider were saved. */
+	onSaved: () => void;
 }
 
 const PROVIDERS = Object.keys(FORECAST_PROVIDER_NAMES) as ForecastProvider[];
 
-// @spec SETUP-PLAN-001, SETUP-PLAN-002, SETUP-PLAN-003, SETUP-PLAN-004, SETUP-PLAN-005, SETUP-PLAN-006
+// @spec SETUP-PLAN-001, SETUP-PLAN-002, SETUP-PLAN-003, SETUP-PLAN-004, SETUP-PLAN-005
 /** Step 2: the plan the point would get, pins, the forecast provider, and the one save. */
 export default function FoundStep({
 	chosen,
@@ -34,8 +35,8 @@ export default function FoundStep({
 	provider: startProvider,
 	keyStored,
 	onBack,
+	onSaved,
 }: FoundStepProps) {
-	const navigate = useNavigate();
 	const [plan, setPlan] = useState<Preview>(chosen.preview);
 	const [pins, setPins] = useState<Pins>(startPins);
 	const [opened, setOpened] = useState<string | null>(null);
@@ -93,7 +94,7 @@ export default function FoundStep({
 					? { provider, key: key.trim() }
 					: { provider },
 			});
-			navigate("/sources", { state: { saved: true } });
+			onSaved();
 		} catch (e) {
 			setProblem(describeError(e));
 			setBusy(false);

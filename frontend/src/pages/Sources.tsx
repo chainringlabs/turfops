@@ -2,8 +2,9 @@
 // connections and the lawn's location.
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
-import { getSources } from "../api/client";
+import { getSources, testHaConnection } from "../api/client";
 import { describeError } from "../api/errors";
+import { testedText } from "../components/setup/sensors";
 import {
 	groupOf,
 	INPUT_GROUP_TITLES,
@@ -134,6 +135,38 @@ export default function Sources() {
 	);
 }
 
+/** Home Assistant's state, with Test in place and Change in your sensors. */
+// @spec SETUP-PAGE-005
+function HomeAssistantState({ connected }: { connected: boolean }) {
+	const [said, setSaid] = useState<string | null>(null);
+	async function test() {
+		setSaid("Testing…");
+		try {
+			setSaid(testedText(await testHaConnection()));
+		} catch (e) {
+			setSaid(describeError(e));
+		}
+	}
+	return (
+		<>
+			{connected ? "Connected" : "Not set up"}{" "}
+			{connected && (
+				<button type="button" style={styles.button} onClick={test}>
+					Test
+				</button>
+			)}{" "}
+			<Link
+				to="/setup?step=sensors"
+				style={styles.action}
+				aria-label="Change Home Assistant connection"
+			>
+				{connected ? "Change" : "Connect"}
+			</Link>
+			{said && <div style={styles.said}>{said}</div>}
+		</>
+	);
+}
+
 // @spec SETUP-PAGE-005
 function Connections({ data }: { data: SourcesView }) {
 	const { connections } = data;
@@ -145,7 +178,7 @@ function Connections({ data }: { data: SourcesView }) {
 			<dl style={styles.facts}>
 				<dt style={styles.term}>Home Assistant</dt>
 				<dd style={styles.fact}>
-					{connections.home_assistant ? "Connected" : "Not set up"}
+					<HomeAssistantState connected={connections.home_assistant} />
 				</dd>
 				<dt style={styles.term}>Forecast</dt>
 				<dd style={styles.fact}>
@@ -187,6 +220,17 @@ const styles: Record<string, React.CSSProperties> = {
 	fact: { fontSize: "0.85rem", color: "#2d3748", margin: 0 },
 	credit: { fontSize: "0.75rem", color: "#718096", margin: "0.75rem 0 0" },
 	titleRow: { display: "flex", alignItems: "baseline", gap: "0.75rem" },
+	button: {
+		background: "none",
+		border: "1px solid #2f855a",
+		borderRadius: 4,
+		padding: "0 0.4rem",
+		color: "#2f855a",
+		fontWeight: 600,
+		fontSize: "0.75rem",
+		cursor: "pointer",
+	},
+	said: { fontSize: "0.8rem", color: "#4a5568", marginTop: "0.25rem" },
 	action: {
 		fontSize: "0.8rem",
 		color: "#2f855a",

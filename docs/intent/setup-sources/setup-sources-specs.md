@@ -11,6 +11,7 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [ ] **SETUP-FLOW-003**: Setup shall require only the location step; the owner shall be able to skip every other step.
 - [x] **SETUP-FLOW-004**: When setup is opened for a step named in its address (`/setup?step=…`), it shall open on that step with the stored location, pinned stations and forecast provider filled in; a step after the location step, opened while the lawn has no location, shall open on the location step.
 - [ ] **SETUP-FLOW-005**: The loading-history step shall show, per source, the years held against the years wanted, and shall say which features work already and which wait for the history.
+- [x] **SETUP-FLOW-006**: When setup was opened on a step from the Sources page, it shall return to the Sources page once that step is saved or left; walked through from the location step, saving a step shall go on to the next, and leaving the last step shall return to the Sources page.
 
 ## The location step
 
@@ -28,28 +29,32 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [x] **SETUP-PLAN-003**: When the owner pins or unpins a station in the step, the step shall show the basis plan again with the change.
 - [x] **SETUP-PLAN-004**: The step shall offer Open-Meteo, the National Weather Service and OpenWeatherMap as the forecast provider, with Open-Meteo chosen unless the owner changes it, and shall ask for a key when OpenWeatherMap is chosen and no key is stored.
 - [x] **SETUP-PLAN-005**: When the owner continues from the step, the system shall save the location, the pins and the forecast provider in one request (SETUP-API-012).
-- [x] **SETUP-PLAN-006**: When the save from the what-we-found step succeeds, setup shall return the owner to the Sources page, which shall say that the new sources start downloading now and that history can take several minutes.
+- [x] **SETUP-PLAN-006**: When the save from the what-we-found step succeeds, the Sources page shall say that the new sources start downloading now and that history can take several minutes.
 
 ## Connecting Home Assistant
 
-- [ ] **SETUP-HA-001**: The sensors step shall let the owner enter a Home Assistant address and access token and test them, reporting on success the name and version of the Home Assistant that answered and how many numeric sensor entities it has.
-- [ ] **SETUP-HA-002**: While a Home Assistant connection is stored, the sensors step shall show it as connected with a way to change it, and go directly to the entity list.
+- [x] **SETUP-HA-001**: The sensors step shall let the owner enter a Home Assistant address and access token and test them, reporting on success the name and version of the Home Assistant that answered and how many numeric sensor entities it has.
+- [x] **SETUP-HA-002**: While a Home Assistant connection is stored, the sensors step shall show it as connected with a way to change it, and go directly to the entity list.
 - [x] **SETUP-HA-003**: The system shall accept a Home Assistant address only when its scheme is `http` or `https`.
+- [x] **SETUP-HA-004**: The sensors step shall offer to save a Home Assistant address and token only after a test of that same address and token has answered.
+- [x] **SETUP-HA-005**: The sensors step shall let the owner forget the stored Home Assistant connection after a confirmation saying that its sensors stop being read and that their mappings and history are kept.
 
 ## Mapping sensors
 
-- [ ] **SETUP-MAP-001**: The sensors step shall list Home Assistant's numeric sensor entities with friendly name, current value, unit and last update, placing first those whose device class is temperature, humidity, moisture or precipitation, and shall let the owner filter the list by text.
-- [ ] **SETUP-MAP-002**: The step shall suggest, for an entity, humidity when its device class is humidity; soil moisture when it is moisture; rain as a counter when it is precipitation with state class "total increasing"; rain as an amount when it is precipitation otherwise; and no input when it is temperature.
-- [ ] **SETUP-MAP-003**: The owner shall choose, for each sensor mapped, exactly one input: air temperature, humidity, rain as a counter or as an amount, or soil temperature or soil moisture at one of 5, 10, 20, 50 or 100 cm.
-- [ ] **SETUP-MAP-004**: Before a mapping is saved, the step shall show the sensor's current value converted to the input's unit beside the value the lawn would otherwise use for that input, with that value's basis.
-- [ ] **SETUP-MAP-005**: If the sensor's unit is not one its input accepts, or its newest reading is older than the age limit for its input (SYNC-AGE-001; rain has none), then the step shall say so and shall not save the mapping.
-- [ ] **SETUP-MAP-006**: If the sensor's current value is outside the plausible range for its input, then the step shall say so and shall let the owner save the mapping.
-- [ ] **SETUP-MAP-007**: If the owner maps a sensor to an input that already has a sensor, then the system shall ask for confirmation naming both sensors and, on confirmation, replace the earlier mapping.
+- [x] **SETUP-MAP-001**: The sensors step shall list Home Assistant's numeric sensor entities with friendly name, current value, unit and last update, placing first those whose device class is temperature, humidity, moisture or precipitation, and shall let the owner filter the list by text.
+- [x] **SETUP-MAP-002**: The step shall suggest, for an entity, humidity when its device class is humidity; soil moisture when it is moisture; rain as a counter when it is precipitation with state class "total increasing"; rain as an amount when it is precipitation otherwise; and no input when it is temperature.
+- [x] **SETUP-MAP-003**: The owner shall choose, for each sensor mapped, exactly one input: air temperature, humidity, rain as a counter or as an amount, or soil temperature or soil moisture at one of 5, 10, 20, 50 or 100 cm.
+- [x] **SETUP-MAP-004**: Before a mapping is saved, the step shall show the sensor's current value converted to the input's unit beside the value the lawn would otherwise use for that input, with that value's basis.
+- [x] **SETUP-MAP-005**: If the sensor's unit is not one its input accepts, or its newest reading is older than the age limit for its input (SYNC-AGE-001; rain has none), then the step shall say so and shall not save the mapping.
+- [x] **SETUP-MAP-006**: If the sensor's current value is outside the plausible range for its input, then the step shall say so and shall let the owner save the mapping.
+- [x] **SETUP-MAP-007**: If the owner maps a sensor to an input that already has a sensor, then the system shall ask for confirmation naming both sensors and, on confirmation, replace the earlier mapping.
 - [x] **SETUP-MAP-008**: The system shall refuse to map one Home Assistant entity to more than one input.
 - [x] **SETUP-MAP-009**: When a sensor is unmapped, the system shall keep the readings it has stored and return its input to the next source in the basis plan.
-- [ ] **SETUP-MAP-010**: The owner shall be able to create a sensor that is not in Home Assistant by naming it and choosing its input, after which the step shall show the request that sends a reading to it; while `SENSOR_TOKEN` is not set, the step shall say that posted readings need it.
+- [x] **SETUP-MAP-010**: The owner shall be able to create a sensor that is not in Home Assistant by naming it and choosing its input, after which the step shall show the request that sends a reading to it; while `SENSOR_TOKEN` is not set, the step shall say that posted readings need it.
 - [x] **SETUP-MAP-011**: When the server starts with `HA_TEMPERATURE_ENTITY` or `HA_HUMIDITY_ENTITY` set and no sensor mapped, the system shall map those entities to air temperature and humidity; it shall do so only on an installation where no sensor was ever mapped, so that one the owner has unmapped is not mapped again.
 - [x] **SETUP-MAP-012**: If the owner maps or renames a sensor to a name that another mapped sensor has, ignoring letter case and surrounding space, then the system shall refuse with a conflict naming that sensor; a sensor the mapping replaces (SETUP-MAP-007) does not count.
+- [x] **SETUP-MAP-013**: The sensors step shall list the mapped sensors with their input and way in, and shall unmap one when the owner asks, without a confirmation.
+- [x] **SETUP-MAP-014**: The request the step shows for a sensor that is not in Home Assistant shall be addressed to this server and shall stand `$SENSOR_TOKEN` for the token, never the token itself.
 
 ## The Sources page
 
@@ -57,13 +62,14 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [x] **SETUP-PAGE-002**: For an input whose basis is an estimate, the Sources page shall state the estimate's scored accuracy in plain words and any crossing it may not date, taking both from the soil estimate's published figures.
 - [x] **SETUP-PAGE-003**: For the inputs with no source, the Sources page shall say in one line per group which inputs nothing measures at this location and what would.
 - [x] **SETUP-PAGE-004**: The Sources page shall list every source in use with its name, kind, the inputs it speaks for, its last successful fetch, its last failure with that failure's owner sentence, the history held against wanted, and its attribution, with failing sources first.
-- [ ] **SETUP-PAGE-005**: The Sources page shall show the state of the Home Assistant connection (connected or not set up), the forecast provider, and whether posted readings are enabled, each with a way to test and change it where it can be changed.
+- [x] **SETUP-PAGE-005**: The Sources page shall show the state of the Home Assistant connection (connected or not set up), the forecast provider, and whether posted readings are enabled, each with a way to test and change it where it can be changed.
 - [x] **SETUP-PAGE-006**: The Sources page shall show the lawn's place, coordinates and timezone, and before a change of location is saved shall warn that station and grid history for the old point will be replaced and reloaded and that sensor history is kept.
 - [x] **SETUP-PAGE-008**: The Sources page shall credit the timezone boundary data to OpenStreetMap contributors under the Open Database License.
-- [ ] **SETUP-PAGE-007**: From each input on the Sources page, the owner shall be able to pin or unpin a station and map or unmap a sensor.
+- [x] **SETUP-PAGE-007**: From each input on the Sources page, the owner shall be able to pin or unpin a station and map or unmap a sensor.
 - [x] **SETUP-PAGE-009**: The Sources page shall group the inputs as air, soil temperature and soil moisture, and shall show each newest value in °F, percent (humidity and soil moisture) or inches (rain), with the time it was observed in the lawn's timezone and how long ago that was.
 - [x] **SETUP-PAGE-010**: The Sources page shall order the sources failing first and then by kind (sensors, stations, grids, the hourly analysis, the estimate), and shall show a source's history as "Complete" when everything wanted is held, as the years held against the years wanted while it is not, and as nothing for a sensor.
 - [x] **SETUP-PAGE-011**: While the lawn has no location, the Sources page shall say so in place of the inputs.
+- [x] **SETUP-PAGE-012**: The Sources page shall list the inputs a source speaks for in the order the page groups them, with a group's soil depths named together ("soil temperature at 5, 10 and 20 cm").
 
 ## The endpoints
 

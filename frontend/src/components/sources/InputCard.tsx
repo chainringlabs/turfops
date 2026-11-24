@@ -15,6 +15,7 @@ export default function InputCard({ input, now, timeZone }: InputCardProps) {
 	const held = input.in_use;
 	const behind = input.sources.slice(held ? 1 : 0).map((s) => s.name);
 	const pinned = input.sources.find((s) => s.pinned);
+	const sensor = input.sources.find((s) => s.kind === "Sensor");
 	return (
 		<div style={styles.card}>
 			<div style={styles.label}>{input.label}</div>
@@ -42,9 +43,14 @@ export default function InputCard({ input, now, timeZone }: InputCardProps) {
 			)}
 			{pinned && <div style={styles.meta}>Pinned: {pinned.name}</div>}
 			{/* @spec SETUP-PAGE-007 */}
-			<Link to="/setup?step=found" style={styles.action}>
-				{pinned ? "Change pin" : "Pin a station"}
-			</Link>
+			<div style={styles.actions}>
+				<Link to="/setup?step=found" style={styles.action}>
+					{pinned ? "Change pin" : "Pin a station"}
+				</Link>
+				<Link to="/setup?step=sensors" style={styles.action}>
+					{sensor ? "Change sensor" : "Map a sensor"}
+				</Link>
+			</div>
 			{input.estimate_accuracy && (
 				<div style={styles.accuracy}>
 					{accuracyLines(input.estimate_accuracy).map((line) => (
@@ -69,6 +75,7 @@ const styles: Record<string, React.CSSProperties> = {
 	label: { fontSize: "0.8rem", fontWeight: 600, color: "#4a5568" },
 	value: { fontSize: "1.4rem", fontWeight: 700, color: "#1a202c" },
 	meta: { fontSize: "0.8rem", color: "#4a5568" },
+	actions: { display: "flex", gap: "1rem", flexWrap: "wrap" },
 	action: {
 		fontSize: "0.8rem",
 		color: "#2f855a",

@@ -1,7 +1,7 @@
 import { sharedStyles } from "../../styles/shared";
 import type { SourceView } from "../../types/sources";
 import { SOURCE_KIND_LABELS } from "../../types/sources";
-import { historyText, observedText, orderSources } from "./display";
+import { historyText, observedText, orderSources, speaksFor } from "./display";
 
 interface SourcesTableProps {
 	sources: SourceView[];
@@ -46,9 +46,7 @@ export default function SourcesTable({
 						<tr key={s.id} style={s.last_error ? styles.failing : undefined}>
 							<td style={sharedStyles.td}>{s.name}</td>
 							<td style={sharedStyles.td}>{SOURCE_KIND_LABELS[s.kind]}</td>
-							<td style={sharedStyles.td}>
-								{s.inputs.map((i) => labels[i] ?? i).join(", ")}
-							</td>
+							<td style={sharedStyles.td}>{speaksFor(s.inputs, labels)}</td>
 							<td style={sharedStyles.td}>{when(s.last_success)}</td>
 							<td style={sharedStyles.td}>
 								{s.last_error ? (

@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { applySetup, getPreview, getStations } from "../../api/client";
 import type { ChosenPoint, Preview } from "../../types/setup";
@@ -85,41 +84,24 @@ const chosen: ChosenPoint = {
 	preview: plan,
 };
 
-/** Where the step sent the owner. */
-export function Where() {
-	const at = useLocation();
-	return (
-		<div>
-			at {at.pathname}
-			{(at.state as { saved?: boolean } | null)?.saved ? " saved" : ""}
-		</div>
-	);
-}
+const onSaved = vi.fn();
 
 function show(over: Partial<Parameters<typeof FoundStep>[0]> = {}) {
 	return render(
-		<MemoryRouter initialEntries={["/setup?step=found"]}>
-			<Routes>
-				<Route
-					path="/setup"
-					element={
-						<FoundStep
-							chosen={chosen}
-							pins={{}}
-							provider="OpenMeteo"
-							keyStored={false}
-							onBack={vi.fn()}
-							{...over}
-						/>
-					}
-				/>
-				<Route path="/sources" element={<Where />} />
-			</Routes>
-		</MemoryRouter>,
+		<FoundStep
+			chosen={chosen}
+			pins={{}}
+			provider="OpenMeteo"
+			keyStored={false}
+			onBack={vi.fn()}
+			onSaved={onSaved}
+			{...over}
+		/>,
 	);
 }
 
 beforeEach(() => {
+	onSaved.mockReset();
 	apply.mockReset();
 	preview.mockReset();
 	stations.mockReset();
@@ -259,8 +241,8 @@ describe("the forecast provider", () => {
 	});
 });
 
-// @spec SETUP-PLAN-005, SETUP-PLAN-006, SETUP-FLOW-002
-it("saves the location, the pins and the provider in one request, then returns to the Sources page", async () => {
+// @spec SETUP-PLAN-005
+it("saves the location, the pins and the provider in one request, then says it saved", async () => {
 	const user = userEvent.setup();
 	show({
 		pins: { soil_temp_10: 9 },
@@ -278,7 +260,7 @@ it("saves the location, the pins and the provider in one request, then returns t
 		pins: [{ input: "soil_temp_10", station_ref: 9 }],
 		forecast_provider: { provider: "OpenWeatherMap" },
 	});
-	expect(await screen.findByText("at /sources saved")).toBeInTheDocument();
+	await vi.waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
 });
 
 it("shows a failed save as its owner sentence and stays on the step", async () => {
@@ -294,5 +276,5 @@ it("shows a failed save as its owner sentence and stays on the step", async () =
 			"That station does not report soil temperature, 10 cm.",
 		),
 	).toBeInTheDocument();
-	expect(screen.queryByText(/at \/sources/)).toBeNull();
+	expect(onSaved).not.toHaveBeenCalled();
 });
