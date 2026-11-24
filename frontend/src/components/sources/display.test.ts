@@ -8,6 +8,7 @@ import {
 	noSourceLine,
 	observedText,
 	orderSources,
+	speaksFor,
 } from "./display";
 
 function source(over: Partial<SourceView>): SourceView {
@@ -203,4 +204,34 @@ describe("inputs nothing measures", () => {
 			noSourceLine("soil_temp", [input("soil_temp_5", "Measured")]),
 		).toBeNull();
 	});
+});
+
+// @spec SETUP-PAGE-012
+it("lists what a source speaks for in the page's order with soil depths together", () => {
+	const labels = {
+		air_temp: "Air temperature",
+		humidity: "Humidity",
+		rain: "Rain",
+		daily_air: "Daily high and low",
+	};
+	expect(
+		speaksFor(
+			[
+				"soil_moisture_10",
+				"humidity",
+				"soil_temp_100",
+				"soil_moisture_5",
+				"air_temp",
+				"soil_temp_5",
+				"soil_temp_20",
+			],
+			labels,
+		),
+	).toBe(
+		"Air temperature, humidity, soil temperature at 5, 20 and 100 cm, soil moisture at 5 and 10 cm",
+	);
+	expect(speaksFor(["daily_air", "rain"], labels)).toBe(
+		"Rain, daily high and low",
+	);
+	expect(speaksFor(["soil_temp_10"], labels)).toBe("Soil temperature at 10 cm");
 });

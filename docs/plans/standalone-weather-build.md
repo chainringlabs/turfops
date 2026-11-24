@@ -5,7 +5,7 @@ on a decision. The research behind the design is in
 [standalone-weather-sources.md](standalone-weather-sources.md); the design and specs are under
 `docs/intent/`. This file is the place to start when picking the work up.
 
-Status as of 2026-11-24, with `main` at PR #377 and setup steps 1 and 2 (UI part 2 of 4) in review.
+Status as of 2026-11-24, with `main` at PR #378 and setup step 3 (UI part 3 of 4) in review.
 
 ## The goal
 
@@ -52,8 +52,8 @@ bump (#345).
 
 1. **The UI**, in four PRs, each usable once merged:
    1. The Sources page at `/sources`, read-only, with the shared basis label (#377).
-   2. Setup steps 1 and 2 (location, what we found), opened from the Sources page's Change (this PR).
-   3. Setup step 3 (your sensors), with map and unmap from the Sources page.
+   2. Setup steps 1 and 2 (location, what we found), opened from the Sources page's Change (#378).
+   3. Setup step 3 (your sensors), with map and unmap from the Sources page (this PR).
    4. Setup steps 4 and 5 (your lawn, loading history) and the no-location notice.
    The basis label on every other weather page waits for the cutover (slice 8), when those
    pages read the record. Specs: SETUP-FLOW, SETUP-LOC, SETUP-PLAN, SETUP-HA, SETUP-MAP,

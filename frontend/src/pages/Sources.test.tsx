@@ -2,12 +2,15 @@
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getSources } from "../api/client";
+import { getSources, testHaConnection } from "../api/client";
 import { ApiError } from "../api/errors";
 import type { InputView, SourcesView } from "../types/sources";
 import Sources from "./Sources";
 
-vi.mock("../api/client", () => ({ getSources: vi.fn() }));
+vi.mock("../api/client", () => ({
+	getSources: vi.fn(),
+	testHaConnection: vi.fn(),
+}));
 const mocked = vi.mocked(getSources);
 
 function input(
@@ -359,4 +362,46 @@ it("says the new sources are downloading after setup saved", async () => {
 			"Saved. The new sources start downloading now; history can take several minutes.",
 		),
 	).toBeInTheDocument();
+});
+
+// @spec SETUP-PAGE-005
+describe("the Home Assistant connection", () => {
+	it("is tested in place and changed in your sensors", async () => {
+		const user = (await import("@testing-library/user-event")).default.setup();
+		vi.mocked(testHaConnection).mockResolvedValue({
+			answered: { location_name: "Home", version: "2026.11.1" },
+			numeric_sensors: 312,
+		});
+		mocked.mockResolvedValue(view());
+		show();
+		const connections = await screen.findByRole("region", {
+			name: "Connections",
+		});
+		expect(
+			within(connections).getByRole("link", {
+				name: "Change Home Assistant connection",
+			}),
+		).toHaveAttribute("href", "/setup?step=sensors");
+		await user.click(within(connections).getByRole("button", { name: "Test" }));
+		expect(testHaConnection).toHaveBeenCalledWith();
+		expect(
+			await within(connections).findByText(
+				"Home (2026.11.1) answered; 312 numeric sensors.",
+			),
+		).toBeInTheDocument();
+	});
+});
+
+// @spec SETUP-PAGE-007
+it("maps a sensor for an input from its card, or changes the one it has", async () => {
+	mocked.mockResolvedValue(view());
+	show();
+	const air = await screen.findByRole("region", { name: "Air" });
+	expect(
+		within(air).getByRole("link", { name: "Change sensor" }),
+	).toHaveAttribute("href", "/setup?step=sensors");
+	const moisture = screen.getByRole("region", { name: "Soil moisture" });
+	expect(
+		within(moisture).getByRole("link", { name: "Map a sensor" }),
+	).toHaveAttribute("href", "/setup?step=sensors");
 });

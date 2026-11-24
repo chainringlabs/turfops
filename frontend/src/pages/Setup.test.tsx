@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getPreview, getSources } from "../api/client";
 import type { ChosenPoint, Preview } from "../types/setup";
@@ -42,10 +42,24 @@ vi.mock("../components/setup/FoundStep", () => ({
 		pins: Record<string, number>;
 		provider: string;
 		keyStored: boolean;
+		onSaved: () => void;
 	}) => (
 		<div>
 			found step for {props.chosen.place_name} pins {JSON.stringify(props.pins)}{" "}
 			provider {props.provider} key {String(props.keyStored)}
+			<button type="button" onClick={props.onSaved}>
+				save found
+			</button>
+		</div>
+	),
+}));
+vi.mock("../components/setup/SensorsStep", () => ({
+	default: (props: { postedEnabled: boolean; onDone: () => void }) => (
+		<div>
+			sensors step, posted {String(props.postedEnabled)}
+			<button type="button" onClick={props.onDone}>
+				done
+			</button>
 		</div>
 	),
 }));
@@ -92,10 +106,25 @@ function stored(over: Partial<SourcesView> = {}): SourcesView {
 	};
 }
 
+/** Where setup sent the owner. */
+export function Landed() {
+	const at = useLocation();
+	const saved = (at.state as { saved?: boolean } | null)?.saved;
+	return (
+		<div>
+			landed on {at.pathname}
+			{saved ? " with the saved notice" : ""}
+		</div>
+	);
+}
+
 function show(at: string) {
 	return render(
 		<MemoryRouter initialEntries={[at]}>
-			<Setup />
+			<Routes>
+				<Route path="/setup" element={<Setup />} />
+				<Route path="/sources" element={<Landed />} />
+			</Routes>
 		</MemoryRouter>,
 	);
 }
@@ -115,7 +144,7 @@ describe("the steps", () => {
 			await screen.findByText("location step, stored: none"),
 		).toBeInTheDocument();
 		const steps = screen.getByRole("list", { name: "Setup steps" });
-		expect(steps).toHaveTextContent(/Location.*What we found/);
+		expect(steps).toHaveTextContent(/Location.*What we found.*Your sensors/);
 	});
 
 	it("goes on to what we found with the point chosen, without saving anything", async () => {
@@ -158,5 +187,53 @@ describe("opened on a step", () => {
 		expect(
 			await screen.findByText("location step, stored: Avondale, PA"),
 		).toBeInTheDocument();
+	});
+});
+
+// @spec SETUP-FLOW-006, SETUP-PLAN-006
+describe("where a step leads", () => {
+	it("goes on from what we found to your sensors when walked through, then back to Sources", async () => {
+		const user = userEvent.setup();
+		sources.mockResolvedValue(stored({ location: null }));
+		show("/setup");
+		await user.click(await screen.findByRole("button", { name: "pick" }));
+		await user.click(await screen.findByRole("button", { name: "save found" }));
+		expect(
+			await screen.findByText("sensors step, posted false"),
+		).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "done" }));
+		expect(
+			await screen.findByText("landed on /sources with the saved notice"),
+		).toBeInTheDocument();
+	});
+
+	it("returns to Sources with the saved notice when opened on what we found", async () => {
+		const user = userEvent.setup();
+		sources.mockResolvedValue(stored());
+		show("/setup?step=found");
+		await user.click(await screen.findByRole("button", { name: "save found" }));
+		expect(
+			await screen.findByText("landed on /sources with the saved notice"),
+		).toBeInTheDocument();
+	});
+
+	it("opens your sensors without a location, and returns to Sources when done", async () => {
+		const user = userEvent.setup();
+		sources.mockResolvedValue(
+			stored({
+				location: null,
+				connections: {
+					home_assistant: false,
+					openweathermap_key: false,
+					posted_readings: true,
+				},
+			}),
+		);
+		show("/setup?step=sensors");
+		expect(
+			await screen.findByText("sensors step, posted true"),
+		).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "done" }));
+		expect(await screen.findByText("landed on /sources")).toBeInTheDocument();
 	});
 });

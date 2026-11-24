@@ -4,6 +4,7 @@ import type React from "react";
 export const setupStyles: Record<string, React.CSSProperties> = {
 	step: { display: "flex", flexDirection: "column", gap: "0.9rem" },
 	heading: { margin: 0, fontSize: "1.15rem", color: "#1a202c" },
+	subheading: { margin: 0, fontSize: "0.95rem", color: "#2d3748" },
 	row: {
 		display: "flex",
 		flexWrap: "wrap",
@@ -72,6 +73,33 @@ export const setupStyles: Record<string, React.CSSProperties> = {
 		cursor: "pointer",
 		fontSize: "0.85rem",
 		width: "100%",
+	},
+	entity: {
+		padding: "0.5rem 0.6rem",
+		border: "1px solid #e2e8f0",
+		borderRadius: 6,
+		background: "#fff",
+		display: "flex",
+		flexDirection: "column",
+		gap: "0.5rem",
+		fontSize: "0.85rem",
+	},
+	entityRow: {
+		display: "flex",
+		justifyContent: "space-between",
+		alignItems: "flex-start",
+		gap: "0.75rem",
+		flexWrap: "wrap",
+	},
+	code: {
+		margin: 0,
+		padding: "0.6rem 0.75rem",
+		background: "#1a202c",
+		color: "#e2e8f0",
+		borderRadius: 6,
+		fontSize: "0.78rem",
+		overflowX: "auto",
+		whiteSpace: "pre",
 	},
 	facts: {
 		display: "grid",

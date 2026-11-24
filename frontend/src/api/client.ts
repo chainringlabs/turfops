@@ -32,6 +32,14 @@ import type {
 } from "../types/inventory";
 import { factsOf } from "../types/inventory";
 import type {
+	Checked,
+	ConnectionView,
+	EntityView,
+	MappingRequest,
+	SensorView,
+	TestResult,
+} from "../types/sensors";
+import type {
 	ApplyRequest,
 	Pins,
 	Place,
@@ -300,6 +308,47 @@ export const applySetup = (request: ApplyRequest) =>
 	fetchJson<SourcesView>(`${BASE}/setup/apply`, {
 		method: "POST",
 		body: JSON.stringify(request),
+	});
+
+const HA = `${BASE}/sources/home-assistant`;
+
+// @spec SETUP-HA-001, SETUP-HA-002, SETUP-HA-004, SETUP-HA-005
+export const getHaConnection = () => fetchJson<ConnectionView>(HA);
+export const saveHaConnection = (address: string, token: string) =>
+	fetchJson<ConnectionView>(HA, {
+		method: "PUT",
+		body: JSON.stringify({ address, token }),
+	});
+export const forgetHaConnection = () =>
+	fetchJson<ConnectionView>(HA, { method: "DELETE" });
+/** Tries the connection given, or the stored one when none is. Saves nothing. */
+export const testHaConnection = (given?: { address: string; token: string }) =>
+	fetchJson<TestResult>(`${HA}/test`, {
+		method: "POST",
+		body: JSON.stringify(given ?? {}),
+	});
+
+// @spec SETUP-MAP-001
+export const getHaEntities = () => fetchJson<EntityView[]>(`${HA}/entities`);
+
+// @spec SETUP-MAP-003, SETUP-MAP-007, SETUP-MAP-010, SETUP-MAP-013
+export const getSensors = () =>
+	fetchJson<SensorView[]>(`${BASE}/sources/sensors`);
+export const mapSensor = (request: MappingRequest) =>
+	fetchJson<SensorView[]>(`${BASE}/sources/sensors`, {
+		method: "POST",
+		body: JSON.stringify(request),
+	});
+export const unmapSensor = (id: number) =>
+	fetchJson<SensorView[]>(`${BASE}/sources/sensors/${id}`, {
+		method: "DELETE",
+	});
+
+// @spec SETUP-MAP-004
+export const checkSensor = (entity_id: string, input: string) =>
+	fetchJson<Checked>(`${BASE}/sources/sensors/check`, {
+		method: "POST",
+		body: JSON.stringify({ entity_id, input }),
 	});
 
 export const getTimingWindows = (signal?: AbortSignal) =>

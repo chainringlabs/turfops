@@ -181,3 +181,34 @@ export function basisText(basis: Basis, mixed = false): string {
 	if (mixed) text += " · mixed";
 	return text;
 }
+
+/** The inputs a source speaks for, in the page's order with soil depths together. */
+// @spec SETUP-PAGE-012
+export function speaksFor(
+	inputs: string[],
+	labels: Record<string, string>,
+): string {
+	const AIR = ["air_temp", "humidity", "rain", "daily_air"];
+	const parts = AIR.filter((i) => inputs.includes(i)).map((i) =>
+		(labels[i] ?? i).toLowerCase(),
+	);
+	for (const [prefix, name] of [
+		["soil_temp_", "soil temperature"],
+		["soil_moisture_", "soil moisture"],
+	]) {
+		const depths = inputs
+			.filter((i) => i.startsWith(prefix))
+			.map((i) => Number(i.slice(prefix.length)))
+			.sort((a, b) => a - b)
+			.map(String);
+		if (depths.length) parts.push(`${name} at ${andList(depths)} cm`);
+	}
+	const text = parts.join(", ");
+	return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** "a", "a and b", "a, b and c". */
+function andList(items: string[]): string {
+	if (items.length < 2) return items.join("");
+	return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
