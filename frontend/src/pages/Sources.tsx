@@ -1,6 +1,7 @@
 // The Sources page: what each weather input rests on, how each source is doing, the
 // connections and the lawn's location.
 import { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router";
 import { getSources } from "../api/client";
 import { describeError } from "../api/errors";
 import {
@@ -19,6 +20,7 @@ import { FORECAST_PROVIDER_NAMES } from "../types/sources";
 export default function Sources() {
 	const [data, setData] = useState<SourcesView | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const saved = (useLocation().state as { saved?: boolean } | null)?.saved;
 
 	// Loaded once; the owner reloads to see newer readings.
 	useEffect(() => {
@@ -43,6 +45,14 @@ export default function Sources() {
 			<div style={sharedStyles.headerRow}>
 				<h1 style={sharedStyles.pageTitle}>Sources</h1>
 			</div>
+
+			{/* @spec SETUP-PLAN-006 */}
+			{saved && (
+				<div style={sharedStyles.notice}>
+					Saved. The new sources start downloading now; history can take several
+					minutes.
+				</div>
+			)}
 
 			{location ? (
 				INPUT_GROUPS.map((group) => {
@@ -72,7 +82,8 @@ export default function Sources() {
 				})
 			) : (
 				<div style={sharedStyles.notice}>
-					The lawn has no location yet, so no weather source is in use.
+					The lawn has no location yet, so no weather source is in use.{" "}
+					<Link to="/setup?step=location">Set the location</Link>
 				</div>
 			)}
 
@@ -94,9 +105,15 @@ export default function Sources() {
 
 			{location && (
 				<section aria-labelledby="location-heading" style={sharedStyles.card}>
-					<h2 id="location-heading" style={sharedStyles.sectionTitle}>
-						Location
-					</h2>
+					<div style={styles.titleRow}>
+						<h2 id="location-heading" style={sharedStyles.sectionTitle}>
+							Location
+						</h2>
+						{/* @spec SETUP-PAGE-006 */}
+						<Link to="/setup?step=location" style={styles.action}>
+							Change
+						</Link>
+					</div>
 					<dl style={styles.facts}>
 						<dt style={styles.term}>Place</dt>
 						<dd style={styles.fact}>{location.place_name ?? "—"}</dd>
@@ -132,7 +149,14 @@ function Connections({ data }: { data: SourcesView }) {
 				</dd>
 				<dt style={styles.term}>Forecast</dt>
 				<dd style={styles.fact}>
-					{FORECAST_PROVIDER_NAMES[data.forecast_provider]}
+					{FORECAST_PROVIDER_NAMES[data.forecast_provider]}{" "}
+					<Link
+						to="/setup?step=found"
+						style={styles.action}
+						aria-label="Change forecast provider"
+					>
+						Change
+					</Link>
 				</dd>
 				<dt style={styles.term}>Posted readings</dt>
 				<dd style={styles.fact}>
@@ -162,4 +186,11 @@ const styles: Record<string, React.CSSProperties> = {
 	term: { fontSize: "0.8rem", color: "#718096" },
 	fact: { fontSize: "0.85rem", color: "#2d3748", margin: 0 },
 	credit: { fontSize: "0.75rem", color: "#718096", margin: "0.75rem 0 0" },
+	titleRow: { display: "flex", alignItems: "baseline", gap: "0.75rem" },
+	action: {
+		fontSize: "0.8rem",
+		color: "#2f855a",
+		fontWeight: 600,
+		textDecoration: "none",
+	},
 };

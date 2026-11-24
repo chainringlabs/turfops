@@ -125,7 +125,9 @@ pub async fn preview(
         longitude: location.longitude,
         elevation_ft: elevation_of(&state, &location).await,
     };
-    let planned = plan::build(Some(&lawn), &catalog, &[], &pins);
+    // The owner's sensors speak first wherever they are mapped, here as once saved.
+    let sensors = crate::logic::weather_sync::planning::mapped_sensors(&state.pool).await?;
+    let planned = plan::build(Some(&lawn), &catalog, &sensors, &pins);
     let nearest_soil_station = plan::nearby(&lawn, &catalog, f64::INFINITY)
         .into_iter()
         .find(|near| plan::reports(&near.inputs, Input::SoilTemp10))

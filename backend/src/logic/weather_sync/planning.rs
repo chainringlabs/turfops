@@ -24,15 +24,7 @@ pub async fn rebuild(pool: &PgPool) -> Result<bool> {
         }),
         None => None,
     };
-    let sensors: Vec<MappedSensor> = setup_queries::sensors(pool)
-        .await?
-        .into_iter()
-        .map(|sensor| MappedSensor {
-            input: sensor.input,
-            key: sensor.source_key(),
-            name: sensor.name,
-        })
-        .collect();
+    let sensors = mapped_sensors(pool).await?;
     let pins: Vec<Pin> = setup_queries::pins(pool)
         .await?
         .into_iter()
@@ -64,4 +56,17 @@ pub async fn rebuild(pool: &PgPool) -> Result<bool> {
     let own: BTreeSet<&str> = sensors.iter().map(|sensor| sensor.name.as_str()).collect();
     tracing::info!(stations = ?measured, sensors = ?own, "Weather plan rebuilt");
     Ok(true)
+}
+
+/// The owner's mapped sensors, as the plan ranks them.
+pub async fn mapped_sensors(pool: &PgPool) -> Result<Vec<MappedSensor>> {
+    Ok(setup_queries::sensors(pool)
+        .await?
+        .into_iter()
+        .map(|sensor| MappedSensor {
+            input: sensor.input,
+            key: sensor.source_key(),
+            name: sensor.name,
+        })
+        .collect())
 }

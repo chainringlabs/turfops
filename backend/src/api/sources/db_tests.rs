@@ -252,3 +252,30 @@ async fn the_stations_for_an_input_are_those_within_150_miles_that_may_report_it
     assert_eq!(got.len(), 1);
     assert_eq!(got[0].name, "Station air");
 }
+
+// @spec SETUP-API-002, SETUP-PLAN-001
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn a_preview_counts_the_sensors_already_mapped(pool: PgPool) {
+    let state = stocked(&pool).await;
+    let patio = crate::db::setup_queries::NewSensor {
+        name: "Patio temperature".into(),
+        entity_id: Some("sensor.patio".into()),
+        input: Input::AirTemp,
+        rain_kind: None,
+    };
+    crate::db::setup_queries::map_sensor(&pool, &patio)
+        .await
+        .unwrap();
+    let got = preview(State(state), at(39.86, -75.79, None))
+        .await
+        .unwrap()
+        .0;
+    let air = got.inputs.iter().find(|i| i.input == "air_temp").unwrap();
+    assert_eq!(air.sources[0].name, "Patio temperature");
+    assert_eq!(air.sources[0].kind, SourceKind::Sensor);
+    assert_eq!(air.standing, Standing::Measured);
+    assert!(
+        plan::read(&pool).await.unwrap().is_empty(),
+        "still nothing saved"
+    );
+}

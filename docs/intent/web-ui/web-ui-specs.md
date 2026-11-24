@@ -6,7 +6,7 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 
 ## Shell and routing
 
-- [ ] **UI-SHELL-001**: The web UI shall render every route inside one layout route, so the sidebar persists across navigation, with these routes: `/` (Dashboard), `/applications`, `/inventory`, `/landscape`, `/calendar`, `/environmental`, `/recommendations`, `/disease-risk`, `/disease-risk/:slug`, `/timing`, `/soil-tests`, `/seasonal-plan`, `/sources`, `/setup`, `/settings`, and a `*` wildcard.
+- [x] **UI-SHELL-001**: The web UI shall render every route inside one layout route, so the sidebar persists across navigation, with these routes: `/` (Dashboard), `/applications`, `/inventory`, `/landscape`, `/calendar`, `/environmental`, `/recommendations`, `/disease-risk`, `/disease-risk/:slug`, `/timing`, `/soil-tests`, `/seasonal-plan`, `/sources`, `/setup`, `/settings`, and a `*` wildcard.
 - [x] **UI-SHELL-002**: When the browser is on a path no route matches, the web UI shall show "Page Not Found" inside the layout with a "Go to Dashboard" link to `/`.
 - [x] **UI-SHELL-003**: The web UI shall load each page as its own lazily imported chunk and show "Loading..." while a page chunk loads.
 - [x] **UI-SHELL-004**: If rendering any page throws (a failed page-chunk load included), then the web UI's error boundary shall replace the app with "Something went wrong" and a "Return to Dashboard" button that clears the error and does a full navigation to `/`.

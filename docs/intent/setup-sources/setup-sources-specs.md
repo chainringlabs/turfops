@@ -7,25 +7,28 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 ## The setup flow
 
 - [ ] **SETUP-FLOW-001**: While the lawn profile has no location, every page whose content depends on weather shall show one notice, "Tell TurfOps where your lawn is", linking to setup and saying that dates use UTC until the location is set, in place of that content, and pages that do not depend on weather shall work unchanged.
-- [ ] **SETUP-FLOW-002**: Setup shall offer five steps in order (location, what we found, your sensors, your lawn, loading history), shall save a step when the owner continues from it, and shall keep what was saved when the owner leaves partway.
+- [ ] **SETUP-FLOW-002**: Setup shall offer five steps in order (location, what we found, your sensors, your lawn, loading history), shall save a step when the owner continues from it, saving the location together with what we found when the owner continues from what we found, and shall keep what was saved when the owner leaves partway.
 - [ ] **SETUP-FLOW-003**: Setup shall require only the location step; the owner shall be able to skip every other step.
-- [ ] **SETUP-FLOW-004**: When setup is opened from the Sources page for a step, it shall open on that step with the current values filled in.
+- [x] **SETUP-FLOW-004**: When setup is opened for a step named in its address (`/setup?step=…`), it shall open on that step with the stored location, pinned stations and forecast provider filled in; a step after the location step, opened while the lawn has no location, shall open on the location step.
 - [ ] **SETUP-FLOW-005**: The loading-history step shall show, per source, the years held against the years wanted, and shall say which features work already and which wait for the history.
 
 ## The location step
 
-- [ ] **SETUP-LOC-001**: The location step shall let the owner search by place name or postal code and choose from the candidate places, or type a latitude and longitude.
-- [ ] **SETUP-LOC-002**: The location step shall state, beside the search box, that the typed text is sent to the place-search service.
-- [ ] **SETUP-LOC-003**: Before saving a location, the step shall show the place name, the coordinates rounded as they will be stored, the timezone that follows from them, and the nearest soil station with its distance.
-- [ ] **SETUP-LOC-004**: If the chosen or typed point is outside the contiguous United States, then the step shall refuse it and say that no data is available there yet.
+- [x] **SETUP-LOC-001**: The location step shall let the owner search by place name or postal code and choose from the candidate places, or type a latitude and longitude.
+- [x] **SETUP-LOC-002**: The location step shall state, beside the search box, that the typed text is sent to the place-search service.
+- [x] **SETUP-LOC-003**: Before saving a location, the step shall show the place name, the coordinates rounded as they will be stored, the timezone that follows from them, and the nearest soil station with its distance.
+- [x] **SETUP-LOC-004**: If the chosen or typed point is outside the contiguous United States, then the step shall refuse it and say that no data is available there yet.
+- [x] **SETUP-LOC-005**: The location step shall send the typed search text only when the owner asks for the search, never while the owner types.
+- [x] **SETUP-LOC-006**: When the lawn has a location and the owner chooses a different point, the location step shall warn that station and grid history for the old point will be replaced and reloaded and that sensor history is kept.
 
 ## What we found, pins and the forecast provider
 
-- [ ] **SETUP-PLAN-001**: The what-we-found step shall show, before anything is saved, the basis plan the weather record would build for the point: for each input, the source that will speak, its distance when it is a station, and what stands behind it, and shall say in words which inputs are measured, which are estimated and which have no source.
-- [ ] **SETUP-PLAN-002**: The owner shall be able to pin, for an input that a station can supply, any station within 150 miles that reports that input, chosen from a list giving each station's network, distance, elevation difference from the lawn and years of record.
-- [ ] **SETUP-PLAN-003**: When the owner pins or unpins a station in the step, the step shall show the basis plan again with the change.
-- [ ] **SETUP-PLAN-004**: The step shall offer Open-Meteo, the National Weather Service and OpenWeatherMap as the forecast provider, with Open-Meteo chosen unless the owner changes it, and shall ask for a key when OpenWeatherMap is chosen and no key is stored.
-- [ ] **SETUP-PLAN-005**: When the owner continues from the step, the system shall save the location, the pins and the forecast provider in one request (SETUP-API-012).
+- [x] **SETUP-PLAN-001**: The what-we-found step shall show, before anything is saved, the basis plan the weather record would build for the point: for each input, the source that will speak, its distance when it is a station, and what stands behind it, and shall say in words which inputs are measured, which are estimated and which have no source.
+- [x] **SETUP-PLAN-002**: The owner shall be able to pin, for an input that a station can supply, any station within 150 miles that reports that input, chosen from a list giving each station's network, distance, elevation difference from the lawn and years of record.
+- [x] **SETUP-PLAN-003**: When the owner pins or unpins a station in the step, the step shall show the basis plan again with the change.
+- [x] **SETUP-PLAN-004**: The step shall offer Open-Meteo, the National Weather Service and OpenWeatherMap as the forecast provider, with Open-Meteo chosen unless the owner changes it, and shall ask for a key when OpenWeatherMap is chosen and no key is stored.
+- [x] **SETUP-PLAN-005**: When the owner continues from the step, the system shall save the location, the pins and the forecast provider in one request (SETUP-API-012).
+- [x] **SETUP-PLAN-006**: When the save from the what-we-found step succeeds, setup shall return the owner to the Sources page, which shall say that the new sources start downloading now and that history can take several minutes.
 
 ## Connecting Home Assistant
 
@@ -55,7 +58,7 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [x] **SETUP-PAGE-003**: For the inputs with no source, the Sources page shall say in one line per group which inputs nothing measures at this location and what would.
 - [x] **SETUP-PAGE-004**: The Sources page shall list every source in use with its name, kind, the inputs it speaks for, its last successful fetch, its last failure with that failure's owner sentence, the history held against wanted, and its attribution, with failing sources first.
 - [ ] **SETUP-PAGE-005**: The Sources page shall show the state of the Home Assistant connection (connected or not set up), the forecast provider, and whether posted readings are enabled, each with a way to test and change it where it can be changed.
-- [ ] **SETUP-PAGE-006**: The Sources page shall show the lawn's place, coordinates and timezone, and before a change of location is saved shall warn that station and grid history for the old point will be replaced and reloaded and that sensor history is kept.
+- [x] **SETUP-PAGE-006**: The Sources page shall show the lawn's place, coordinates and timezone, and before a change of location is saved shall warn that station and grid history for the old point will be replaced and reloaded and that sensor history is kept.
 - [x] **SETUP-PAGE-008**: The Sources page shall credit the timezone boundary data to OpenStreetMap contributors under the Open Database License.
 - [ ] **SETUP-PAGE-007**: From each input on the Sources page, the owner shall be able to pin or unpin a station and map or unmap a sensor.
 - [x] **SETUP-PAGE-009**: The Sources page shall group the inputs as air, soil temperature and soil moisture, and shall show each newest value in °F, percent (humidity and soil moisture) or inches (rain), with the time it was observed in the lawn's timezone and how long ago that was.
@@ -65,7 +68,7 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 ## The endpoints
 
 - [x] **SETUP-API-001**: `GET /api/v1/setup/places?q=` shall return the candidate places for the search text.
-- [x] **SETUP-API-002**: `GET /api/v1/sources/preview?lat=&lon=` shall return the point as it would be stored with its timezone, the basis plan the point would get with every input listed as measured, estimated or without a source, and the nearest station that may supply soil temperature; given `pins` as `input:station` pairs it shall return the plan with those pins; it shall ask the hourly analysis for the point's elevation, return it, and apply the 1,000-foot elevation rule with it, going on without the rule when the elevation cannot be had; it shall save nothing.
+- [x] **SETUP-API-002**: `GET /api/v1/sources/preview?lat=&lon=` shall return the point as it would be stored with its timezone, the basis plan the point would get, counting the sensors already mapped, with every input listed as measured, estimated or without a source, and the nearest station that may supply soil temperature; given `pins` as `input:station` pairs it shall return the plan with those pins; it shall ask the hourly analysis for the point's elevation, return it, and apply the 1,000-foot elevation rule with it, going on without the rule when the elevation cannot be had; it shall save nothing.
 - [x] **SETUP-API-003**: `GET /api/v1/sources` shall return the inputs, each with its basis plan, the value in use with its basis and the time it was observed, the soil estimate's published daily error where the estimate stands behind it, and the station pinned for it; the sources in use with status, history and attribution, failing sources first; the forecast provider; whether each connection is stored; and the location.
 - [x] **SETUP-API-004**: `GET /api/v1/sources/stations?input=` shall return the stations within 150 miles of the lawn, or of the point given as `lat` and `lon`, that report that input or whose reported inputs are not yet known, nearest first.
 - [x] **SETUP-API-005**: `PUT` and `DELETE /api/v1/sources/pins/{input}` shall pin a station for the input and remove the pin; a pin on a station that does not report the input, that is more than 150 miles from the lawn, or that is not in the station list shall be a 400 saying which.
