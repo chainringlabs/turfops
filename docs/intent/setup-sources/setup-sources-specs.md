@@ -7,11 +7,13 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 ## The setup flow
 
 - [ ] **SETUP-FLOW-001**: While the lawn profile has no location, every page whose content depends on weather shall show one notice, "Tell TurfOps where your lawn is", linking to setup and saying that dates use UTC until the location is set, in place of that content, and pages that do not depend on weather shall work unchanged.
-- [ ] **SETUP-FLOW-002**: Setup shall offer five steps in order (location, what we found, your sensors, your lawn, loading history), shall save a step when the owner continues from it, saving the location together with what we found when the owner continues from what we found, and shall keep what was saved when the owner leaves partway.
-- [ ] **SETUP-FLOW-003**: Setup shall require only the location step; the owner shall be able to skip every other step.
+- [x] **SETUP-FLOW-002**: Setup shall offer five steps in order (location, what we found, your sensors, your lawn, loading history), shall save a step when the owner continues from it, saving the location together with what we found when the owner continues from what we found, and shall keep what was saved when the owner leaves partway.
+- [x] **SETUP-FLOW-003**: Setup shall require only the location step; the owner shall be able to skip every other step.
 - [x] **SETUP-FLOW-004**: When setup is opened for a step named in its address (`/setup?step=…`), it shall open on that step with the stored location, pinned stations and forecast provider filled in; a step after the location step, opened while the lawn has no location, shall open on the location step.
-- [ ] **SETUP-FLOW-005**: The loading-history step shall show, per source, the years held against the years wanted, and shall say which features work already and which wait for the history.
-- [x] **SETUP-FLOW-006**: When setup was opened on a step from the Sources page, it shall return to the Sources page once that step is saved or left; walked through from the location step, saving a step shall go on to the next, and leaving the last step shall return to the Sources page.
+- [x] **SETUP-FLOW-005**: The loading-history step shall show, per source, the years held against the years wanted, and shall say which features work already and which wait for the history.
+- [x] **SETUP-FLOW-006**: When setup was opened on a step from the Sources page, it shall return to the Sources page once that step is saved or left; walked through from the location step, saving or skipping a step shall go on to the next, and finishing the last step shall offer the dashboard and the Sources page.
+- [x] **SETUP-FLOW-007**: The loading-history step shall read the progress when it opens and again when the owner asks, and shall not poll.
+- [x] **SETUP-FLOW-008**: The your-lawn step shall show the lawn profile form filled in from the stored profile, and saving it shall not change the location.
 
 ## The location step
 

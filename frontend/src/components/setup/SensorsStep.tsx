@@ -8,6 +8,8 @@ import { setupStyles as styles } from "./styles";
 interface SensorsStepProps {
 	/** Whether the server takes posted readings. */
 	postedEnabled: boolean;
+	/** "Continue" walked through, "Done" when opened from the Sources page. */
+	doneLabel: string;
 	onDone: () => void;
 }
 

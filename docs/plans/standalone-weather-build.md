@@ -5,7 +5,7 @@ on a decision. The research behind the design is in
 [standalone-weather-sources.md](standalone-weather-sources.md); the design and specs are under
 `docs/intent/`. This file is the place to start when picking the work up.
 
-Status as of 2026-11-24, with `main` at PR #378 and setup step 3 (UI part 3 of 4) in review.
+Status as of 2026-11-24, with `main` at PR #379 and setup steps 4 and 5 (UI part 4 of 4) in review; slice 7 is complete once it merges.
 
 ## The goal
 
@@ -53,10 +53,12 @@ bump (#345).
 1. **The UI**, in four PRs, each usable once merged:
    1. The Sources page at `/sources`, read-only, with the shared basis label (#377).
    2. Setup steps 1 and 2 (location, what we found), opened from the Sources page's Change (#378).
-   3. Setup step 3 (your sensors), with map and unmap from the Sources page (this PR).
-   4. Setup steps 4 and 5 (your lawn, loading history) and the no-location notice.
-   The basis label on every other weather page waits for the cutover (slice 8), when those
-   pages read the record. Specs: SETUP-FLOW, SETUP-LOC, SETUP-PLAN, SETUP-HA, SETUP-MAP,
+   3. Setup step 3 (your sensors), with map and unmap from the Sources page (#379).
+   4. Setup steps 4 and 5 (your lawn, loading history) (this PR).
+   The basis label on every other weather page, and the "Tell TurfOps where your lawn is"
+   notice (SETUP-FLOW-001), wait for the cutover (slice 8): until those pages read the record
+   and the clock follows the location, the notice would hide content that works and its UTC
+   sentence would be untrue. Specs: SETUP-FLOW, SETUP-LOC, SETUP-PLAN, SETUP-HA, SETUP-MAP,
    SETUP-PAGE; WX-VIEW-BASIS.
 
 ### Slice 8, the cutover
@@ -70,6 +72,8 @@ The first slice that changes what the owner sees.
 - **The forecast from the chosen provider**, fetched on the schedule. Specs: WX-SRC-FC-001,
   004; SYNC-FAIL-006.
 - **The refresh endpoint** wakes the schedule. Spec: SYNC-SCHED-009.
+- **The no-location notice** on every weather page (SETUP-FLOW-001), and the basis label
+  there (WX-VIEW-BASIS).
 - **Every consumer reads the record:** timing windows, seasonal plan, soil outlook, disease
   risk, the rules, landscape plants, `/historical`, `/gdd`, the MCP tools.
 - **The clock follows the location.** `TZ` stops being read. Specs: DEPLOY-TZ.

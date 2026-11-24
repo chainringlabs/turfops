@@ -5,6 +5,8 @@ import { useNavigate, useSearchParams } from "react-router";
 import { getPreview, getSources } from "../api/client";
 import { describeError } from "../api/errors";
 import FoundStep from "../components/setup/FoundStep";
+import HistoryStep from "../components/setup/HistoryStep";
+import LawnStep from "../components/setup/LawnStep";
 import LocationStep from "../components/setup/LocationStep";
 import SensorsStep from "../components/setup/SensorsStep";
 import { sharedStyles } from "../styles/shared";
@@ -15,6 +17,8 @@ const STEPS = [
 	{ id: "location", title: "Location" },
 	{ id: "found", title: "What we found" },
 	{ id: "sensors", title: "Your sensors" },
+	{ id: "lawn", title: "Your lawn" },
+	{ id: "history", title: "Loading history" },
 ] as const;
 
 /** The pins stored for each input. */
@@ -68,12 +72,12 @@ export default function Setup() {
 	if (error) return <div style={sharedStyles.error}>{error}</div>;
 	if (!stored) return <div style={sharedStyles.loading}>Loading setup…</div>;
 
-	// What we found needs a point; without one, setup starts at the location. Your
-	// sensors needs none.
+	// What we found needs a point; without one, setup starts at the location. The steps
+	// after it need none.
 	const asked = params.get("step");
 	const step =
-		asked === "sensors"
-			? "sensors"
+		asked === "sensors" || asked === "lawn" || asked === "history"
+			? asked
 			: asked === "found" && chosen
 				? "found"
 				: "location";
@@ -88,7 +92,12 @@ export default function Setup() {
 		setSaved(true);
 		setParams({ step: "sensors" });
 	}
-	const done = () => navigate("/sources", { state: { saved } });
+	// Your sensors saves as it goes: walked through it goes on, opened alone it goes back.
+	const sensorsAlone = openedOn === "sensors";
+	function sensorsDone() {
+		if (sensorsAlone) navigate("/sources", { state: { saved } });
+		else setParams({ step: "lawn" });
+	}
 
 	function next(point: ChosenPoint) {
 		const at = stored?.location;
@@ -128,8 +137,13 @@ export default function Setup() {
 				) : step === "sensors" ? (
 					<SensorsStep
 						postedEnabled={stored.connections.posted_readings}
-						onDone={done}
+						doneLabel={sensorsAlone ? "Done" : "Continue"}
+						onDone={sensorsDone}
 					/>
+				) : step === "lawn" ? (
+					<LawnStep onNext={() => setParams({ step: "history" })} />
+				) : step === "history" ? (
+					<HistoryStep />
 				) : (
 					<LocationStep stored={stored.location} onNext={next} />
 				)}
