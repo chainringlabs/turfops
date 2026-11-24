@@ -6,6 +6,7 @@
 #[path = "posted_tests.rs"]
 mod tests;
 
+use super::sensor_reading::record_instant;
 use chrono::{DateTime, Utc};
 use std::collections::HashSet;
 
@@ -103,7 +104,7 @@ fn reading(
         sensor: name,
         value,
         unit: unit.trim().to_string(),
-        observed_at,
+        observed_at: record_instant(observed_at),
     })
 }
 

@@ -123,9 +123,9 @@ Nothing.
 
 ## How to check the work
 
-- `cd backend && cargo test`: the suite with no database (1,181 tests).
+- `cd backend && cargo test`: the suite with no database (1,183 tests).
 - `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests`:
-  everything, against PostgreSQL (1,486 tests). The container is
+  everything, against PostgreSQL (1,488 tests). The container is
   `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`.
 - `cd backend && cargo test live_ -- --ignored --test-threads=1`: one real request to each
   outside source.

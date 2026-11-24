@@ -131,3 +131,24 @@ fn a_sensors_first_stored_reading_and_first_rejection_since_it_last_stored_are_l
     assert!(!log.rejected("Gauge"));
     assert!(log.stored("Probe"), "each sensor on its own");
 }
+
+// @spec WX-SRC-POST-005, WX-SRC-POST-009
+#[test]
+fn a_posted_time_is_kept_to_the_microsecond_the_record_stores() {
+    let fine = one(json!({
+        "sensor": "Probe", "value": 1, "unit": "mm",
+        "observed_at": "2026-11-24T15:00:00.903139783Z"
+    }))
+    .unwrap();
+    assert_eq!(
+        fine.observed_at.to_rfc3339(),
+        "2026-11-24T15:00:00.903139+00:00"
+    );
+    let body = json!({"readings": [{"sensor": "Probe", "value": 1, "unit": "mm"}]});
+    let arrived = received() + Duration::nanoseconds(903_139_783);
+    let untimed = readings(&body, arrived).unwrap().remove(0).unwrap();
+    assert_eq!(
+        untimed.observed_at,
+        received() + Duration::microseconds(903_139)
+    );
+}
