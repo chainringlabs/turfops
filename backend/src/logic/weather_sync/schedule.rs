@@ -5,6 +5,7 @@
 use super::fetcher::{Clients, Fetcher};
 use super::order::{ordered, Failing};
 use super::planning;
+use super::sensor_read::SensorReader;
 use crate::db::weather_queries::lawn;
 use crate::error::Result;
 use crate::logic::soil_estimate::estimator::SoilEstimator;
@@ -82,6 +83,8 @@ pub struct Schedule {
     backfilling: bool,
     /// Whether this process has said where things stand.
     announced: bool,
+    /// Reads the owner's Home Assistant sensors.
+    sensors: SensorReader,
 }
 
 impl Schedule {
@@ -102,6 +105,7 @@ impl Schedule {
             last_backfill: None,
             backfilling: false,
             announced: false,
+            sensors: SensorReader::new(),
         };
         (schedule, Waker(wake.clone()), Stopper { stopping, wake })
     }
@@ -125,7 +129,7 @@ impl Schedule {
     }
 
     /// One pass: bring the plan and the estimate in line, then run what is due.
-    // @spec SYNC-SCHED-002, SYNC-SCHED-003, SYNC-SCHED-004, SYNC-SCHED-011
+    // @spec SYNC-SCHED-002, SYNC-SCHED-003, SYNC-SCHED-004, SYNC-SCHED-011, SYNC-SCHED-013
     pub async fn pass(&mut self, now: DateTime<Utc>) -> Result<Pass> {
         let Some((_, zone)) = self.location().await? else {
             // No location: no plan, nothing due, no outside request.
@@ -143,6 +147,8 @@ impl Schedule {
             self.registered_on = Some(today);
         }
         self.keep_estimate(today, now, replanned).await?;
+        // The owner's sensors come before every other fetch.
+        self.sensors.run(&self.pool, today, now).await;
 
         let due = self.record.due(now, today, minute).await?;
         let mut refreshed = false;

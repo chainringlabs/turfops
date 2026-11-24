@@ -178,8 +178,11 @@ mapping is made in the app and stored there.
   unit of measurement, and the time it was last reported: `last_reported`, which moves each
   time the device reports even when the value is unchanged, or `last_updated` where a Home
   Assistant version does not provide it. A state that is not a number
-  (`unavailable`, `unknown`) is no reading. A reading whose reported time is unchanged since
-  the previous read is not stored again.
+  (`unavailable`, `unknown`) is no reading. A reading whose reported time is not later than
+  the previous reading's is not stored again, so a clock set back or an entity restored from a
+  backup cannot write over newer readings; one stamped more than 5 minutes in the future is
+  refused, as a posted reading is, so a clock running ahead cannot keep a value looking
+  current.
 - **Posted readings.** `POST /api/v1/sensor-readings` accepts one or more readings: sensor
   name, value, unit, and optionally the time observed (default: now). The route exists only
   when `SENSOR_TOKEN` is set and requires it as a bearer token. A reading for a sensor that is
@@ -192,7 +195,20 @@ mapping is made in the app and stored there.
   fraction for soil moisture.
 - **Rain** is mapped as one of two kinds. A *counter* reports a running total; the amount is
   the increase since the previous reading, and a decrease is a reset that counts as zero. An
-  *amount* reports rain since its last reading and is used as is.
+  *amount* reports rain since its last reading and is used as is. A counter's first reading
+  has nothing to rise from: it becomes the starting point and gives no amount. A rise of more
+  than 300 mm in one reading is the precipitation ceiling below, so it is taken as a gauge that
+  was replaced or reset to a higher total, counts as zero, and is logged.
+- **The previous reading** of each sensor, its converted value and its reported time, is kept
+  with the sensor's mapping, so the unchanged-time check and a counter's rise survive a
+  restart and serve both ways in alike. Changing what a sensor is mapped to discards it: a
+  value in one input's units says nothing about another's.
+- **A reading that cannot be used** stores nothing: a state that is not a number, a unit the
+  sensor's input does not accept (the owner can change an entity's unit in Home Assistant
+  after mapping it), or a converted value outside its input's plausible range. For rain the
+  range is per reading: an amount from 0 to 300 mm, and a counter's total no lower than zero,
+  its rise being judged as above. Each is logged
+  with the sensor and the problem, and the other sensors are still read.
 
 ### Forecast
 
@@ -268,7 +284,8 @@ a station id or a point as an argument and read no setting at all.
 | 404 for a station-year file | Empty success |
 | Body parses but has a hole inside the span asked for | An outage; nothing partial is returned. Missing days at the end of a grid span are not yet published, not a hole |
 | A value is a sentinel, flagged or implausible | That value `None`, the row kept |
-| Home Assistant entity not numeric | No reading for that sensor; the others are read |
+| Home Assistant entity not numeric, in a unit its input does not accept, or implausible | No reading for that sensor; the others are read |
+| Home Assistant entity not found | No reading for that sensor; the others are read |
 | Home Assistant unreachable | An outage of the owner's sensors (Home Assistant) |
 | Forecast provider fails | A forecast outage; data sync keeps the previous forecast within its reuse limit |
 
@@ -289,6 +306,9 @@ a station id or a point as an argument and read no setting at all.
 | Home Assistant reading time | The entity's `last_reported`, else `last_updated` | The server clock at read time; `last_updated` alone | A stuck sensor otherwise looks current forever. `last_updated` moves only when the value changes, so a rain counter in a dry week or a steady soil probe would look dead. |
 | Home Assistant units | Read from the entity | A unit setting per entity | The entity already declares it; a setting can only disagree with it. |
 | Rain from a sensor | Declared as counter or amount at mapping | Guess from the readings | The two look alike until a reset or a dry week; a wrong guess doubles or zeroes the rain. |
+| A sensor's previous reading | Kept with the sensor's mapping in the database | Kept in memory; read back from the stored readings | In memory, a restart loses a counter's starting point and with it the rain that fell while the app was down. The stored readings hold rain as amounts, not the counter's total, and are pruned after 7 days. |
+| A counter's first reading | The starting point; no amount | Count it as zero | Zero says no rain fell in that hour, which nothing measured. |
+| A counter rising more than 300 mm in one reading | Counts as zero, logged | Store it; cap it at 300 mm | No hour's rain reaches that ceiling, so the rise is a replaced or re-based gauge; storing it would write a flood into the record, and a cap would still invent rain. |
 | Retries | None inside a client | Retry with back-off in each client | One place (data sync) knows the schedule and what else is due; a client that retries hides an outage and multiplies requests on a struggling host. |
 | Identification | Application name and version only | Include a contact address, as some services request | The owner's details are private and are not sent to any service (HLD). |
 | Key in errors | The URL is stripped inside the client | Rely on callers not to log it | OpenWeatherMap's key travels in the query string; the client is the only place that can guarantee it is never formatted. |
@@ -313,6 +333,9 @@ a station id or a point as an argument and read no setting at all.
    it cannot tell a calibrated volumetric reading from a raw one, and the irrigation thresholds
    assume the former.
 6. **Posted readings are not rate-limited.**
+7. **A counter's rise across a gap lands in one hour.** After the app or Home Assistant has
+   been down, the rain since the last reading is stamped at the first reading after the gap,
+   so a day's total is right and its hours are not.
 
 ## References
 

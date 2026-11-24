@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 const NOWHERE: &str = "http://127.0.0.1:1";
 
-fn unreachable() -> Clients {
+pub(super) fn unreachable() -> Clients {
     let outside = Arc::new(Outside::unpaced());
     Clients {
         uscrn: UscrnClient::new(outside.clone()).with_base(NOWHERE),
@@ -30,7 +30,7 @@ fn unreachable() -> Clients {
 
 /// Minutes after 16:00 UTC today. The passes run on the real date because a source's
 /// wanted span starts from the day it came into use.
-fn at(minutes: i64) -> DateTime<Utc> {
+pub(super) fn at(minutes: i64) -> DateTime<Utc> {
     let today = Utc::now().date_naive();
     Utc.from_utc_datetime(&today.and_hms_opt(16, 0, 0).unwrap()) + Duration::minutes(minutes)
 }
@@ -54,7 +54,7 @@ fn station(network: Network, id: &str, miles_north: f64, feet: f64) -> Station {
 
 /// A lawn near Avondale with both networks' station lists freshly loaded: a USCRN
 /// station 20 miles off, 2,000 feet up.
-async fn located(pool: &PgPool) {
+pub(super) async fn located(pool: &PgPool) {
     let mut profile = crate::logic::rules::test_fixtures::profile(GrassType::TallFescue);
     profile.id = None;
     profile.location = Some(LawnLocation::at(39.86, -75.79, None).unwrap());
@@ -71,7 +71,7 @@ async fn located(pool: &PgPool) {
         .unwrap();
 }
 
-async fn state_of(pool: &PgPool, key: &str) -> FetchState {
+pub(super) async fn state_of(pool: &PgPool, key: &str) -> FetchState {
     let source = sources::all(pool)
         .await
         .unwrap()

@@ -55,13 +55,20 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 
 ## Home Assistant
 
-- [ ] **WX-SRC-HA-001**: When reading Home Assistant, the system shall read each mapped entity independently and return, for each whose state is a number, the value converted from the entity's own unit of measurement and the time the entity last reported: its `last_reported` time, or its `last_updated` time where Home Assistant gives no `last_reported`.
-- [ ] **WX-SRC-HA-002**: If a mapped Home Assistant entity's state is not numeric, then the system shall log a warning, return no reading for that sensor, and still return the other sensors' readings.
-- [ ] **WX-SRC-HA-003**: When a mapped entity's reported time (WX-SRC-HA-001) is unchanged since the previous read, the system shall return no new reading for that sensor.
+- [x] **WX-SRC-HA-001**: When reading Home Assistant, the system shall read each mapped entity independently and return, for each whose state is a number, the value converted from the entity's own unit of measurement and the time the entity last reported: its `last_reported` time, or its `last_updated` time where Home Assistant gives no `last_reported`.
+- [x] **WX-SRC-HA-002**: If a mapped Home Assistant entity's state is not numeric, then the system shall log a warning, return no reading for that sensor, and still return the other sensors' readings.
+- [x] **WX-SRC-HA-003**: When a mapped entity's reported time (WX-SRC-HA-001) is not later than its sensor's previous reading, the system shall return no new reading for that sensor.
 - [x] **WX-SRC-HA-004**: The Home Assistant entity listing shall return every entity in the `sensor` domain whose state is a number, with its entity id, friendly name, state, unit of measurement, device class, state class and reported time (WX-SRC-HA-001).
 - [x] **WX-SRC-HA-005**: The Home Assistant probe shall report whether one authenticated request to the given address succeeded and, when it did not, whether the address did not answer or the token was refused.
-- [ ] **WX-SRC-HA-006**: For a sensor mapped to rain as a counter, the system shall return as the rain amount the increase in the entity's value since the previous reading, and zero when the value has decreased.
-- [ ] **WX-SRC-HA-007**: For a sensor mapped to rain as an amount, the system shall return the entity's value as the rain amount.
+- [x] **WX-SRC-HA-006**: For a sensor mapped to rain as a counter, the system shall return as the rain amount the increase in the entity's value since the previous reading, and zero when the value has decreased.
+- [x] **WX-SRC-HA-007**: For a sensor mapped to rain as an amount, the system shall return the entity's value as the rain amount.
+- [x] **WX-SRC-HA-008**: If a mapped Home Assistant entity reports a unit its sensor's input does not accept, or a value that once converted is outside that input's plausible range (WX-SRC-NORM-002), then the system shall log a warning naming the sensor and the problem, return no reading for that sensor, and still return the other sensors' readings.
+- [x] **WX-SRC-HA-009**: When a sensor mapped to rain as a counter has no previous reading, the system shall keep its value as the counter's starting point and return no rain amount.
+- [x] **WX-SRC-HA-010**: If the value of a sensor mapped to rain as a counter has risen more than 300 mm since its previous reading, then the system shall return zero as the rain amount and log a warning naming the sensor.
+- [x] **WX-SRC-HA-011**: The system shall keep each sensor's previous reading, its converted value and its reported time, in the database with the sensor's mapping, so that WX-SRC-HA-003, WX-SRC-HA-006 and WX-SRC-HA-010 hold across a restart.
+- [x] **WX-SRC-HA-012**: When a sensor's input or rain kind is changed, the system shall discard that sensor's previous reading.
+- [x] **WX-SRC-HA-013**: If a mapped Home Assistant entity is not found in Home Assistant, then the system shall return no reading for that sensor and still return the other sensors' readings.
+- [x] **WX-SRC-HA-014**: If a mapped Home Assistant entity's reported time is more than 5 minutes after the current time, then the system shall log a warning naming the sensor, return no reading for that sensor, and still return the other sensors' readings.
 
 ## Posted sensor readings
 
@@ -70,7 +77,7 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 - [ ] **WX-SRC-POST-003**: If a request to `/api/v1/sensor-readings` lacks the bearer token or carries a wrong one, then the system shall answer 401 and store nothing.
 - [ ] **WX-SRC-POST-004**: If a posted reading names a sensor that is not mapped, gives a unit its sensor's input does not accept, gives a value outside that input's plausible range, or is dated more than 5 minutes after the current time, then the system shall reject that reading with a message naming the sensor and the problem and shall store the other readings in the request; it shall answer 200 listing what was stored and what was rejected when at least one reading was stored, and 400 when none was.
 - [ ] **WX-SRC-POST-005**: When a posted reading gives no time observed, the system shall take the time the request was received.
-- [ ] **WX-SRC-POST-006**: The system shall treat a posted reading for a sensor mapped to rain as WX-SRC-HA-006 and WX-SRC-HA-007 treat a Home Assistant reading.
+- [ ] **WX-SRC-POST-006**: The system shall treat a posted reading for a sensor mapped to rain as WX-SRC-HA-006, WX-SRC-HA-007, WX-SRC-HA-009 and WX-SRC-HA-010 treat a Home Assistant reading.
 
 ## Forecast providers
 

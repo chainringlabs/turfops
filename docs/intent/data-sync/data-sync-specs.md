@@ -18,6 +18,12 @@ Design: [data-sync-design.md](data-sync-design.md). Prefix `SYNC`. Facets: `SCHE
 - [x] **SYNC-SCHED-010**: When the process is told to stop, the schedule shall start no further fetch and shall end once the fetch in progress finishes or times out.
 - [x] **SYNC-SCHED-011**: While the lawn has no location, the schedule shall make no outside request.
 - [x] **SYNC-SCHED-012**: The schedule shall hold no lock that a request for the summary needs while a fetch is in progress.
+- [x] **SYNC-SCHED-013**: While the lawn has a location, a Home Assistant connection is stored and at least one Home Assistant sensor is mapped, the schedule shall read those sensors (WX-SRC-HA) at the start of a pass when 5 minutes or more have passed since the last read was attempted, whether it succeeded or failed, without waiting for the installation's minute of the hour, and shall store each reading returned (WX-REC-STORE-006).
+- [x] **SYNC-SCHED-014**: While no Home Assistant connection is stored or no Home Assistant sensor is mapped, the schedule shall make no request to Home Assistant.
+- [x] **SYNC-SCHED-015**: When the schedule reads the owner's Home Assistant sensors, it shall record against each sensor's source a success when a reading was returned or its reported time was unchanged, and otherwise a failure with a sentence naming the problem: Home Assistant did not answer, refused the token, reports the sensor as unavailable, has no such sensor, or reports it in a unit its input does not accept or at an implausible value.
+- [x] **SYNC-SCHED-016**: If Home Assistant does not answer or refuses the token, then the schedule shall try the read again as SYNC-SCHED-006 describes for a failed fetch.
+- [x] **SYNC-SCHED-017**: The schedule shall log at INFO the first Home Assistant read that succeeds after a start or after a failed read, with the number of sensors read and readings stored, and every other successful read at DEBUG.
+- [x] **SYNC-SCHED-018**: Once a day the schedule shall delete sensor readings older than 7 days (WX-REC-STORE-007).
 
 ## Startup and the clock
 

@@ -5,7 +5,7 @@ on a decision. The research behind the design is in
 [standalone-weather-sources.md](standalone-weather-sources.md); the design and specs are under
 `docs/intent/`. This file is the place to start when picking the work up.
 
-Status as of 2026-11-23, with `main` at PR #369 and the preview-elevation change in PR #370.
+Status as of 2026-11-24, with `main` at PR #373 and reading the owner's Home Assistant sensors on the schedule in review.
 
 ## The goal
 
@@ -26,7 +26,7 @@ and MCP tools still read the lake through the old path until the cutover (slice 
 | 4 | The weather record: basis plan, resolution, every query contract, what is due, source status | #348 to #352 |
 | 5 | The soil estimate wired in: calibration choice and data, fitting, the series, anchoring | #353 to #356 |
 | 6 | The fetch schedule, started at boot, with its logging | #357, #358, #360 |
-| 7, backend | Setup storage; place search, preview and station list; pins, forecast provider and the one-step apply; the Sources read; Home Assistant connection and entity list; sensor mapping with its check | #362, #363, #364, #367, #368 |
+| 7, backend | Setup storage; place search, preview and station list; pins, forecast provider and the one-step apply; the Sources read; Home Assistant connection and entity list; sensor mapping with its check; preview elevation; reading mapped Home Assistant sensors every 5 minutes | #362, #363, #364, #367, #368, #370, this PR |
 
 Also merged along the way: the notice for late station data (#361) and the `url` security
 bump (#345).
@@ -39,22 +39,19 @@ bump (#345).
 - **Connections and sensors are imported once.** On the first start after #367 and #368,
   `HA_URL` with `HA_TOKEN`, and `OWM_API_KEY`, are copied into the database, and the entities
   in `HA_TEMPERATURE_ENTITY` and `HA_HUMIDITY_ENTITY` are mapped as sensors.
-- **Nothing reads the mapped sensors yet**, so they hold no readings and the record falls
-  through to the next source for those inputs.
+- **Mapped Home Assistant sensors are read every 5 minutes** into the record, each with its own
+  status. The first good read after a start logs `Home Assistant sensors read sensors=N stored=N`.
+  Sensor readings older than a week are deleted once a day.
 - **The setup and sources endpoints exist** and nothing in the UI calls them.
 
 ## What is left
 
 ### Slice 7, remaining
 
-1. **Read mapped sensors on the schedule.** Every five minutes, first in a pass. A reading is
-   the entity's value converted from its own unit, stamped with `last_reported`; an unchanged
-   reported time is not stored again; a rain counter stores its increase and a reset counts
-   as zero. Specs: WX-SRC-HA-001, 003, 006, 007; SYNC-SCHED-003.
-2. **Posted readings.** `POST /api/v1/sensor-readings`, mounted only when `SENSOR_TOKEN` is
+1. **Posted readings.** `POST /api/v1/sensor-readings`, mounted only when `SENSOR_TOKEN` is
    set, bearer-guarded, storing what it can of a batch and naming what it rejects. Specs:
    WX-SRC-POST-001 to 006.
-3. **The UI.** The five-step setup flow at `/setup`, the Sources page at `/sources`, the
+2. **The UI.** The five-step setup flow at `/setup`, the Sources page at `/sources`, the
    shared basis label, and the notice shown on weather pages while the lawn has no location.
    Specs: SETUP-FLOW, SETUP-LOC, SETUP-PLAN, SETUP-HA, SETUP-MAP, SETUP-PAGE; WX-VIEW-BASIS.
 
@@ -127,13 +124,13 @@ Nothing.
 
 ## How to check the work
 
-- `cd backend && cargo test`: the suite with no database (1,160 tests).
+- `cd backend && cargo test`: the suite with no database (1,170 tests).
 - `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests`:
-  everything, against PostgreSQL (1,443 tests). The container is
+  everything, against PostgreSQL (1,462 tests). The container is
   `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`.
 - `cd backend && cargo test live_ -- --ignored --test-threads=1`: one real request to each
   outside source.
 - `cd backend && DATABASE_URL=… cargo test --features db-tests live_schedule -- --ignored`:
   the schedule's first passes for a new lawn against the real services. Run it before any
   change to the plan, the fetcher or the schedule: it caught a fault no stubbed test could.
-- `node scripts/coherence-check.mjs`: 970 specs implemented, 217 open, 11 deferred.
+- `node scripts/coherence-check.mjs`: 988 specs implemented, 212 open, 11 deferred.
