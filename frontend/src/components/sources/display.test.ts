@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { InputView, SourceView } from "../../types/sources";
+import type { CurrentBasis, SourceStatus } from "../../types";
+import type {
+	ForecastStatus,
+	InputView,
+	SourceView,
+} from "../../types/sources";
 import {
 	accuracyLines,
+	currentBasisOf,
 	forecastStatusText,
-	forecastUp,
 	formatValue,
 	groupOf,
 	historyText,
@@ -11,6 +16,7 @@ import {
 	observedText,
 	orderSources,
 	speaksFor,
+	statusLine,
 } from "./display";
 
 function source(over: Partial<SourceView>): SourceView {
@@ -269,12 +275,118 @@ describe("the forecast's status", () => {
 			forecastStatusText(status(null, null), now, "America/New_York"),
 		).toBe("Not fetched yet");
 	});
+});
 
-	// @spec SYNC-CONN-008
-	it("is up only with a forecast held and no failure", () => {
-		expect(forecastUp(status("2026-11-24T19:07:00Z", null))).toBe(true);
-		expect(forecastUp(status("2026-11-24T19:07:00Z", "Down."))).toBe(false);
-		expect(forecastUp(status(null, null))).toBe(false);
-		expect(forecastUp(status(null, "Needs its key."))).toBe(false);
+describe("the summary's bases", () => {
+	// @spec WX-VIEW-BASIS-004
+	it("finds an input's entry by its request name", () => {
+		const bases: CurrentBasis[] = [
+			{
+				input: "air_temp",
+				standing: "InUse",
+				basis: {
+					kind: "Sensor",
+					source: "Patio",
+					distance_miles: null,
+					approximate: false,
+				},
+				observed_at: "2026-11-24T19:00:00Z",
+			},
+			{
+				input: "soil_moisture_10",
+				standing: "NoSource",
+				basis: null,
+				observed_at: null,
+			},
+		];
+		expect(currentBasisOf(bases, "soil_moisture_10")?.standing).toBe(
+			"NoSource",
+		);
+		expect(currentBasisOf(bases, "air_temp")?.basis?.source).toBe("Patio");
+		expect(currentBasisOf(bases, "humidity")).toBeUndefined();
+		expect(currentBasisOf(undefined, "air_temp")).toBeUndefined();
+	});
+});
+
+describe("the dashboard's source-status line", () => {
+	function status(over: Partial<SourceStatus>): SourceStatus {
+		return {
+			id: 1,
+			name: "PA Avondale 2 N",
+			kind: "Station",
+			ok: true,
+			last_success: "2026-11-24T19:35:00Z",
+			last_failure: null,
+			last_error: null,
+			inputs: ["soil_temp_10"],
+			held_from: "2011-01-01",
+			held_through: "2026-11-24",
+			wanted_from: "2011-01-01",
+			...over,
+		};
+	}
+	const fine: ForecastStatus = {
+		provider: "OpenWeatherMap",
+		fetched_at: "2026-11-24T19:07:00Z",
+		last_error: null,
+	};
+
+	// @spec FEED-UI-014
+	it("reads All sources current when every source and the forecast are fine", () => {
+		const sensor = status({
+			id: 2,
+			name: "Patio",
+			kind: "Sensor",
+			wanted_from: null,
+			held_from: null,
+			held_through: null,
+		});
+		expect(statusLine([status({}), sensor], fine)).toEqual({
+			text: "All sources current",
+			history: null,
+		});
+	});
+
+	// @spec FEED-UI-014
+	it("names the sources failing and the forecast provider while it fails", () => {
+		const line = statusLine(
+			[
+				status({}),
+				status({ id: 2, name: "Hourly analysis", kind: "Analysis", ok: false }),
+				status({ id: 3, name: "PRISM", kind: "Grid", ok: null }),
+			],
+			{ ...fine, last_error: "OpenWeatherMap needs an API key." },
+		);
+		expect(line?.text).toBe("Not current: Hourly analysis, OpenWeatherMap");
+	});
+
+	// @spec FEED-UI-014
+	it("counts a source never fetched as pending, not failing", () => {
+		const line = statusLine([status({ ok: null })], fine);
+		expect(line?.text).toBe("All sources current");
+	});
+
+	// @spec FEED-UI-014
+	it("shows history progress while any source holds less than it wants", () => {
+		const line = statusLine(
+			[
+				status({}),
+				status({ id: 2, name: "PRISM", kind: "Grid", held_from: "2019-01-01" }),
+				status({
+					id: 3,
+					name: "NRCC",
+					kind: "Grid",
+					held_from: null,
+					held_through: null,
+				}),
+			],
+			fine,
+		);
+		expect(line?.history).toBe("Loading history: 1 of 3 sources complete");
+	});
+
+	// @spec FEED-UI-014
+	it("says nothing while there are no sources", () => {
+		expect(statusLine([], fine)).toBeNull();
 	});
 });

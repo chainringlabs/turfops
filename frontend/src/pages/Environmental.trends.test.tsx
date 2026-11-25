@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	getEnvironmental,
@@ -69,7 +70,11 @@ describe("Environmental historical trends", () => {
 		vi.mocked(getHistorical).mockImplementation(async (range) =>
 			historical(range),
 		);
-		render(<Environmental />);
+		render(
+			<MemoryRouter>
+				<Environmental />
+			</MemoryRouter>,
+		);
 		await screen.findByText(CHARTS[0]);
 		for (const label of CHARTS) {
 			expect(within(trends()).getByText(label)).toBeInTheDocument();
@@ -87,7 +92,11 @@ describe("Environmental historical trends", () => {
 	// @spec WX-VIEW-PAGE-005
 	it("says No data available for each empty series", async () => {
 		vi.mocked(getHistorical).mockResolvedValue(EMPTY_HISTORY);
-		render(<Environmental />);
+		render(
+			<MemoryRouter>
+				<Environmental />
+			</MemoryRouter>,
+		);
 		await screen.findByText(CHARTS[0]);
 		expect(screen.getAllByText("No data available")).toHaveLength(6);
 	});
@@ -100,7 +109,11 @@ describe("Environmental historical trends", () => {
 			if (range === "30d") throw new ApiError(503, lakeDown);
 			return historical(range);
 		});
-		render(<Environmental />);
+		render(
+			<MemoryRouter>
+				<Environmental />
+			</MemoryRouter>,
+		);
 		expect(await screen.findByText(CHARTS[0])).toBeInTheDocument();
 
 		await userEvent.click(screen.getByRole("button", { name: "30d" }));

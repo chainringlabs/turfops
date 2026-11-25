@@ -127,6 +127,35 @@ async fn sensors_are_read_every_five_minutes_and_an_unchanged_time_stores_nothin
     assert_eq!(asked(&mut requests), 1);
 }
 
+// @spec SYNC-SCHED-009
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn a_refresh_reads_the_sensors_inside_the_five_minutes(pool: PgPool) {
+    located(&pool).await;
+    map(&pool, Some("sensor.patio"), Input::AirTemp, None).await;
+    let first = answer("sensor.patio", "61", "°F", at(-1));
+    let second = answer("sensor.patio", "62", "°F", at(1));
+    let mut requests = connect(&pool, vec![(200, first), (200, second)]).await;
+    let mut reader = SensorReader::new();
+
+    reader.read(&pool, today(), at(0)).await.unwrap();
+    reader.force();
+    let forced = reader.read(&pool, today(), at(2)).await.unwrap();
+    assert_eq!(
+        forced,
+        Read::Done {
+            sensors: 1,
+            stored: 1,
+            announce: false
+        }
+    );
+    assert_eq!(asked(&mut requests), 2);
+    assert_eq!(
+        reader.read(&pool, today(), at(3)).await.unwrap(),
+        Read::NotDue,
+        "a refresh forces one read"
+    );
+}
+
 // @spec SYNC-SCHED-014
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn with_no_connection_or_no_home_assistant_sensor_nothing_is_asked(pool: PgPool) {

@@ -169,19 +169,16 @@ async fn the_nitrogen_part_is_this_years_totals_without_the_feedings(pool: PgPoo
     );
 }
 
-// @spec MCP-SNAP-005, SYNC-CONN-008
+// @spec MCP-SNAP-005, SYNC-CONN-005, SYNC-CONN-008
 #[sqlx::test(migrations = "src/db/migrations")]
-async fn the_snapshot_reports_connection_status_under_data_syncs_names(pool: PgPool) {
+async fn the_snapshot_reports_source_status_under_data_syncs_names(pool: PgPool) {
     let (state, _lake, snap) = snapshot(pool, "snap-sources").await;
-    let status = state.sync_service.read().await.connections().await.unwrap();
-    assert_eq!(snap["data_sources"], serde_json::to_value(status).unwrap());
-    assert_eq!(snap["data_sources"]["soildata"], true);
-    assert_eq!(snap["data_sources"]["homeassistant"], false);
-    assert!(snap["data_sources"].get("openweathermap").is_none());
-    // The fixture's forecast came from OpenWeatherMap; Open-Meteo is the one chosen.
+    let sync = state.sync_service.read().await;
+    let sources = sync.sources().await.unwrap();
+    let forecast = sync.forecast_status().await.unwrap();
     assert_eq!(
-        snap["data_sources"]["forecast"],
-        json!({"provider": "OpenMeteo", "fetched_at": null, "last_error": null})
+        snap["data_sources"],
+        json!({"sources": sources, "forecast": forecast})
     );
 }
 

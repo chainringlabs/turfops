@@ -1,4 +1,4 @@
-use crate::logic::data_sync::ConnectionStatus;
+use crate::logic::data_sync::SourceStatusView;
 use crate::logic::weather_sync::forecast::ForecastStatus;
 use crate::state::AppState;
 use axum::extract::State;
@@ -11,7 +11,8 @@ pub struct HealthResponse {
     pub status: String,
     pub version: String,
     pub database: bool,
-    pub datasources: ConnectionStatus,
+    /// One entry per source in use; empty while the database does not answer.
+    pub sources: Vec<SourceStatusView>,
     /// The forecast's status; empty while the database does not answer.
     pub forecast: Option<ForecastStatus>,
     /// `enabled` when `/mcp` is mounted (MCP_TOKEN set), else `disabled`.
@@ -28,21 +29,22 @@ pub async fn health_check(State(state): State<AppState>) -> Json<HealthResponse>
     .map(|r| r.is_ok())
     .unwrap_or(false);
 
-    // Check external datasource connectivity via read lock (doesn't block data sync)
     let service = state.sync_service.read().await;
-    let datasources = service.check_connections().await;
-    // The chosen provider is read from the database; without one there is no status.
-    let forecast = if db_ok {
-        service.forecast_status().await.ok()
+    // Both are read from the database; without one there is nothing to report.
+    let (sources, forecast) = if db_ok {
+        (
+            service.sources().await.unwrap_or_default(),
+            service.forecast_status().await.ok(),
+        )
     } else {
-        None
+        (Vec::new(), None)
     };
 
     Json(HealthResponse {
         status: if db_ok { "ok" } else { "degraded" }.to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         database: db_ok,
-        datasources,
+        sources,
         forecast,
         mcp: if state.mcp_enabled {
             "enabled"

@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
-import { act, render, screen, within } from "@testing-library/react";
+import {
+	act,
+	render as rtlRender,
+	screen,
+	within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	getEnvironmental,
@@ -16,9 +22,13 @@ import {
 } from "../components/gaugeConfigs";
 import {
 	historical,
+	inUse,
+	SENSOR,
+	STATION,
 	soilForecast,
 	summary,
 } from "../test/environmentalFixtures";
+import type { CurrentBasis } from "../types";
 import Environmental from "./Environmental";
 
 vi.mock("../api/client", () => ({
@@ -45,6 +55,11 @@ vi.mock("recharts", () => {
 	};
 });
 
+/** The page inside a router: basis labels link to the Sources page. */
+function render(ui: React.ReactElement) {
+	return rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
+}
+
 let hidden = false;
 
 beforeEach(() => {
@@ -67,6 +82,26 @@ afterEach(() => {
 function gaugeText(label: string): string {
 	const gauge = screen.getAllByText(label).find((el) => el.tagName === "SPAN");
 	return gauge?.parentElement?.textContent ?? "";
+}
+
+/** The card holding a gauge: its header, bar and basis label. */
+function gaugeCard(label: string): HTMLElement {
+	const gauge = screen.getAllByText(label).find((el) => el.tagName === "SPAN");
+	const card = gauge?.closest("[data-gauge-card]");
+	if (!card) throw new Error(`no card for ${label}`);
+	return card as HTMLElement;
+}
+
+/** The fixture's bases with one input's standing changed. */
+function withStanding(
+	input: string,
+	standing: CurrentBasis["standing"],
+): CurrentBasis[] {
+	return (summary().current_bases ?? []).map((entry) =>
+		entry.input === input
+			? { input, standing, basis: null, observed_at: null }
+			: entry,
+	);
 }
 
 describe("Environmental page loading", () => {
@@ -166,7 +201,7 @@ describe("Environmental page content", () => {
 		expect(depths).toEqual(["5 cm", "10 cm", "20 cm", "50 cm", "100 cm"]);
 		expect(within(profile).getByText("61.2 °F")).toBeInTheDocument();
 
-		const cards = screen.getByText("5-Day Forecast")
+		const cards = screen.getByText("Forecast from OpenWeatherMap")
 			.nextElementSibling as HTMLElement;
 		expect(cards.children).toHaveLength(2);
 		const first = cards.children[0] as HTMLElement;
@@ -186,13 +221,155 @@ describe("Environmental page content", () => {
 		expect(gaugeText(AMBIENT_TEMP_GAUGE.label)).toContain("--");
 	});
 
+	// @spec WX-VIEW-PAGE-003, WX-VIEW-BASIS-001
+	it("labels each gauge with the basis of its value", async () => {
+		render(<Environmental />);
+		await screen.findByText("Soil Profile by Depth");
+		const soil = gaugeCard(SOIL_TEMP_GAUGE.label);
+		expect(soil).toHaveTextContent("Measured · PA Avondale 2 N, 2 mi");
+		expect(within(soil).getByRole("link")).toHaveAttribute("href", "/sources");
+		expect(gaugeCard(AMBIENT_TEMP_GAUGE.label)).toHaveTextContent(
+			"Your sensor · Patio temperature",
+		);
+	});
+
+	// @spec WX-VIEW-BASIS-004
+	it("says No source for this location in place of a gauge whose input has none", async () => {
+		const bases = withStanding("soil_moisture_10", "NoSource");
+		const data = summary({ current_bases: bases });
+		if (data.current) data.current.soil_moisture_10 = null;
+		vi.mocked(getEnvironmental).mockResolvedValue(data);
+		render(<Environmental />);
+		await screen.findByText("Soil Profile by Depth");
+		const moisture = gaugeCard(SOIL_MOISTURE_GAUGE.label);
+		expect(moisture).toHaveTextContent("No source for this location");
+		expect(moisture).not.toHaveTextContent("--");
+		expect(within(moisture).getByRole("link")).toHaveAttribute(
+			"href",
+			"/sources",
+		);
+	});
+
+	// @spec WX-VIEW-BASIS-004
+	it("shows -- and no label for a gauge whose source has no current value", async () => {
+		const data = summary({
+			current_bases: withStanding("air_temp", "NoCurrentValue"),
+		});
+		if (data.current) data.current.ambient_temp_f = null;
+		vi.mocked(getEnvironmental).mockResolvedValue(data);
+		render(<Environmental />);
+		await screen.findByText("Soil Profile by Depth");
+		const air = gaugeCard(AMBIENT_TEMP_GAUGE.label);
+		expect(air).toHaveTextContent("--");
+		expect(air).not.toHaveTextContent("Your sensor");
+		expect(air).not.toHaveTextContent("No source");
+	});
+
+	// @spec WX-VIEW-PAGE-003, WX-VIEW-BASIS-001
+	it("labels each 7-day card with its basis, mixed where the week was", async () => {
+		render(<Environmental />);
+		const ambient = (await screen.findByText("7-Day Ambient Avg"))
+			.parentElement as HTMLElement;
+		expect(ambient).toHaveTextContent(
+			"Your sensor · Patio temperature · mixed",
+		);
+		const soil = screen.getByText("7-Day Soil Temp Avg")
+			.parentElement as HTMLElement;
+		expect(soil).toHaveTextContent("Measured · PA Avondale 2 N, 2 mi");
+	});
+
+	// @spec WX-VIEW-PAGE-003, WX-VIEW-BASIS-001
+	it("lists only the depths that have a source, each value with its basis", async () => {
+		const bases: CurrentBasis[] = [
+			inUse("air_temp", SENSOR),
+			inUse("soil_temp_5", STATION),
+			inUse("soil_temp_10", STATION),
+			{
+				input: "soil_temp_20",
+				standing: "NoSource",
+				basis: null,
+				observed_at: null,
+			},
+			{
+				input: "soil_temp_50",
+				standing: "NoSource",
+				basis: null,
+				observed_at: null,
+			},
+			{
+				input: "soil_temp_100",
+				standing: "NoSource",
+				basis: null,
+				observed_at: null,
+			},
+			inUse("soil_moisture_5", STATION),
+			{
+				input: "soil_moisture_10",
+				standing: "NoCurrentValue",
+				basis: null,
+				observed_at: null,
+			},
+			{
+				input: "soil_moisture_20",
+				standing: "NoSource",
+				basis: null,
+				observed_at: null,
+			},
+			{
+				input: "soil_moisture_50",
+				standing: "NoSource",
+				basis: null,
+				observed_at: null,
+			},
+			{
+				input: "soil_moisture_100",
+				standing: "NoSource",
+				basis: null,
+				observed_at: null,
+			},
+		];
+		const data = summary({ current_bases: bases });
+		if (data.current) data.current.soil_moisture_10 = null;
+		vi.mocked(getEnvironmental).mockResolvedValue(data);
+		render(<Environmental />);
+		const profile = (await screen.findByText("Soil Profile by Depth"))
+			.nextElementSibling as HTMLElement;
+		const rows = within(profile).getAllByRole("row").slice(1);
+		expect(rows.map((row) => row.firstElementChild?.textContent)).toEqual([
+			"5 cm",
+			"10 cm",
+		]);
+		expect(rows[0]).toHaveTextContent("Measured · PA Avondale 2 N, 2 mi");
+		expect(rows[1]).toHaveTextContent("--");
+	});
+
+	// @spec WX-VIEW-PAGE-003
+	it("heads the forecast with its provider and shows the first 7 days until asked for more", async () => {
+		const base = summary();
+		const day = base.forecast?.daily_summary[0];
+		if (!base.forecast || !day) throw new Error("fixture has a forecast");
+		base.forecast.daily_summary = Array.from({ length: 10 }, (_, i) => ({
+			...day,
+			date: `2026-10-${String(12 + i).padStart(2, "0")}`,
+		}));
+		vi.mocked(getEnvironmental).mockResolvedValue(base);
+		render(<Environmental />);
+		const cards = (await screen.findByText("Forecast from OpenWeatherMap"))
+			.nextElementSibling as HTMLElement;
+		expect(cards.children).toHaveLength(7);
+		await userEvent.click(
+			screen.getByRole("button", { name: "Show 3 more days" }),
+		);
+		expect(cards.children).toHaveLength(10);
+	});
+
 	// @spec WX-VIEW-PAGE-004
 	it("shows precipitation in inches converted from the API's millimetres", async () => {
 		render(<Environmental />);
 		const card = (await screen.findByText("7-Day Precipitation"))
 			.parentElement as HTMLElement;
 		expect(card).toHaveTextContent("1.00 in");
-		const cards = screen.getByText("5-Day Forecast")
+		const cards = screen.getByText("Forecast from OpenWeatherMap")
 			.nextElementSibling as HTMLElement;
 		expect(cards.children[0]).toHaveTextContent("Precip: 1.00 in");
 		expect(cards.children[1]).toHaveTextContent("Precip: 0.00 in");

@@ -32,3 +32,9 @@ mod forecast_db_tests;
 mod schedule_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod sensor_read_db_tests;
+
+/// Clients whose every outside source is unreachable (tests).
+#[cfg(all(test, feature = "db-tests"))]
+pub(crate) fn unreachable_clients() -> fetcher::Clients {
+    schedule_db_tests::unreachable()
+}

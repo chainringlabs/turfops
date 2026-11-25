@@ -82,9 +82,9 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 
 ## Health endpoint
 
-- [ ] **DEPLOY-HEALTH-001**: `GET /api/v1/health` shall always answer 200 with `{status, version, database, sources, forecast, mcp}`.
+- [x] **DEPLOY-HEALTH-001**: `GET /api/v1/health` shall always answer 200 with `{status, version, database, sources, forecast, mcp}`.
 - [x] **DEPLOY-HEALTH-002**: When `GET /api/v1/health` is called, the backend shall report `database` true when `SELECT 1` succeeds within 2 s, and `status` `ok` when it does, otherwise `degraded`.
-- [ ] **DEPLOY-HEALTH-003**: `GET /api/v1/health` shall report `sources` as data sync's source status and `forecast` as its forecast status (SYNC-CONN-003), `mcp` as `enabled` or `disabled` by whether `/mcp` is mounted, and `version` as the backend crate version.
+- [x] **DEPLOY-HEALTH-003**: `GET /api/v1/health` shall report `sources` as data sync's source status and `forecast` as its forecast status (SYNC-CONN-003), `mcp` as `enabled` or `disabled` by whether `/mcp` is mounted, and `version` as the backend crate version.
 
 ## Logging
 

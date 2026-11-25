@@ -29,7 +29,7 @@ A containerized web application for tracking lawn care activities and providing 
 - **Seasonal Plan Integration**: Calendar overlays predicted activity windows from the seasonal plan alongside actual applications
 - **Landscape Maintenance** *(optional)*: Track shrubs, trees, and perennials alongside turf. Enter a plant by common or scientific name and get a homeowner-level care plan (pruning windows, fertilizing, mulching) that overlays Calendar, Seasonal Plan, and Recommendations. Powered by an LLM through OpenRouter and cached per plant.
 - **FRAC Rotation**: Fungicide resistance management — the suggested class for each disease avoids the one you used last, and a logged application counts as protection for its residual window
-- **Demand-Driven Refresh**: Sensor data refreshes only when viewed (5-min staleness); the forecast is fetched hourly in the background from the provider chosen in setup
+- **Background fetching**: a schedule inside the app keeps the weather record current (your sensors every 5 minutes, stations and the forecast hourly); pages read the record, each value labeled with what it rests on. **Refresh Now** asks for a pass at once
 
 ## Architecture
 

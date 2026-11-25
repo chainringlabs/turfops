@@ -59,7 +59,9 @@ fn config(silver: &str, clock: Clock) -> Config {
 }
 
 pub(super) async fn state_with(pool: &PgPool, silver: &str, clock: Clock) -> AppState {
-    let sync = DataSyncService::initialize(&config(silver, clock), pool.clone()).await;
+    let sync = DataSyncService::initialize(&config(silver, clock), pool.clone())
+        .await
+        .summary_from_lake();
     AppState::new(pool.clone(), sync, None, false, clock)
 }
 

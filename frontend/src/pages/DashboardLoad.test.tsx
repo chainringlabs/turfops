@@ -32,10 +32,11 @@ const DASHBOARD = {
 	},
 	recommendations: [],
 	recent_applications: [],
-	connections: {
-		soildata: true,
-		homeassistant: true,
-		forecast: { provider: "OpenMeteo", fetched_at: null, last_error: null },
+	sources: [],
+	forecast_status: {
+		provider: "OpenMeteo",
+		fetched_at: null,
+		last_error: null,
 	},
 } as unknown as DashboardResponse;
 

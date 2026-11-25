@@ -16,7 +16,7 @@ import {
 } from "../components/dashboard/loadDashboard";
 import DiseaseRiskWidget from "../components/disease/DiseaseRiskWidget";
 import { staleSoilMessage } from "../components/environmental/display";
-import Gauge from "../components/Gauge";
+import GaugeCard from "../components/environmental/GaugeCard";
 import GddWidget from "../components/GddWidget";
 import {
 	AMBIENT_TEMP_GAUGE,
@@ -27,7 +27,8 @@ import {
 import ShoppingListPanel from "../components/inventory/ShoppingListPanel";
 import NitrogenBudgetWidget from "../components/NitrogenBudgetWidget";
 import SoilTempForecastWidget from "../components/SoilTempForecastWidget";
-import { forecastUp } from "../components/sources/display";
+import { currentBasisOf } from "../components/sources/display";
+import SourceStatusLine from "../components/sources/SourceStatusLine";
 import TimingWidget from "../components/timing/TimingWidget";
 import { appTypeBadgeStyle, sharedStyles } from "../styles/shared";
 import type {
@@ -38,7 +39,6 @@ import type {
 } from "../types";
 import { APPLICATION_TYPE_LABELS, GRASS_TYPE_LABELS } from "../types";
 import type { DiseaseRiskResponse } from "../types/disease";
-import { FORECAST_PROVIDER_NAMES } from "../types/sources";
 import type { TimingResponse } from "../types/timing";
 import { formatInches } from "../utils/units";
 
@@ -181,9 +181,11 @@ export default function Dashboard() {
 		environmental,
 		recommendations,
 		recent_applications,
-		connections,
+		sources,
+		forecast_status,
 	} = data;
 	const current = environmental.current;
+	const bases = environmental.current_bases;
 
 	return (
 		<div>
@@ -214,62 +216,60 @@ export default function Dashboard() {
 				</div>
 			)}
 
-			{/* Connection indicators */}
-			<div style={styles.connections}>
-				<ConnectionDot label="Weather lake" ok={connections.soildata} />
-				<ConnectionDot label="Home Assistant" ok={connections.homeassistant} />
-				{/* @spec SYNC-CONN-008 */}
-				<ConnectionDot
-					label={FORECAST_PROVIDER_NAMES[connections.forecast.provider]}
-					ok={forecastUp(connections.forecast)}
-				/>
-			</div>
+			{/* @spec FEED-UI-009, FEED-UI-014 */}
+			<SourceStatusLine sources={sources} forecast={forecast_status} />
 
-			{/* Gauges */}
+			{/* Gauges, each with its basis — @spec FEED-UI-009 */}
 			<div style={sharedStyles.gaugeGrid}>
-				<div style={sharedStyles.card}>
-					<Gauge {...SOIL_TEMP_GAUGE} value={current?.soil_temp_10_f ?? null} />
+				<GaugeCard
+					style={sharedStyles.card}
+					config={SOIL_TEMP_GAUGE}
+					value={current?.soil_temp_10_f ?? null}
+					entry={currentBasisOf(bases, "soil_temp_10")}
+				>
 					{environmental.soil_temp_7day_avg_f !== null && (
 						<div style={styles.subtext}>
 							7-day avg: {environmental.soil_temp_7day_avg_f.toFixed(1)}°F{" "}
 							{trendArrow(environmental.soil_temp_trend)}
 						</div>
 					)}
-				</div>
-				<div style={sharedStyles.card}>
-					<Gauge
-						{...AMBIENT_TEMP_GAUGE}
-						value={current?.ambient_temp_f ?? null}
-					/>
+				</GaugeCard>
+				<GaugeCard
+					style={sharedStyles.card}
+					config={AMBIENT_TEMP_GAUGE}
+					value={current?.ambient_temp_f ?? null}
+					entry={currentBasisOf(bases, "air_temp")}
+				>
 					{environmental.ambient_temp_7day_avg_f !== null && (
 						<div style={styles.subtext}>
 							7-day avg: {environmental.ambient_temp_7day_avg_f.toFixed(1)}°F
 						</div>
 					)}
-				</div>
-				<div style={sharedStyles.card}>
-					<Gauge
-						{...HUMIDITY_GAUGE}
-						value={current?.humidity_percent ?? null}
-					/>
-				</div>
-				<div style={sharedStyles.card}>
-					<Gauge
-						{...SOIL_MOISTURE_GAUGE}
-						value={
-							current?.soil_moisture_10 !== null &&
-							current?.soil_moisture_10 !== undefined
-								? current.soil_moisture_10 * 100
-								: null
-						}
-					/>
+				</GaugeCard>
+				<GaugeCard
+					style={sharedStyles.card}
+					config={HUMIDITY_GAUGE}
+					value={current?.humidity_percent ?? null}
+					entry={currentBasisOf(bases, "humidity")}
+				/>
+				<GaugeCard
+					style={sharedStyles.card}
+					config={SOIL_MOISTURE_GAUGE}
+					value={
+						current?.soil_moisture_10 !== null &&
+						current?.soil_moisture_10 !== undefined
+							? current.soil_moisture_10 * 100
+							: null
+					}
+					entry={currentBasisOf(bases, "soil_moisture_10")}
+				>
 					{environmental.precipitation_7day_total_mm !== null && (
 						<div style={styles.subtext}>
 							7-day precip:{" "}
 							{formatInches(environmental.precipitation_7day_total_mm)}
 						</div>
 					)}
-				</div>
+				</GaugeCard>
 			</div>
 
 			{/* GDD, Disease Risk, Timing, Nitrogen Budget & Soil Temp Forecast widgets */}
@@ -347,20 +347,6 @@ export default function Dashboard() {
 	);
 }
 
-function ConnectionDot({ label, ok }: { label: string; ok: boolean }) {
-	return (
-		<span style={styles.connItem}>
-			<span
-				style={{
-					...styles.dot,
-					backgroundColor: ok ? "#48bb78" : "#a0aec0",
-				}}
-			/>
-			{label}
-		</span>
-	);
-}
-
 function trendArrow(trend: string): string {
 	switch (trend) {
 		case "Rising":
@@ -386,20 +372,6 @@ const styles: Record<string, React.CSSProperties> = {
 	headerRow: { marginBottom: "1rem" },
 	meta: { color: "#718096", fontSize: "0.85rem", marginTop: 4 },
 	updated: { color: "#a0aec0" },
-	connections: {
-		display: "flex",
-		gap: 16,
-		marginBottom: "1.2rem",
-		fontSize: "0.8rem",
-		color: "#4a5568",
-	},
-	connItem: { display: "flex", alignItems: "center", gap: 6 },
-	dot: {
-		width: 8,
-		height: 8,
-		borderRadius: "50%",
-		display: "inline-block",
-	},
 	subtext: { fontSize: "0.75rem", color: "#718096", marginTop: 4 },
 	widgetGrid: {
 		display: "grid",

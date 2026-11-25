@@ -1,9 +1,7 @@
-//! Silver reads against small parquet files: in-place reads, binding, units and
-//! sentinels, the per-sensor live reading, the 7-day summary and the local-day buckets.
+//! Silver reads against small parquet files: the local-day buckets.
 
 use super::fixtures::{self, SilverRow};
-use super::*;
-use chrono::{NaiveDate, NaiveDateTime, Timelike};
+use chrono::{Duration, NaiveDate, NaiveDateTime};
 
 fn ts(s: &str) -> NaiveDateTime {
     NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").unwrap()
@@ -18,54 +16,6 @@ fn hour(at: NaiveDateTime, soil_10_c: Option<f64>) -> SilverRow {
         precip_mm: Some(0.0),
         ..Default::default()
     }
-}
-
-// @spec WX-SRC-LAKE-001
-#[tokio::test]
-async fn the_lake_is_read_in_place_so_a_rewritten_file_is_seen_on_the_next_read() {
-    let at = ts("2026-09-20 12:00:00");
-    let file = fixtures::silver(&[hour(at, Some(20.0))]);
-    let client = fixtures::client(&file.path, "unused.parquet");
-    let first = client.fetch_latest().await.unwrap().unwrap();
-    assert_eq!(first.soil_temp_10_f, Some(68.0));
-
-    let newer = fixtures::silver(&[hour(at, Some(25.0))]);
-    std::fs::copy(&newer.path, &file.path).unwrap();
-    let second = client.fetch_latest().await.unwrap().unwrap();
-    assert_eq!(
-        second.soil_temp_10_f,
-        Some(77.0),
-        "nothing cached between reads"
-    );
-}
-
-// @spec WX-SRC-LAKE-002
-#[tokio::test]
-async fn a_quoted_path_is_escaped_and_the_station_is_a_bound_filter() {
-    assert_eq!(
-        WeatherLakeClient::parquet("/lake/o'brien.parquet"),
-        "read_parquet('/lake/o''brien.parquet')"
-    );
-    let source = fixtures::silver(&[hour(ts("2026-09-20 12:00:00"), Some(20.0))]);
-    let quoted = fixtures::TempParquet {
-        path: fixtures::temp_path("o'brien"),
-    };
-    std::fs::copy(&source.path, &quoted.path).unwrap();
-
-    let reading = fixtures::client(&quoted.path, "unused.parquet")
-        .fetch_latest()
-        .await
-        .unwrap();
-    assert_eq!(reading.unwrap().soil_temp_10_f, Some(68.0));
-
-    let other_station = WeatherLakeClient::new(
-        &crate::config::DataLakeConfig {
-            silver_weather_path: quoted.path.clone(),
-            gold_weather_path: "unused.parquet".into(),
-        },
-        9999,
-    );
-    assert!(other_station.fetch_latest().await.unwrap().is_none());
 }
 
 // @spec WX-SRC-LAKE-003
@@ -121,100 +71,6 @@ async fn silver_is_converted_to_fahrenheit_with_sentinels_and_negatives_dropped(
     assert_eq!(oldest.soil_moisture_10, None);
     assert_eq!(oldest.humidity_percent, None);
     assert_eq!(oldest.precipitation_mm, None);
-}
-
-// @spec WX-SRC-LAKE-004
-#[tokio::test]
-async fn a_sensor_silent_for_over_24_hours_is_left_empty() {
-    let newest = ts("2026-09-20 18:00:00");
-    let file = fixtures::silver(&[
-        SilverRow {
-            at: newest - Duration::hours(30),
-            soil_temp_10: Some(15.0),
-            ..Default::default()
-        },
-        SilverRow {
-            at: newest - Duration::hours(23),
-            soil_temp_5: Some(18.0),
-            ..Default::default()
-        },
-        SilverRow {
-            at: newest,
-            air_temp_c: Some(20.0),
-            ..Default::default()
-        },
-    ]);
-    let reading = fixtures::client(&file.path, "unused.parquet")
-        .fetch_latest()
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(
-        reading.timestamp,
-        newest.and_utc(),
-        "stamped with the newest row"
-    );
-    assert_eq!(
-        reading.soil_temp_10_f, None,
-        "30 h old is outside the window"
-    );
-    assert!((reading.soil_temp_5_f.unwrap() - 64.4).abs() < 1e-9);
-    assert_eq!(reading.ambient_temp_f, Some(68.0));
-}
-
-// @spec WX-SRC-LAKE-005
-#[tokio::test]
-async fn the_week_summary_covers_the_168_hours_before_now() {
-    let now = Utc::now().naive_utc().with_nanosecond(0).unwrap();
-    let mut rows: Vec<SilverRow> = (1..=48)
-        .map(|h| SilverRow {
-            precip_mm: Some(0.5),
-            ..hour(
-                now - Duration::hours(h),
-                Some(if h <= 24 { 20.0 } else { 18.0 }),
-            )
-        })
-        .collect();
-    rows.push(SilverRow {
-        precip_mm: Some(100.0),
-        ..hour(now - Duration::days(8), Some(100.0))
-    });
-    let file = fixtures::silver(&rows);
-
-    let s = fixtures::client(&file.path, "unused.parquet")
-        .fetch_summary(chrono::Utc::now())
-        .await
-        .unwrap();
-    assert_eq!(s.current.unwrap().soil_temp_10_f, Some(68.0));
-    assert!((s.soil_temp_7day_avg_f.unwrap() - 66.2).abs() < 1e-9);
-    assert_eq!(s.ambient_temp_7day_avg_f, Some(50.0));
-    assert_eq!(s.humidity_7day_avg, Some(60.0));
-    assert_eq!(
-        s.precipitation_7day_total_mm,
-        Some(24.0),
-        "the 8-day-old hour is out"
-    );
-    assert_eq!(s.soil_temp_trend, Trend::Rising);
-}
-
-// @spec WX-SRC-MODEL-003
-#[tokio::test]
-async fn precipitation_stays_in_millimetres_through_the_backend() {
-    let now = Utc::now().naive_utc().with_nanosecond(0).unwrap();
-    let file = fixtures::silver(&[SilverRow {
-        precip_mm: Some(25.4),
-        ..hour(now - Duration::hours(1), Some(20.0))
-    }]);
-    let s = fixtures::client(&file.path, "unused.parquet")
-        .fetch_summary(chrono::Utc::now())
-        .await
-        .unwrap();
-    assert_eq!(s.current.as_ref().unwrap().precipitation_mm, Some(25.4));
-    assert_eq!(s.precipitation_7day_total_mm, Some(25.4));
-    let json = serde_json::to_value(&s).unwrap();
-    assert_eq!(json["precipitation_7day_total_mm"], 25.4);
-    assert_eq!(json["current"]["precipitation_mm"], 25.4);
-    assert!(json.get("precipitation_7day_total_in").is_none());
 }
 
 // @spec WX-SRC-LAKE-009

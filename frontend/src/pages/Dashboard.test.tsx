@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, render, screen, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	getDashboard,
@@ -77,6 +78,26 @@ const dashboard = {
 		soil_stale: true,
 		forecast: null,
 		gdd_base50_ytd: null,
+		current_bases: [
+			{
+				input: "soil_temp_10",
+				standing: "InUse",
+				basis: {
+					kind: "Station",
+					source: "PA Avondale 2 N",
+					distance_miles: 2.1,
+					approximate: false,
+				},
+				observed_at: "2026-10-05T12:00:00Z",
+			},
+			{
+				input: "soil_moisture_10",
+				standing: "NoSource",
+				basis: null,
+				observed_at: null,
+			},
+		],
+		week_bases: {},
 	},
 	recommendations: [
 		{
@@ -92,14 +113,38 @@ const dashboard = {
 		product_name: `Entry ${id}`,
 		application_date: `2026-10-0${id}`,
 	})),
-	connections: {
-		soildata: true,
-		homeassistant: false,
-		forecast: {
-			provider: "NationalWeatherService",
-			fetched_at: "2026-10-05T14:07:00Z",
+	sources: [
+		{
+			id: 1,
+			name: "PA Avondale 2 N",
+			kind: "Station",
+			ok: true,
+			last_success: "2026-10-11T11:35:00Z",
+			last_failure: null,
 			last_error: null,
+			inputs: ["soil_temp_10"],
+			held_from: "2011-01-01",
+			held_through: "2026-10-11",
+			wanted_from: "2011-01-01",
 		},
+		{
+			id: 2,
+			name: "Hourly analysis",
+			kind: "Analysis",
+			ok: false,
+			last_success: "2026-10-11T09:35:00Z",
+			last_failure: "2026-10-11T11:35:00Z",
+			last_error: "Open-Meteo did not answer.",
+			inputs: ["air_temp"],
+			held_from: "2026-07-13",
+			held_through: "2026-10-11",
+			wanted_from: "2026-07-13",
+		},
+	],
+	forecast_status: {
+		provider: "NationalWeatherService",
+		fetched_at: "2026-10-11T11:07:00Z",
+		last_error: null,
 	},
 } as unknown as DashboardResponse;
 
@@ -128,7 +173,11 @@ afterEach(() => {
 });
 
 async function renderDashboard() {
-	render(<Dashboard />);
+	render(
+		<MemoryRouter>
+			<Dashboard />
+		</MemoryRouter>,
+	);
 	await screen.findByRole("heading", { name: "Front Lawn" });
 }
 
@@ -167,15 +216,21 @@ describe("Dashboard", () => {
 		const banner = screen.getByRole("status");
 		expect(banner).toHaveTextContent("hasn't published new soil readings");
 		expect(banner).toHaveTextContent("nothing you need to do");
-		const connections = screen.getByText("Weather lake");
-		expect(connections.parentElement).toHaveTextContent("Home Assistant");
-		// @spec SYNC-CONN-008: the forecast is named by its provider, not a fixed one.
-		expect(connections.parentElement).toHaveTextContent(
-			"National Weather Service",
-		);
-		expect(connections.parentElement).not.toHaveTextContent("OpenWeatherMap");
+		// @spec FEED-UI-014: the failing source is named, the line links to Sources.
+		const connections = screen.getByText("Not current: Hourly analysis");
+		expect(
+			within(connections.parentElement as HTMLElement).getByRole("link", {
+				name: "Sources",
+			}),
+		).toHaveAttribute("href", "/sources");
+		expect(screen.queryByText("Weather lake")).toBeNull();
 		const gauges = screen.getAllByTestId("gauge");
-		expect(gauges).toHaveLength(4);
+		expect(gauges).toHaveLength(3);
+		// The 10 cm soil gauge says what it rests on; moisture has no source here.
+		expect(gauges[0].closest("[data-gauge-card]")).toHaveTextContent(
+			"Measured · PA Avondale 2 N, 2 mi",
+		);
+		expect(screen.getByText("No source for this location")).toBeInTheDocument();
 		const widgets = screen.getAllByTestId("widget");
 		const alerts = screen.getByRole("heading", { name: "Active Alerts" });
 		const recent = screen.getByRole("heading", { name: "Recent Applications" });
@@ -200,7 +255,11 @@ describe("Dashboard", () => {
 	// @spec FEED-UI-010
 	it("polls every 30 s only while the tab is visible and re-fetches on return", async () => {
 		vi.useFakeTimers();
-		render(<Dashboard />);
+		render(
+			<MemoryRouter>
+				<Dashboard />
+			</MemoryRouter>,
+		);
 		const flush = () => act(() => vi.advanceTimersByTimeAsync(0));
 		const wait = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
 		const calls = () => vi.mocked(getDashboard).mock.calls.length;
@@ -231,6 +290,7 @@ describe("Dashboard", () => {
 			expect(screen.getByText(name)).toBeInTheDocument();
 		}
 		expect(screen.getByText("Alert brown_patch")).toBeInTheDocument();
-		expect(screen.getAllByTestId("gauge")).toHaveLength(4);
+		// Three gauges and the soil moisture card that has no source here.
+		expect(screen.getAllByTestId("gauge")).toHaveLength(3);
 	});
 });

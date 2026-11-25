@@ -191,6 +191,8 @@ pub struct ForecastKeeper {
     succeeded_at: Option<DateTime<Utc>>,
     /// Whether the next fetch that succeeds is logged at INFO.
     announce: bool,
+    /// A refresh asked for the next turn.
+    forced: bool,
 }
 
 impl ForecastKeeper {
@@ -201,6 +203,7 @@ impl ForecastKeeper {
             kept_for: None,
             succeeded_at: None,
             announce: true,
+            forced: false,
         }
     }
 
@@ -208,12 +211,18 @@ impl ForecastKeeper {
         self.slot.clone()
     }
 
+    /// The next turn fetches whatever the hour or a failure's retry (a refresh).
+    // @spec SYNC-SCHED-009
+    pub fn force(&mut self) {
+        self.forced = true;
+    }
+
     /// Whether to fetch for `choice` at `now`: at once after a start or a change of
     /// provider or key, after a failure on the retry intervals, and otherwise hourly at
     /// `minute` past the hour.
     // @spec SYNC-SCHED-019, SYNC-SCHED-022
     pub fn due(&self, choice: &Choice, now: DateTime<Utc>, minute: u32) -> bool {
-        if self.kept_for.as_ref() != Some(choice) {
+        if self.forced || self.kept_for.as_ref() != Some(choice) {
             return true;
         }
         if self.failing.in_a_row > 0 {
@@ -242,6 +251,7 @@ impl ForecastKeeper {
             self.succeeded_at = None;
         }
         self.kept_for = Some(choice.clone());
+        self.forced = false;
         match outcome {
             Outcome::Fetched(forecast) => {
                 held.forecast = Some(forecast);
@@ -270,7 +280,8 @@ impl ForecastKeeper {
     }
 
     /// One turn: read the choice, and when due, fetch for the lawn's location and keep
-    /// the outcome. A database error ends the turn without changing anything.
+    /// the outcome. A database error ends the turn without changing anything. Returns
+    /// whether a forecast was fetched.
     // @spec SYNC-SCHED-019, SYNC-SCHED-023, WX-SRC-FC-004
     pub async fn run(
         &mut self,
@@ -280,16 +291,16 @@ impl ForecastKeeper {
         zone: Tz,
         now: DateTime<Utc>,
         minute: u32,
-    ) {
+    ) -> bool {
         let choice = match chosen(pool).await {
             Ok(choice) => choice,
             Err(error) => {
                 tracing::warn!(?error, "could not read the forecast provider");
-                return;
+                return false;
             }
         };
         if !self.due(&choice, now, minute) {
-            return;
+            return false;
         }
         let (latitude, longitude) = (location.latitude, location.longitude);
         let clock = Clock::Zone(zone);
@@ -332,13 +343,13 @@ impl ForecastKeeper {
             _ => None,
         };
         let logged = self.keep(&choice, outcome, now);
-        if let Some((days, from, through)) = covered {
-            match logged {
-                Logged::Info => {
-                    tracing::info!(?provider, days, ?from, ?through, "Forecast fetched")
-                }
-                _ => tracing::debug!(?provider, days, ?from, ?through, "Forecast fetched"),
-            }
+        let Some((days, from, through)) = covered else {
+            return false;
+        };
+        match logged {
+            Logged::Info => tracing::info!(?provider, days, ?from, ?through, "Forecast fetched"),
+            _ => tracing::debug!(?provider, days, ?from, ?through, "Forecast fetched"),
         }
+        true
     }
 }

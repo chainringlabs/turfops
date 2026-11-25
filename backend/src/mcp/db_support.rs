@@ -184,6 +184,7 @@ pub async fn state_with_forecast(pool: PgPool, lake: &Lake) -> AppState {
         .unwrap();
     let sync = DataSyncService::initialize(&config, pool.clone())
         .await
+        .summary_from_lake()
         .with_forecast(crate::logic::weather_sync::forecast::ForecastSlot::holding(
             fetched,
         ));

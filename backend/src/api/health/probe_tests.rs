@@ -52,14 +52,7 @@ async fn a_database_that_does_not_answer_is_still_a_200_reading_degraded() {
     keys.sort_unstable();
     assert_eq!(
         keys,
-        [
-            "database",
-            "datasources",
-            "forecast",
-            "mcp",
-            "status",
-            "version"
-        ]
+        ["database", "forecast", "mcp", "sources", "status", "version"]
     );
     assert_eq!(body["database"], false);
     assert_eq!(body["status"], "degraded");
@@ -67,16 +60,11 @@ async fn a_database_that_does_not_answer_is_still_a_200_reading_degraded() {
 
 // @spec DEPLOY-HEALTH-003
 #[tokio::test]
-async fn health_reports_the_sources_mcp_and_the_crate_version() {
+async fn health_reports_mcp_and_the_crate_version() {
     let (_, body) = get_health(state(true).await).await;
     assert_eq!(body["version"], env!("CARGO_PKG_VERSION"));
     assert_eq!(body["mcp"], "enabled");
-    let sources = body["datasources"].as_object().unwrap();
-    for key in ["soildata", "homeassistant"] {
-        assert!(sources[key].is_boolean(), "{key}: {body}");
-    }
-    assert!(!sources.contains_key("openweathermap"), "{body}");
-    assert_eq!(sources["soildata"], false, "the lake is absent");
+    assert!(body["sources"].is_array(), "{body}");
 
     let (_, body) = get_health(state(false).await).await;
     assert_eq!(body["mcp"], "disabled");

@@ -1,9 +1,7 @@
 use crate::config::DataLakeConfig;
 use crate::error::{Result, Source, TurfOpsError};
-use crate::models::{
-    celsius_to_fahrenheit, DataSource, EnvironmentalReading, EnvironmentalSummary, Trend,
-};
-use chrono::{DateTime, Datelike, Duration, NaiveDate, NaiveDateTime, Utc};
+use crate::models::{celsius_to_fahrenheit, DataSource, EnvironmentalReading};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use duckdb::Connection;
 
 mod climatology;
@@ -12,11 +10,8 @@ mod disease;
 pub(crate) mod fixtures;
 #[cfg(test)]
 mod gold_tests;
-mod latest;
 #[cfg(test)]
 mod silver_tests;
-#[cfg(test)]
-mod tests;
 #[cfg(test)]
 mod window_tests;
 
@@ -105,17 +100,6 @@ impl WeatherLakeClient {
             Ok(out)
         })
         .await
-    }
-
-    /// Current reading plus 7-day rolling averages and the soil-temp trend.
-    // @spec WX-SRC-LAKE-005
-    pub async fn fetch_summary(&self, now: DateTime<Utc>) -> Result<EnvironmentalSummary> {
-        let seven_days_ago = now - Duration::days(7);
-
-        let current = self.fetch_latest().await?;
-        let readings = self.fetch_range(seven_days_ago, now).await?;
-
-        Ok(summarize_week(current, &readings, now))
     }
 
     /// Daily mean soil temp at 10cm (°F) per day in range, for the seasonal plan.
@@ -213,88 +197,6 @@ impl WeatherLakeClient {
         })
         .await
     }
-
-    /// Year-to-date cumulative GDD (base 50°F): the sum of daily `gdd50` from Jan 1 of
-    /// `today`'s year through `today` (the lawn's local date). `None` with no rows.
-    // @spec RULE-GDD-002, WX-SRC-LAKE-008, WX-SRC-LAKE-012
-    pub async fn fetch_gdd_ytd(&self, today: NaiveDate) -> Result<Option<f64>> {
-        let year = today.year();
-        let jan1 = NaiveDate::from_ymd_opt(year, 1, 1)
-            .ok_or_else(|| TurfOpsError::InvalidData(format!("Invalid year: {year}")))?;
-        let rows = self.fetch_daily_gdd(jan1, today).await?;
-        if rows.is_empty() {
-            return Ok(None);
-        }
-        Ok(Some(rows.iter().map(|(_, _, _, gdd)| *gdd).sum()))
-    }
-
-    /// Cheap readability probe against the gold parquet.
-    /// Readable only when a one-row read of both silver and gold succeeds; never fails.
-    // @spec WX-VIEW-PROBE-001
-    pub async fn test_connection(&self) -> Result<bool> {
-        let sources = [
-            Self::parquet(&self.silver_weather_path),
-            Self::parquet(&self.gold_weather_path),
-        ];
-        let ok = Self::run(move |conn| {
-            for src in &sources {
-                let sql = format!("SELECT 1 FROM {src} LIMIT 1");
-                let mut stmt = conn.prepare(&sql)?;
-                let mut rows = stmt.query([])?;
-                rows.next()?;
-            }
-            Ok(true)
-        })
-        .await;
-        Ok(ok.unwrap_or(false))
-    }
-}
-
-/// The 7-day summary from the newest reading and the week's silver hours (newest first).
-/// A week with no hours has no trend to report: Unknown, not Stable.
-// @spec WX-SRC-LAKE-013, WX-SRC-LAKE-005
-pub(crate) fn summarize_week(
-    current: Option<EnvironmentalReading>,
-    readings: &[EnvironmentalReading],
-    now: DateTime<Utc>,
-) -> EnvironmentalSummary {
-    let mut summary = EnvironmentalSummary {
-        current,
-        last_updated: Some(now),
-        soil_temp_trend: Trend::Unknown,
-        ..Default::default()
-    };
-
-    if readings.is_empty() {
-        return summary;
-    }
-
-    let soil_temps: Vec<f64> = readings.iter().filter_map(|r| r.soil_temp_10_f).collect();
-    if !soil_temps.is_empty() {
-        summary.soil_temp_7day_avg_f =
-            Some(soil_temps.iter().sum::<f64>() / soil_temps.len() as f64);
-    }
-
-    let ambient_temps: Vec<f64> = readings.iter().filter_map(|r| r.ambient_temp_f).collect();
-    if !ambient_temps.is_empty() {
-        summary.ambient_temp_7day_avg_f =
-            Some(ambient_temps.iter().sum::<f64>() / ambient_temps.len() as f64);
-    }
-
-    let humidities: Vec<f64> = readings.iter().filter_map(|r| r.humidity_percent).collect();
-    if !humidities.is_empty() {
-        summary.humidity_7day_avg = Some(humidities.iter().sum::<f64>() / humidities.len() as f64);
-    }
-
-    let precip_sum: f64 = readings
-        .iter()
-        .filter_map(|r| r.precipitation_mm)
-        .filter(|p| *p >= 0.0)
-        .sum();
-    summary.precipitation_7day_total_mm = Some(precip_sum);
-
-    summary.soil_temp_trend = calculate_trend(readings);
-    summary
 }
 
 /// Format a UTC instant as a naive `YYYY-MM-DD HH:MM:SS` string for a TIMESTAMP comparison.
@@ -336,41 +238,4 @@ fn row_to_reading(row: &duckdb::Row) -> duckdb::Result<EnvironmentalReading> {
     reading.precipitation_mm = row.get::<_, Option<f64>>(13)?.filter(|p| *p >= 0.0);
 
     Ok(reading)
-}
-
-/// Soil-temp trend from hourly readings (newest first): compares the last 24h to the
-/// previous 24h. Identical thresholds to the retired SoilData implementation.
-// @spec WX-SRC-LAKE-006
-fn calculate_trend(readings: &[EnvironmentalReading]) -> Trend {
-    if readings.len() < 48 {
-        return Trend::Unknown;
-    }
-
-    let recent: Vec<f64> = readings
-        .iter()
-        .take(24)
-        .filter_map(|r| r.soil_temp_10_f)
-        .collect();
-    let previous: Vec<f64> = readings
-        .iter()
-        .skip(24)
-        .take(24)
-        .filter_map(|r| r.soil_temp_10_f)
-        .collect();
-
-    if recent.is_empty() || previous.is_empty() {
-        return Trend::Unknown;
-    }
-
-    let recent_avg = recent.iter().sum::<f64>() / recent.len() as f64;
-    let previous_avg = previous.iter().sum::<f64>() / previous.len() as f64;
-    let diff = recent_avg - previous_avg;
-
-    if diff > 2.0 {
-        Trend::Rising
-    } else if diff < -2.0 {
-        Trend::Falling
-    } else {
-        Trend::Stable
-    }
 }

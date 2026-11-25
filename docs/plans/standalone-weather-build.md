@@ -5,7 +5,7 @@ on a decision. The research behind the design is in
 [standalone-weather-sources.md](standalone-weather-sources.md); the design and specs are under
 `docs/intent/`. This file is the place to start when picking the work up.
 
-Status as of 2026-11-24, with `main` at PR #379 and setup steps 4 and 5 (UI part 4 of 4) in review; slice 7 is complete once it merges.
+Status as of 2026-11-25: slice 7 is complete (#374 to #380); slice 8 is under way: the forecast on the schedule (#381) is merged, and the summary from the record is in review.
 
 ## The goal
 
@@ -63,7 +63,19 @@ bump (#345).
 
 ### Slice 8, the cutover
 
-The first slice that changes what the owner sees.
+The first slice that changes what the owner sees. Five PRs:
+
+1. **The forecast from the chosen provider**, fetched on the schedule, with its status (#381, merged).
+2. **The summary from the record**, with basis labels on the dashboard and the Environmental
+   page, refresh through the schedule, and source status in place of the connection flags
+   (in review).
+3. The daily series: GDD, the seasonal plan, the 10 cm outlook, plant watering.
+4. Timing windows, disease risk and `/historical`, with basis-aware charts and the
+   Environmental page's source credits.
+5. The clock follows the location, the no-location notice, MCP results without coordinates,
+   MCP tools on the record, and the retired-settings lines.
+
+What each covers:
 
 - **The summary from the record.** Data sync assembles `EnvironmentalSummary` from
   `fetch_summary`, carrying each value's basis, with the age limits and the one-minute memo.

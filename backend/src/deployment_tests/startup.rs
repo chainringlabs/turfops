@@ -155,7 +155,6 @@ async fn startup_logs_paths_integrations_cors_and_the_server_lines() {
     for expected in [
         "/lake/silver/weather/silver_weather.parquet",
         "/lake/gold/weather/daily_weather.parquet",
-        "Home Assistant client configured",
         "Weather data lake client configured",
         "https://lawn.example.com",
     ] {

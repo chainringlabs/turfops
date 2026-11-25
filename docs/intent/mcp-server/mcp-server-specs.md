@@ -71,7 +71,7 @@ A "tool error" below is an MCP tool result with `isError: true` and one text blo
 - [x] **MCP-SNAP-006**: If one `lawn_snapshot` part's handler fails, then the tool shall set that part to `null`, add "<part> unavailable: <tool error text per MCP-ERR>" to `notes`, and return every other part.
 - [x] **MCP-SNAP-007**: The MCP `lawn_snapshot` tool shall always return a successful result with a `notes` list, empty when no part failed.
 - [x] **MCP-SNAP-008**: The MCP `lawn_snapshot` tool description shall tell the model to call it first for any question about what to do on the lawn now or this season.
-- [ ] **MCP-SNAP-009**: The MCP `lawn_snapshot` tool shall take `data_sources` from data sync's source status, so a snapshot call makes no outside request.
+- [x] **MCP-SNAP-009**: The MCP `lawn_snapshot` tool shall take `data_sources` from data sync's source status, so a snapshot call makes no outside request.
 - [ ] **MCP-SNAP-010**: If the MCP `lawn_snapshot` tool cannot serialize the source status, then it shall set `data_sources` to `null` and add "data_sources unavailable: <the internal-error text of MCP-ERR-005>" to `notes`, as for any failed part (MCP-SNAP-006).
 
 ## weather_history
