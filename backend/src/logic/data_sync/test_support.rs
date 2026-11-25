@@ -1,6 +1,5 @@
 //! A data sync service and app state for handler tests: a lake client over test parquet,
-//! no Home Assistant or OpenWeatherMap client, and an optional forecast stored as just
-//! fetched. The database pool is lazy and never connects.
+//! no Home Assistant client, and an optional forecast held as the schedule would hold it. The database pool is lazy and never connects.
 
 use super::*;
 use crate::models::{DailyForecast, ForecastProvider, WeatherCondition, WeatherForecast};
@@ -14,27 +13,26 @@ impl DataSyncService {
         forecast: Option<WeatherForecast>,
         clock: Clock,
     ) -> Self {
-        let mut state = SyncState::default();
-        if let Some(forecast) = forecast {
-            state.store_forecast(Utc::now(), Some(Ok(forecast)));
-        }
+        let forecast = forecast.map(ForecastSlot::holding).unwrap_or_default();
         Self {
             pool: lazy_pool(),
             weather_client,
             homeassistant_client: None,
-            openweathermap_client: None,
-            state,
+            forecast,
+            state: SyncState::default(),
             probes: Mutex::new(ProbeCache::default()),
             clock,
         }
     }
 
-    pub(crate) fn has_home_assistant(&self) -> bool {
-        self.homeassistant_client.is_some()
+    /// Read the forecast from `slot` from now on.
+    #[cfg(feature = "db-tests")]
+    pub(crate) fn use_forecast(&mut self, slot: ForecastSlot) {
+        self.forecast = slot;
     }
 
-    pub(crate) fn has_forecast_client(&self) -> bool {
-        self.openweathermap_client.is_some()
+    pub(crate) fn has_home_assistant(&self) -> bool {
+        self.homeassistant_client.is_some()
     }
 }
 

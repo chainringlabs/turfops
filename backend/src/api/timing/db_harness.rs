@@ -2,10 +2,11 @@
 //! written by DuckDB, and optionally a forecast served by a local stub.
 
 use crate::clock::Clock;
-use crate::config::{Config, OpenWeatherMapConfig};
+use crate::config::Config;
 use crate::datasources::OpenWeatherMapClient;
 use crate::db::queries;
 use crate::logic::data_sync::DataSyncService;
+use crate::logic::weather_sync::forecast::ForecastSlot;
 use crate::models::{GrassType, LawnProfile};
 use crate::state::AppState;
 use chrono::{DateTime, Datelike, Duration, NaiveDate, TimeZone, Utc};
@@ -176,13 +177,15 @@ pub(super) async fn app_state(pool: &PgPool, lake: &Lake, forecast_base: Option<
     config.clock = ZONE;
     let mut sync = DataSyncService::initialize(&config, pool.clone()).await;
     if let Some(base) = forecast_base {
-        let owm = OpenWeatherMapConfig {
-            api_key: "test-key".into(),
-            latitude: 39.86,
-            longitude: -75.79,
-            enabled: true,
-        };
-        sync.set_forecast_client(OpenWeatherMapClient::new(owm, ZONE).with_base_url(base));
+        // The forecast as the schedule would hold it after fetching from `base`: none
+        // when that fetch fails.
+        let fetched = OpenWeatherMapClient::new()
+            .with_base_url(base)
+            .forecast(39.86, -75.79, "test-key", &ZONE, chrono::Utc::now())
+            .await;
+        if let Ok(forecast) = fetched {
+            sync = sync.with_forecast(ForecastSlot::holding(forecast));
+        }
     }
     AppState::new(pool.clone(), sync, None, false, ZONE)
 }

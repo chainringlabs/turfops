@@ -36,6 +36,7 @@ function view(list: SourceView[]): SourcesView {
 		inputs: [],
 		sources: list,
 		forecast_provider: "OpenMeteo",
+		forecast: { provider: "OpenMeteo", fetched_at: null, last_error: null },
 		connections: {
 			home_assistant: true,
 			openweathermap_key: false,

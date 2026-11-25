@@ -17,8 +17,6 @@ use tokio::net::TcpListener;
 pub(crate) const NO_LAKE: &str = "/nonexistent/turfops-test-lake";
 /// A Home Assistant entity state that parses as a number.
 pub(crate) const HA_STATE: &str = r#"{"state":"72.0","entity_id":"sensor.patio"}"#;
-/// An OpenWeatherMap forecast with no points.
-pub(crate) const OWM_FORECAST: &str = r#"{"list":[],"city":{"name":"Avondale","country":"US","coord":{"lat":39.8,"lon":-75.8},"timezone":-14400}}"#;
 /// Nothing listens here: a connection is refused at once.
 pub(crate) const UNREACHABLE: &str = "http://127.0.0.1:1";
 pub(crate) const HA_TOKEN: &str = "ha-test-token";
@@ -110,15 +108,6 @@ pub(crate) fn with_home_assistant(url: &str) -> Vec<(&'static str, String)> {
     ]
 }
 
-/// OpenWeatherMap configured (its address is set by [`service`]).
-pub(crate) fn with_forecast() -> Vec<(&'static str, String)> {
-    vec![
-        ("OWM_API_KEY", "owm-test-key".to_string()),
-        ("OWM_LATITUDE", "39.8".to_string()),
-        ("OWM_LONGITUDE", "-75.8".to_string()),
-    ]
-}
-
 /// The configuration from owned variable pairs.
 pub(crate) fn config_of(vars: &[(&'static str, String)]) -> Config {
     let borrowed: Vec<(&str, &str)> = vars.iter().map(|(k, v)| (*k, v.as_str())).collect();
@@ -133,19 +122,9 @@ pub(crate) fn unreachable_pool() -> PgPool {
         .unwrap()
 }
 
-/// The service as startup builds it, with OpenWeatherMap (when configured) at `owm_url`.
-pub(crate) async fn service(
-    config: &Config,
-    owm_url: Option<&str>,
-    pool: PgPool,
-) -> DataSyncService {
-    let mut service = DataSyncService::initialize(config, pool).await;
-    if let Some(url) = owm_url {
-        service.openweathermap_client = service
-            .openweathermap_client
-            .map(|client| client.with_base_url(url));
-    }
-    service
+/// The service as startup builds it.
+pub(crate) async fn service(config: &Config, pool: PgPool) -> DataSyncService {
+    DataSyncService::initialize(config, pool).await
 }
 
 /// The app state around `service` on the lawn's Eastern clock.
@@ -161,6 +140,6 @@ pub(crate) fn app_state(pool: PgPool, service: DataSyncService, mcp_enabled: boo
 
 /// An app state on `pool` whose weather sources are all absent or unreadable.
 pub(crate) async fn offline_state(pool: PgPool) -> AppState {
-    let service = service(&config(&[]), None, pool.clone()).await;
+    let service = service(&config(&[]), pool.clone()).await;
     app_state(pool, service, false)
 }

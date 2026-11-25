@@ -29,7 +29,7 @@ A containerized web application for tracking lawn care activities and providing 
 - **Seasonal Plan Integration**: Calendar overlays predicted activity windows from the seasonal plan alongside actual applications
 - **Landscape Maintenance** *(optional)*: Track shrubs, trees, and perennials alongside turf. Enter a plant by common or scientific name and get a homeowner-level care plan (pruning windows, fertilizing, mulching) that overlays Calendar, Seasonal Plan, and Recommendations. Powered by an LLM through OpenRouter and cached per plant.
 - **FRAC Rotation**: Fungicide resistance management — the suggested class for each disease avoids the one you used last, and a logged application counts as protection for its residual window
-- **Demand-Driven Refresh**: Sensor data refreshes only when viewed (5-min staleness for sensors, 30-min for forecasts)
+- **Demand-Driven Refresh**: Sensor data refreshes only when viewed (5-min staleness); the forecast is fetched hourly in the background from the provider chosen in setup
 
 ## Architecture
 
@@ -209,18 +209,15 @@ Connect to a Home Assistant instance to read local temperature and humidity sens
 
 To generate a long-lived access token: Home Assistant → Profile → Long-Lived Access Tokens → Create Token.
 
-### OpenWeatherMap (Optional)
+### Forecast provider
 
-Enables forecast-based rules (rain delay, heat stress warnings, optimal application windows) and supplies today's remaining hours plus the 4-day outlook for disease risk.
+The forecast drives the forecast-based rules (rain delay, heat stress warnings, optimal application windows) and supplies today's remaining hours plus the outlook for disease risk. It is fetched hourly for the lawn's location from the provider chosen in setup (step 2, or **Change** beside Forecast on the Sources page): Open-Meteo by default, the National Weather Service, or OpenWeatherMap. Only OpenWeatherMap needs a key; it is entered in setup and stored in the app.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `OWM_API_KEY` | OpenWeatherMap API key | *(empty — disabled if not set)* |
-| `OWM_LATITUDE` | Location latitude | *(none)* |
-| `OWM_LONGITUDE` | Location longitude | *(none)* |
-| `OWM_ENABLED` | Enable/disable OWM integration | `true` |
+| `OWM_API_KEY` | OpenWeatherMap API key, copied into the app on a first run that finds none stored; it does not choose OpenWeatherMap | *(empty)* |
 
-Sign up for a free API key at [openweathermap.org](https://openweathermap.org/api). The free tier (1,000 calls/day) is more than sufficient.
+`OWM_LATITUDE`, `OWM_LONGITUDE` and `OWM_ENABLED` are no longer read; when one is set, startup logs a line saying so. Sign up for a free OpenWeatherMap key at [openweathermap.org](https://openweathermap.org/api).
 
 ### OpenRouter (Optional — Landscape Maintenance and Product Identification)
 
@@ -308,10 +305,8 @@ HA_TEMPERATURE_ENTITY=sensor.temp_humidity_sensor_temperature
 HA_HUMIDITY_ENTITY=sensor.temp_humidity_sensor_humidity
 HA_TEMPERATURE_UNIT=fahrenheit
 
-# OpenWeatherMap
+# OpenWeatherMap key (optional; choose the provider in setup)
 OWM_API_KEY=your_api_key_here
-OWM_LATITUDE=40.71
-OWM_LONGITUDE=-74.01
 
 # OpenRouter (optional — enables the Landscape Maintenance feature)
 OPENROUTER_API_KEY=your_openrouter_key_here
@@ -334,7 +329,7 @@ RUST_LOG=info
 |--------|--------------|------------|
 | **Weather data lake** | NOAA USCRN hourly soil temperature (5/10/20/50/100cm), soil moisture, air temperature, relative humidity, precipitation; daily aggregates + GDD | Parquet on a read-only mount via `DATALAKE_ROOT`, read with embedded DuckDB |
 | **Home Assistant** | Ambient temperature, humidity (patio sensor) | REST API via `HA_URL` + `HA_TOKEN` |
-| **OpenWeatherMap** | 5-day/3-hour forecast (temp, rain, humidity, wind) — also fills in today and the outlook for disease risk | REST API via `OWM_API_KEY` |
+| **Forecast** (Open-Meteo, National Weather Service or OpenWeatherMap) | Hourly or 3-hourly forecast (temp, rain, humidity, wind) — also fills in today and the outlook for disease risk | Provider chosen in setup; OpenWeatherMap's key stored in the app |
 
 ## API Endpoints
 
@@ -547,7 +542,7 @@ No longer a rule. The seeding recommendation comes from the fall seeding window,
 
 ### Forecast-Based Rules
 
-These rules require OpenWeatherMap API integration (`OWM_API_KEY`).
+These rules use the forecast from the provider chosen in setup.
 
 #### Rain Delay
 Prevents wasted chemical applications before rain.
@@ -620,7 +615,7 @@ Brown patch and dollar spot are peer-reviewed, field-validated models. Pythium u
 
 **Lawn history modifies risk.** Overseeding within 60 days raises gray leaf spot one tier (seedlings are highly susceptible); no fertilizer in 60 days raises red thread one tier (it is a low-nitrogen disease). Only the headline tier is raised, never from Low, and the page says why. The daily chart stays weather-only.
 
-**Where the data comes from.** Observed days are aggregated per local day from the lake's hourly silver layer (air temp, RH, precipitation). Leaf wetness is estimated as hours with RH ≥ 90% or measurable precipitation; dew point uses the Magnus formula. The lake trails real time by up to a day, so today's remaining hours and the 4-day outlook come from the OpenWeatherMap forecast. When too little of today is covered (under 12 hours), the headline reflects the most recent complete day and the page shows a note saying so. Without an OpenWeatherMap key there is no outlook.
+**Where the data comes from.** Observed days are aggregated per local day from the lake's hourly silver layer (air temp, RH, precipitation). Leaf wetness is estimated as hours with RH ≥ 90% or measurable precipitation; dew point uses the Magnus formula. The lake trails real time by up to a day, so today's remaining hours and the outlook come from the forecast. When too little of today is covered (under 12 hours), the headline reflects the most recent complete day and the page shows a note saying so. While no forecast is held there is no outlook.
 
 ### What to do: preventative and curative guidance
 

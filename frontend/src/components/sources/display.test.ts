@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { InputView, SourceView } from "../../types/sources";
 import {
 	accuracyLines,
+	forecastStatusText,
+	forecastUp,
 	formatValue,
 	groupOf,
 	historyText,
@@ -234,4 +236,45 @@ it("lists what a source speaks for in the page's order with soil depths together
 		"Rain, daily high and low",
 	);
 	expect(speaksFor(["soil_temp_10"], labels)).toBe("Soil temperature at 10 cm");
+});
+
+describe("the forecast's status", () => {
+	const now = new Date("2026-11-24T19:30:00Z");
+	const status = (fetched_at: string | null, last_error: string | null) => ({
+		provider: "OpenMeteo" as const,
+		fetched_at,
+		last_error,
+	});
+
+	// @spec SETUP-PAGE-013
+	it("says when the forecast was fetched, why it is failing, or that it has not been", () => {
+		expect(
+			forecastStatusText(
+				status("2026-11-24T19:07:00Z", null),
+				now,
+				"America/New_York",
+			),
+		).toBe("Fetched Nov 24, 2:07 PM · 23 min ago");
+		expect(
+			forecastStatusText(
+				status(
+					"2026-11-24T17:07:00Z",
+					"The weather forecast is unavailable right now.",
+				),
+				now,
+				"America/New_York",
+			),
+		).toBe("The weather forecast is unavailable right now.");
+		expect(
+			forecastStatusText(status(null, null), now, "America/New_York"),
+		).toBe("Not fetched yet");
+	});
+
+	// @spec SYNC-CONN-008
+	it("is up only with a forecast held and no failure", () => {
+		expect(forecastUp(status("2026-11-24T19:07:00Z", null))).toBe(true);
+		expect(forecastUp(status("2026-11-24T19:07:00Z", "Down."))).toBe(false);
+		expect(forecastUp(status(null, null))).toBe(false);
+		expect(forecastUp(status(null, "Needs its key."))).toBe(false);
+	});
 });

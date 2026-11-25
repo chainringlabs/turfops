@@ -9,7 +9,6 @@ pub(crate) const PROBE_REUSE: Duration = Duration::minutes(5);
 pub(crate) enum Probe {
     Lake,
     HomeAssistant,
-    Forecast,
 }
 
 #[derive(Debug, Default)]

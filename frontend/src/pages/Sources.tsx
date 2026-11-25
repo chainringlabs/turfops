@@ -6,6 +6,7 @@ import { getSources, testHaConnection } from "../api/client";
 import { describeError } from "../api/errors";
 import { testedText } from "../components/setup/sensors";
 import {
+	forecastStatusText,
 	groupOf,
 	INPUT_GROUP_TITLES,
 	INPUT_GROUPS,
@@ -102,7 +103,7 @@ export default function Sources() {
 				</section>
 			)}
 
-			<Connections data={data} />
+			<Connections data={data} now={now} />
 
 			{location && (
 				<section aria-labelledby="location-heading" style={sharedStyles.card}>
@@ -168,7 +169,7 @@ function HomeAssistantState({ connected }: { connected: boolean }) {
 }
 
 // @spec SETUP-PAGE-005
-function Connections({ data }: { data: SourcesView }) {
+function Connections({ data, now }: { data: SourcesView; now: Date }) {
 	const { connections } = data;
 	return (
 		<section aria-labelledby="connections-heading" style={sharedStyles.card}>
@@ -182,7 +183,15 @@ function Connections({ data }: { data: SourcesView }) {
 				</dd>
 				<dt style={styles.term}>Forecast</dt>
 				<dd style={styles.fact}>
-					{FORECAST_PROVIDER_NAMES[data.forecast_provider]}{" "}
+					<span>{FORECAST_PROVIDER_NAMES[data.forecast_provider]}</span>{" "}
+					{/* @spec SETUP-PAGE-013 */}
+					<span style={styles.status}>
+						{forecastStatusText(
+							data.forecast,
+							now,
+							data.location?.timezone ?? "UTC",
+						)}
+					</span>{" "}
 					<Link
 						to="/setup?step=found"
 						style={styles.action}
@@ -231,6 +240,7 @@ const styles: Record<string, React.CSSProperties> = {
 		cursor: "pointer",
 	},
 	said: { fontSize: "0.8rem", color: "#4a5568", marginTop: "0.25rem" },
+	status: { fontSize: "0.8rem", color: "#4a5568" },
 	action: {
 		fontSize: "0.8rem",
 		color: "#2f855a",

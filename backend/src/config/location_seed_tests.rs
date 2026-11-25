@@ -24,13 +24,13 @@ fn the_lawn_pair_gives_a_location_with_its_timezone() {
     assert_eq!(location.place_name, None);
 }
 
-// @spec APP-PROF-015
+// @spec APP-PROF-015, DEPLOY-CONFIG-017
 #[test]
-fn the_older_forecast_pair_is_used_only_when_the_lawn_pair_is_absent() {
+fn the_forecasts_old_coordinates_give_no_location() {
     let owm = [("OWM_LATITUDE", "41.88"), ("OWM_LONGITUDE", "-87.63")];
     let (location, warnings) = lawn(&owm).seed_location();
+    assert_eq!(location, None);
     assert!(warnings.is_empty(), "{warnings:?}");
-    assert_eq!(location.unwrap().timezone, "America/Chicago");
 
     let both = [
         owm[0],
@@ -57,13 +57,6 @@ fn half_a_pair_names_the_missing_setting() {
     assert_eq!(location, None);
     assert!(
         warnings[0].contains("LAWN_LONGITUDE isn't set"),
-        "{warnings:?}"
-    );
-
-    let (location, warnings) = lawn(&[("OWM_LONGITUDE", "-75.79")]).seed_location();
-    assert_eq!(location, None);
-    assert!(
-        warnings[0].contains("OWM_LATITUDE isn't set"),
         "{warnings:?}"
     );
 }

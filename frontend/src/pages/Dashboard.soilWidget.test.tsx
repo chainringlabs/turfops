@@ -41,7 +41,11 @@ const dashboard: DashboardResponse = {
 	environmental: summary(),
 	recommendations: [],
 	recent_applications: [],
-	connections: { soildata: true, homeassistant: true, openweathermap: true },
+	connections: {
+		soildata: true,
+		homeassistant: true,
+		forecast: { provider: "OpenMeteo", fetched_at: null, last_error: null },
+	},
 };
 
 beforeEach(() => {

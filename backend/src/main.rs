@@ -110,6 +110,9 @@ async fn main() -> anyhow::Result<()> {
         pool.clone(),
         logic::weather_sync::fetcher::Clients::new(),
     );
+    // The summary serves the forecast the schedule fetches and holds.
+    // @spec SYNC-SCHED-020
+    let sync_service = sync_service.with_forecast(schedule.forecast_slot());
     let weather_schedule = tokio::spawn(schedule.run());
     let pool_for_setup = pool.clone();
 

@@ -76,21 +76,12 @@ fn an_unusable_setting_is_named_with_the_default_used() {
 #[test]
 fn feature_flags_accept_true_1_or_yes_in_any_case() {
     let enabled = |value: Option<&str>| {
-        let mut vars = with(&[
-            ("OWM_API_KEY", OWM_SECRET),
-            ("OWM_LATITUDE", "39.85"),
-            ("OWM_LONGITUDE", "-75.78"),
-            ("OPENROUTER_API_KEY", OR_SECRET),
-        ]);
+        let mut vars = with(&[("OPENROUTER_API_KEY", OR_SECRET)]);
         if let Some(v) = value {
-            vars.insert("OWM_ENABLED", v.to_string());
             vars.insert("OPENROUTER_ENABLED", v.to_string());
         }
         let (config, _) = load(&vars).unwrap();
-        let owm = config.openweathermap.unwrap().enabled;
-        let or = config.openrouter.unwrap().enabled;
-        assert_eq!(owm, or);
-        owm
+        config.openrouter.unwrap().enabled
     };
     for on in ["true", "TRUE", "1", "yes", "Yes"] {
         assert!(enabled(Some(on)), "{on}");
@@ -147,71 +138,42 @@ fn an_invalid_cors_origin_stops_startup_without_a_panic() {
     }
 }
 
-// @spec WX-SRC-CFG-003
+// @spec SETUP-CRED-002, DEPLOY-CONFIG-017
 #[test]
-fn a_forecast_key_without_coordinates_turns_the_forecast_off() {
-    for missing in ["OWM_LATITUDE", "OWM_LONGITUDE"] {
-        let mut vars = with(&[
-            ("OWM_API_KEY", OWM_SECRET),
-            ("OWM_LATITUDE", "39.85"),
-            ("OWM_LONGITUDE", "-75.78"),
-        ]);
-        vars.remove(missing);
-        let (config, warnings) = load(&vars).unwrap();
-        assert!(
-            config.openweathermap.is_none(),
-            "{missing} unset: no forecast for 0, 0"
-        );
-        assert!(warnings.iter().any(|w| w.contains(missing)), "{warnings:?}");
-    }
-    let (config, _) = load(&with(&[
+fn the_forecast_key_is_read_on_its_own() {
+    let (config, warnings) = load(&with(&[("OWM_API_KEY", OWM_SECRET)])).unwrap();
+    assert_eq!(config.openweathermap.unwrap().api_key, OWM_SECRET);
+    assert!(warnings.iter().all(|w| !w.contains("OWM_")), "{warnings:?}");
+}
+
+// @spec DEPLOY-CONFIG-017
+#[test]
+fn the_forecasts_retired_settings_are_each_named_once_as_having_no_effect() {
+    let (config, warnings) = load(&with(&[
         ("OWM_API_KEY", OWM_SECRET),
+        ("OWM_ENABLED", "false"),
         ("OWM_LATITUDE", "39.85"),
         ("OWM_LONGITUDE", "-75.78"),
     ]))
     .unwrap();
-    let owm = config.openweathermap.unwrap();
-    assert_eq!((owm.latitude, owm.longitude), (39.85, -75.78));
-}
-
-// @spec WX-SRC-CFG-003, DEPLOY-CONFIG-012
-#[test]
-fn an_unusable_coordinate_turns_the_forecast_off_too() {
-    let coords = |lat: &str, lon: &str| {
-        load(&with(&[
-            ("OWM_API_KEY", OWM_SECRET),
-            ("OWM_LATITUDE", lat),
-            ("OWM_LONGITUDE", lon),
-        ]))
-        .unwrap()
-    };
-    for (lat, lon, named) in [
-        ("39.8N", "-75.78", "OWM_LATITUDE"),
-        ("39.85", "west", "OWM_LONGITUDE"),
-        ("91", "-75.78", "OWM_LATITUDE"),
-        ("-90.5", "-75.78", "OWM_LATITUDE"),
-        ("39.85", "180.1", "OWM_LONGITUDE"),
-        ("39.85", "NaN", "OWM_LONGITUDE"),
-    ] {
-        let (config, warnings) = coords(lat, lon);
-        assert!(
-            config.openweathermap.is_none(),
-            "{lat}, {lon}: forecast off"
-        );
-        assert!(
-            warnings
-                .iter()
-                .any(|w| w.contains(named) && w.contains("forecast is off")),
-            "{lat}, {lon}: {warnings:?}"
-        );
-        assert!(
-            !warnings.iter().any(|w| w.contains("using 0")),
-            "no 0 substitute: {warnings:?}"
-        );
+    assert_eq!(
+        config.openweathermap.unwrap().api_key,
+        OWM_SECRET,
+        "OWM_ENABLED=false turns nothing off"
+    );
+    for name in ["OWM_ENABLED", "OWM_LATITUDE", "OWM_LONGITUDE"] {
+        let lines: Vec<_> = warnings.iter().filter(|w| w.contains(name)).collect();
+        assert_eq!(lines.len(), 1, "{name}: {warnings:?}");
+        assert!(lines[0].contains("no longer has any effect"), "{lines:?}");
+        assert!(lines[0].contains("lawn's location"), "{lines:?}");
     }
-    let (config, warnings) = coords("0", "0");
-    assert!(config.openweathermap.is_some(), "0, 0 is a real place");
-    assert!(warnings.is_empty(), "{warnings:?}");
-    let (config, _) = coords("-90", "180");
-    assert!(config.openweathermap.is_some(), "the ranges are inclusive");
+
+    // An empty value is not set (Compose passes unset variables as "").
+    let (_, quiet) = load(&with(&[
+        ("OWM_ENABLED", ""),
+        ("OWM_LATITUDE", " "),
+        ("OWM_LONGITUDE", ""),
+    ]))
+    .unwrap();
+    assert!(quiet.iter().all(|w| !w.contains("OWM_")), "{quiet:?}");
 }

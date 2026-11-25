@@ -4,22 +4,37 @@ use super::health_check;
 use crate::logic::data_sync::test_env::*;
 use axum::extract::State;
 
-// @spec SYNC-CONN-003
+// @spec SYNC-CONN-003, SYNC-CONN-008
 #[tokio::test]
-async fn health_reports_status_version_database_datasources_and_mcp() {
+async fn health_reports_status_version_database_datasources_forecast_and_mcp() {
     for (mcp_enabled, mcp) in [(true, "enabled"), (false, "disabled")] {
-        let service = service(&config(&[]), None, unreachable_pool()).await;
+        let service = service(&config(&[]), unreachable_pool()).await;
         let state = app_state(unreachable_pool(), service, mcp_enabled);
         let axum::Json(health) = health_check(State(state)).await;
         let json = serde_json::to_value(&health).unwrap();
-        for key in ["status", "version", "database", "datasources", "mcp"] {
+        for key in [
+            "status",
+            "version",
+            "database",
+            "datasources",
+            "forecast",
+            "mcp",
+        ] {
             assert!(json.get(key).is_some(), "{key}: {json}");
         }
         assert_eq!(json["version"], env!("CARGO_PKG_VERSION"));
         assert_eq!(json["mcp"], mcp);
-        for source in ["soildata", "homeassistant", "openweathermap"] {
+        for source in ["soildata", "homeassistant"] {
             assert_eq!(json["datasources"][source], false, "{source}: {json}");
         }
+        assert!(
+            json["datasources"].get("openweathermap").is_none(),
+            "{json}"
+        );
+        assert!(
+            json["forecast"].is_null(),
+            "no database, no forecast status: {json}"
+        );
     }
 }
 

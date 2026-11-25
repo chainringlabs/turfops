@@ -16,12 +16,7 @@ async fn lawn_with_patio_sensor(pool: PgPool) -> (Stub, crate::state::AppState) 
     let profile = LawnProfile::new("Front".into(), GrassType::TallFescue, "7a".into());
     queries::create_lawn_profile(&pool, &profile).await.unwrap();
     let ha = stub(200, HA_STATE).await;
-    let service = service(
-        &config_of(&with_home_assistant(&ha.url)),
-        None,
-        pool.clone(),
-    )
-    .await;
+    let service = service(&config_of(&with_home_assistant(&ha.url)), pool.clone()).await;
     (ha, app_state(pool, service, true))
 }
 
@@ -35,19 +30,26 @@ fn probed_after_refresh(ha: &Stub) -> bool {
     matches!((last_read, probe), (Some(read), Some(probe)) if read < probe)
 }
 
-// @spec SYNC-CONN-005
+// @spec SYNC-CONN-005, SYNC-CONN-008
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_dashboard_carries_connections_checked_after_its_refresh(pool: PgPool) {
     let (ha, state) = lawn_with_patio_sensor(pool).await;
     let axum::Json(dashboard) = crate::api::dashboard::get_dashboard(State(state))
         .await
         .unwrap();
-    assert!(dashboard.connections.homeassistant);
-    assert!(!dashboard.connections.soildata && !dashboard.connections.openweathermap);
+    let connections = serde_json::to_value(&dashboard.connections).unwrap();
+    assert_eq!(connections["homeassistant"], true);
+    assert_eq!(connections["soildata"], false);
+    assert!(connections.get("openweathermap").is_none(), "{connections}");
+    assert_eq!(
+        connections["forecast"],
+        serde_json::json!({"provider": "OpenMeteo", "fetched_at": null, "last_error": null}),
+        "the default provider, not fetched yet"
+    );
     assert!(probed_after_refresh(&ha), "{:?}", ha.requests());
 }
 
-// @spec SYNC-CONN-005
+// @spec SYNC-CONN-005, SYNC-CONN-008, MCP-SNAP-009
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_mcp_snapshot_carries_data_sources_checked_after_its_refresh(pool: PgPool) {
     let (ha, state) = lawn_with_patio_sensor(pool).await;
@@ -81,6 +83,7 @@ async fn the_mcp_snapshot_carries_data_sources_checked_after_its_refresh(pool: P
     let sources = &snapshot["data_sources"];
     assert_eq!(sources["homeassistant"], true, "{snapshot}");
     assert_eq!(sources["soildata"], false);
-    assert_eq!(sources["openweathermap"], false);
+    assert!(sources.get("openweathermap").is_none(), "{snapshot}");
+    assert_eq!(sources["forecast"]["provider"], "OpenMeteo");
     assert!(probed_after_refresh(&ha), "{:?}", ha.requests());
 }

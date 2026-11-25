@@ -47,7 +47,7 @@ pub struct LawnConfig {
     /// `LAWN_SIZE_SQFT` as given; parsed (with a warning when invalid) when seeding.
     pub lawn_size_sqft: Option<String>,
     pub irrigation_type: Option<String>,
-    /// `LAWN_LATITUDE` / `LAWN_LONGITUDE` (or the older `OWM_` pair) as given.
+    /// `LAWN_LATITUDE` / `LAWN_LONGITUDE` as given.
     #[serde(skip)]
     pub location: location_seed::LocationSettings,
 }
@@ -98,17 +98,11 @@ pub enum TemperatureUnit {
     Celsius,
 }
 
+/// The OpenWeatherMap key given in the environment, imported once into the app's stored
+/// settings (SETUP-CRED-002).
 #[derive(Clone, Deserialize)]
 pub struct OpenWeatherMapConfig {
     pub api_key: String,
-    pub latitude: f64,
-    pub longitude: f64,
-    #[serde(default = "default_enabled")]
-    pub enabled: bool,
-}
-
-fn default_enabled() -> bool {
-    true
 }
 
 // @spec DEPLOY-CONFIG-010, DEPLOY-LOG-003
@@ -116,9 +110,6 @@ impl std::fmt::Debug for OpenWeatherMapConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OpenWeatherMapConfig")
             .field("api_key", &"[REDACTED]")
-            .field("latitude", &self.latitude)
-            .field("longitude", &self.longitude)
-            .field("enabled", &self.enabled)
             .finish()
     }
 }
@@ -138,6 +129,10 @@ pub struct OpenRouterConfig {
 // OpenRouter ids are dotted (`4.5`); the dashed form is rejected.
 // @spec PLANT-AI-010
 pub const DEFAULT_OPENROUTER_MODEL: &str = "anthropic/claude-haiku-4.5";
+
+fn default_enabled() -> bool {
+    true
+}
 
 fn default_openrouter_model() -> String {
     DEFAULT_OPENROUTER_MODEL.to_string()

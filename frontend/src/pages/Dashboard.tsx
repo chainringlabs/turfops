@@ -27,6 +27,7 @@ import {
 import ShoppingListPanel from "../components/inventory/ShoppingListPanel";
 import NitrogenBudgetWidget from "../components/NitrogenBudgetWidget";
 import SoilTempForecastWidget from "../components/SoilTempForecastWidget";
+import { forecastUp } from "../components/sources/display";
 import TimingWidget from "../components/timing/TimingWidget";
 import { appTypeBadgeStyle, sharedStyles } from "../styles/shared";
 import type {
@@ -37,6 +38,7 @@ import type {
 } from "../types";
 import { APPLICATION_TYPE_LABELS, GRASS_TYPE_LABELS } from "../types";
 import type { DiseaseRiskResponse } from "../types/disease";
+import { FORECAST_PROVIDER_NAMES } from "../types/sources";
 import type { TimingResponse } from "../types/timing";
 import { formatInches } from "../utils/units";
 
@@ -216,7 +218,11 @@ export default function Dashboard() {
 			<div style={styles.connections}>
 				<ConnectionDot label="Weather lake" ok={connections.soildata} />
 				<ConnectionDot label="Home Assistant" ok={connections.homeassistant} />
-				<ConnectionDot label="OpenWeatherMap" ok={connections.openweathermap} />
+				{/* @spec SYNC-CONN-008 */}
+				<ConnectionDot
+					label={FORECAST_PROVIDER_NAMES[connections.forecast.provider]}
+					ok={forecastUp(connections.forecast)}
+				/>
 			</div>
 
 			{/* Gauges */}

@@ -1,5 +1,4 @@
 use crate::clock::Clock;
-use crate::config::OpenWeatherMapConfig;
 use crate::error::{Result, Source, TurfOpsError};
 use crate::models::forecast::{ForecastPoint, ForecastProvider, WeatherCondition, WeatherForecast};
 use chrono::{DateTime, Utc};
@@ -12,9 +11,6 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 
 pub struct OpenWeatherMapClient {
     client: reqwest::Client,
-    config: OpenWeatherMapConfig,
-    /// Daily summaries are the lawn's local days.
-    clock: Clock,
     base_url: String,
 }
 
@@ -82,7 +78,7 @@ fn request_error(e: reqwest::Error) -> TurfOpsError {
 }
 
 impl OpenWeatherMapClient {
-    pub fn new(config: OpenWeatherMapConfig, clock: Clock) -> Self {
+    pub fn new() -> Self {
         let client = reqwest::Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
             .timeout(REQUEST_TIMEOUT)
@@ -90,8 +86,6 @@ impl OpenWeatherMapClient {
             .expect("failed to build OpenWeatherMap HTTP client");
         Self {
             client,
-            config,
-            clock,
             base_url: API_BASE_URL.to_string(),
         }
     }
@@ -103,12 +97,20 @@ impl OpenWeatherMapClient {
         self
     }
 
-    /// Fetch 5-day/3-hour forecast from OpenWeatherMap
-    // @spec WX-SRC-OWM-001
-    pub async fn fetch_forecast(&self) -> Result<WeatherForecast> {
+    /// The 5-day, 3-hour forecast for a point, asked with `key`; daily summaries are
+    /// `clock`'s local days.
+    // @spec WX-SRC-OWM-001, WX-SRC-FC-010, WX-SRC-CFG-003
+    pub async fn forecast(
+        &self,
+        latitude: f64,
+        longitude: f64,
+        key: &str,
+        clock: &Clock,
+        now: DateTime<Utc>,
+    ) -> Result<WeatherForecast> {
         let url = format!(
-            "{}/forecast?lat={}&lon={}&appid={}&units=imperial",
-            self.base_url, self.config.latitude, self.config.longitude, self.config.api_key
+            "{}/forecast?lat={latitude}&lon={longitude}&appid={key}&units=imperial",
+            self.base_url
         );
 
         let response = self.client.get(&url).send().await.map_err(request_error)?;
@@ -133,29 +135,23 @@ impl OpenWeatherMapClient {
             )
         })?;
 
-        Ok(self.convert_response(owm_response))
-    }
-
-    /// Test connection to OpenWeatherMap API
-    pub async fn test_connection(&self) -> Result<bool> {
-        let url = format!(
-            "{}/weather?lat={}&lon={}&appid={}&units=imperial",
-            self.base_url, self.config.latitude, self.config.longitude, self.config.api_key
-        );
-
-        let response = self.client.get(&url).send().await.map_err(request_error)?;
-
-        Ok(response.status().is_success())
-    }
-
-    fn convert_response(&self, response: OwmForecastResponse) -> WeatherForecast {
-        let hourly = response.list.iter().map(convert_forecast_item).collect();
-        WeatherForecast::new(
+        let hourly = owm_response
+            .list
+            .iter()
+            .map(convert_forecast_item)
+            .collect();
+        Ok(WeatherForecast::new(
             ForecastProvider::OpenWeatherMap,
-            Utc::now(),
+            now,
             hourly,
-            &self.clock,
-        )
+            clock,
+        ))
+    }
+}
+
+impl Default for OpenWeatherMapClient {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

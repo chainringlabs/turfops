@@ -87,11 +87,11 @@ async fn startup_seeds_the_location_with_a_new_profile(pool: PgPool) {
 async fn startup_gives_a_location_to_an_existing_profile_that_has_none_and_then_leaves_it(
     pool: PgPool,
 ) {
-    // An installation that predates the location: a profile, and the forecast's coordinates.
+    // An installation that predates the location: a profile, then the lawn's coordinates.
     crate::ensure_default_profile(&pool, &config(&[("LAWN_NAME", "Old Lawn")]))
         .await
         .unwrap();
-    let old = config(&[("OWM_LATITUDE", "39.86"), ("OWM_LONGITUDE", "-75.79")]);
+    let old = config(&[("LAWN_LATITUDE", "39.86"), ("LAWN_LONGITUDE", "-75.79")]);
     crate::ensure_default_profile(&pool, &old).await.unwrap();
     let profile = queries::get_default_lawn_profile(&pool)
         .await

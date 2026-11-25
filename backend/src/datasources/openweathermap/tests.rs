@@ -5,21 +5,6 @@ fn eastern() -> Clock {
     Clock::Zone(chrono_tz::America::New_York)
 }
 
-fn sample_config() -> OpenWeatherMapConfig {
-    OpenWeatherMapConfig {
-        api_key: "test_key".to_string(),
-        latitude: 39.8561,
-        longitude: -75.7872,
-        enabled: true,
-    }
-}
-
-#[test]
-fn client_creation() {
-    let client = OpenWeatherMapClient::new(sample_config(), eastern());
-    assert!(client.config.enabled);
-}
-
 /// The forecast's daily summaries for `points`, on Eastern days.
 fn days(points: &[ForecastPoint]) -> Vec<crate::models::DailyForecast> {
     WeatherForecast::new(
@@ -99,23 +84,19 @@ const FAKE_KEY: &str = "owm-secret-key-0123456789";
 /// A client whose requests fail at the network level (nothing listens on port 1), the
 /// failure whose reqwest error carries the request URL.
 fn unreachable_client() -> OpenWeatherMapClient {
-    let mut config = sample_config();
-    config.api_key = FAKE_KEY.to_string();
-    OpenWeatherMapClient::new(config, eastern()).with_base_url("http://127.0.0.1:1")
+    OpenWeatherMapClient::new().with_base_url("http://127.0.0.1:1")
+}
+
+async fn fetch(client: &OpenWeatherMapClient, key: &str) -> Result<WeatherForecast> {
+    client
+        .forecast(39.8561, -75.7872, key, &eastern(), Utc::now())
+        .await
 }
 
 // @spec WX-SRC-OWM-005
 #[tokio::test]
 async fn a_failed_forecast_fetch_never_carries_the_api_key() {
-    let err = unreachable_client().fetch_forecast().await.unwrap_err();
-    let text = format!("{err} {err:?}");
-    assert!(!text.contains(FAKE_KEY), "API key leaked: {text}");
-}
-
-// @spec WX-SRC-OWM-005
-#[tokio::test]
-async fn a_failed_connection_test_never_carries_the_api_key() {
-    let err = unreachable_client().test_connection().await.unwrap_err();
+    let err = fetch(&unreachable_client(), FAKE_KEY).await.unwrap_err();
     let text = format!("{err} {err:?}");
     assert!(!text.contains(FAKE_KEY), "API key leaked: {text}");
 }
@@ -126,8 +107,11 @@ async fn a_rejected_forecast_request_keeps_the_upstream_body_out_of_the_owner_me
     let base =
         crate::test_support::stub_http(401, r#"{"cod":401,"message":"Invalid API key secret"}"#)
             .await;
-    let client = OpenWeatherMapClient::new(sample_config(), eastern()).with_base_url(&base);
-    let msg = client.fetch_forecast().await.unwrap_err().owner_message();
+    let client = OpenWeatherMapClient::new().with_base_url(&base);
+    let msg = fetch(&client, "test_key")
+        .await
+        .unwrap_err()
+        .owner_message();
     assert!(!msg.contains("Invalid API key secret"), "{msg}");
     assert!(!msg.contains("401"), "no status code: {msg}");
     assert!(msg.contains("forecast"), "{msg}");

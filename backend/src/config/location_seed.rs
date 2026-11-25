@@ -13,22 +13,16 @@ pub struct LocationSettings {
 }
 
 impl LocationSettings {
-    /// `LAWN_LATITUDE` / `LAWN_LONGITUDE` when either is set, otherwise the
-    /// `OWM_LATITUDE` / `OWM_LONGITUDE` pair an older installation may carry.
+    /// `LAWN_LATITUDE` / `LAWN_LONGITUDE` as given.
     // @spec APP-PROF-015
     pub fn from_vars(get: &dyn Fn(&str) -> Option<String>) -> Self {
         let set = |key: &str| get(key).filter(|value| !value.trim().is_empty());
-        let pair = |latitude_var: &'static str, longitude_var: &'static str| Self {
-            latitude_var,
-            longitude_var,
-            latitude: set(latitude_var),
-            longitude: set(longitude_var),
-        };
-        let lawn = pair("LAWN_LATITUDE", "LAWN_LONGITUDE");
-        if lawn.latitude.is_some() || lawn.longitude.is_some() {
-            return lawn;
+        Self {
+            latitude_var: "LAWN_LATITUDE",
+            longitude_var: "LAWN_LONGITUDE",
+            latitude: set("LAWN_LATITUDE"),
+            longitude: set("LAWN_LONGITUDE"),
         }
-        pair("OWM_LATITUDE", "OWM_LONGITUDE")
     }
 }
 
