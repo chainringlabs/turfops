@@ -150,7 +150,8 @@ async fn source_status_is_one_entry_per_source_from_its_last_scheduled_fetch(poo
     assert!(analysis.inputs.contains(&"air_temp"));
 
     let id = source(&pool, ANALYSIS).await.id;
-    let now = Utc::now();
+    // PostgreSQL keeps microseconds; Linux clocks give nanoseconds.
+    let now = crate::logic::weather_sync::sensor_reading::record_instant(Utc::now());
     crate::logic::weather_record::record::WeatherRecord::new(pool.clone())
         .register_wanted(now.date_naive())
         .await
