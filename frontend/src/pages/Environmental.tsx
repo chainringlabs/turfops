@@ -376,6 +376,11 @@ export default function Environmental() {
 			{soilForecast && (
 				<>
 					<h2 style={sharedStyles.sectionTitle}>Soil Temperature Forecast</h2>
+					{soilForecast.basis && (
+						<p style={styles.startsFrom}>
+							Starts from: <BasisLabel basis={soilForecast.basis} />
+						</p>
+					)}
 					<div style={{ marginBottom: "1rem" }}>
 						<PredictionChart
 							recentSoilTemps={lastDays(histData?.soil_temp_10_f ?? [], 7)}
@@ -412,11 +417,21 @@ export default function Environmental() {
 							))}
 						</div>
 					)}
-					<div style={styles.modelInfo}>
-						Model: R²={soilForecast.model_info.r_squared.toFixed(2)}, lag=
-						{soilForecast.model_info.lag_days}d, quality=
-						{soilForecast.model_info.quality}
-					</div>
+					{/* @spec WX-OUTLOOK-UI-001: the fit, or the estimate it rests on */}
+					{soilForecast.model_info ? (
+						<div style={styles.modelInfo}>
+							Model: R²={soilForecast.model_info.r_squared.toFixed(2)}, lag=
+							{soilForecast.model_info.lag_days}d, quality=
+							{soilForecast.model_info.quality}
+						</div>
+					) : (
+						<div style={styles.modelInfo}>
+							Estimated for your location
+							{soilForecast.estimate_info
+								? ` (soil estimate, typically within ${soilForecast.estimate_info.daily_error_f.toFixed(1)} °F a day)`
+								: ""}
+						</div>
+					)}
 				</>
 			)}
 
@@ -557,6 +572,7 @@ const styles: Record<string, React.CSSProperties> = {
 		marginBottom: "1.5rem",
 	},
 	noSource: { fontSize: "0.8rem", color: "#718096" },
+	startsFrom: { fontSize: "0.8rem", color: "#4a5568", margin: "0 0 0.5rem" },
 	refreshBtn: {
 		padding: "0.5rem 1rem",
 		backgroundColor: "#3182ce",

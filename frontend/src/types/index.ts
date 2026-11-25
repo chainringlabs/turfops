@@ -495,10 +495,26 @@ export interface SoilTempModelInfo {
 	quality: string;
 }
 
+/** Fitted to the lawn's measured 10 cm soil, or the soil estimate carried forward. */
+export type OutlookMethod = "Fitted" | "Estimated";
+
+/** The soil estimate behind an estimated outlook. */
+export interface EstimateInfo {
+	stations: string[];
+	training_days: number;
+	daily_error_f: number;
+}
+
 export interface SoilTempForecast {
 	predictions: SoilTempPrediction[];
 	threshold_crossings: ThresholdPrediction[];
-	model_info: SoilTempModelInfo;
+	method: OutlookMethod;
+	/** What the soil the outlook starts from rests on. */
+	basis: Basis | null;
+	/** The fit, on the fitted method. */
+	model_info: SoilTempModelInfo | null;
+	/** The soil estimate, on the estimated method. */
+	estimate_info: EstimateInfo | null;
 	generated_at: string;
 }
 

@@ -120,9 +120,31 @@ async fn gdd_is_the_gdd_body_for_the_year_without_daily_history(pool: PgPool) {
 // @spec MCP-TOOL-010
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn soil_temp_outlook_is_the_soil_forecast_body(pool: PgPool) {
-    lawn(&pool).await;
-    let lake = Lake::with_days("outlook", 40, &[]);
-    let state = state_with_forecast(pool, &lake).await;
+    use crate::logic::data_sync::test_support::{forecast, forecast_day};
+    use crate::logic::weather_record::lab::{d, Lab, PRISM};
+    use crate::logic::weather_sync::forecast::ForecastSlot;
+    let lab = Lab::new(pool.clone()).await;
+    for day in 1..=19 {
+        let air = 70.0 + f64::from(day % 5) * 2.0;
+        lab.grid(PRISM, day, air + 8.0, air - 8.0).await;
+        lab.station_hours(day, 24, air + 2.0).await;
+    }
+    // Noon Eastern on July 20, 2026: the lab's days are July's.
+    let clock = crate::clock::Clock::Frozen {
+        at: chrono::TimeZone::with_ymd_and_hms(&chrono::Utc, 2026, 7, 20, 16, 0, 0).unwrap(),
+        zone: chrono_tz::America::New_York,
+    };
+    let slot = ForecastSlot::holding(forecast(
+        (0..10)
+            .map(|n| forecast_day(d(20 + n), 24, 82.0 + n as f64, 64.0 + n as f64))
+            .collect(),
+    ));
+    let mut config = crate::logic::data_sync::test_env::config(&[]);
+    config.clock = clock;
+    let sync = crate::logic::data_sync::DataSyncService::initialize(&config, pool.clone())
+        .await
+        .with_forecast(slot);
+    let state = crate::state::AppState::new(pool, sync, None, true, clock);
     let reply = call_tool(&state, "soil_temp_outlook", json!({}))
         .await
         .json();

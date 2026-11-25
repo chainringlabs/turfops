@@ -332,11 +332,16 @@ pub fn build_forecast(
     Some(SoilTempForecast {
         predictions,
         threshold_crossings,
-        model_info: SoilTempModelInfo::from(&model),
+        method: OutlookMethod::Fitted,
+        basis: None,
+        model_info: Some(SoilTempModelInfo::from(&model)),
+        estimate_info: None,
         generated_at: Utc::now(),
     })
 }
 
+mod outlook;
+pub use outlook::{build_outlook, EstimateModel, OutlookInputs};
 mod series;
 pub use series::{anchored_outlook, continuous_air};
 
@@ -344,6 +349,8 @@ pub use series::{anchored_outlook, continuous_air};
 mod crossing_tests;
 #[cfg(test)]
 mod dip_tests;
+#[cfg(test)]
+mod method_tests;
 #[cfg(test)]
 mod model_tests;
 #[cfg(test)]

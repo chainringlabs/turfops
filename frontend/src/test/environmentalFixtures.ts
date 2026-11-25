@@ -184,6 +184,9 @@ export function soilForecast(
 				direction: "Falling",
 			},
 		],
+		method: "Fitted",
+		basis: STATION,
+		estimate_info: null,
 		model_info: {
 			r_squared: 0.8234,
 			lag_days: 2,

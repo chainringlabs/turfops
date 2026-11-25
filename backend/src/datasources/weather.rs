@@ -9,8 +9,6 @@ mod disease;
 #[cfg(test)]
 pub(crate) mod fixtures;
 #[cfg(test)]
-mod gold_tests;
-#[cfg(test)]
 mod silver_tests;
 #[cfg(test)]
 mod window_tests;
@@ -102,37 +100,6 @@ impl WeatherLakeClient {
         .await
     }
 
-    /// Daily paired `(date, air_temp_avg_f, soil_temp_10_f_mean)` for the regression model.
-    // @spec WX-SRC-LAKE-007
-    pub async fn fetch_daily_paired_averages(
-        &self,
-        start: DateTime<Utc>,
-        end: DateTime<Utc>,
-    ) -> Result<Vec<(NaiveDate, f64, f64)>> {
-        let src = Self::parquet(&self.gold_weather_path);
-        let (start_s, end_s) = (fmt_date(start), fmt_date(end));
-        Self::run(move |conn| {
-            let sql = format!(
-                "SELECT day, air_temp_avg_f, soil_temp_10_f_mean \
-                 FROM {src} \
-                 WHERE day >= ?::DATE AND day <= ?::DATE AND hours_observed >= 12 \
-                   AND air_temp_avg_f IS NOT NULL AND soil_temp_10_f_mean IS NOT NULL \
-                 ORDER BY day ASC"
-            );
-            let mut stmt = conn.prepare(&sql)?;
-            let mut rows = stmt.query(duckdb::params![start_s, end_s])?;
-            let mut out = Vec::new();
-            while let Some(row) = rows.next()? {
-                let date: NaiveDate = row.get(0)?;
-                let air_f: f64 = row.get(1)?;
-                let soil_f: f64 = row.get(2)?;
-                out.push((date, air_f, soil_f));
-            }
-            Ok(out)
-        })
-        .await
-    }
-
     /// Daily GDD rows `(date, high_f, low_f, gdd50)` from the gold layer for [start, end].
     /// `gdd50` is precomputed in the lake with the identical base-50°F formula.
     // @spec WX-SRC-LAKE-008
@@ -171,11 +138,6 @@ impl WeatherLakeClient {
 /// Format a UTC instant as a naive `YYYY-MM-DD HH:MM:SS` string for a TIMESTAMP comparison.
 fn fmt_ts(ts: DateTime<Utc>) -> String {
     ts.format("%Y-%m-%d %H:%M:%S").to_string()
-}
-
-/// Format a UTC instant's date as `YYYY-MM-DD` for a DATE comparison.
-fn fmt_date(ts: DateTime<Utc>) -> String {
-    ts.format("%Y-%m-%d").to_string()
 }
 
 /// Map a silver hourly row to an `EnvironmentalReading`, converting °C → °F.
