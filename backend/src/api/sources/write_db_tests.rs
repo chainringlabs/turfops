@@ -296,3 +296,17 @@ async fn setup_gives_a_lawn_its_first_location(pool: PgPool) {
         "the plan was built"
     );
 }
+
+// @spec DEPLOY-TZ-008
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn a_location_set_up_puts_its_zone_on_the_apps_clock(pool: PgPool) {
+    let state = located(&pool).await;
+    state.clock.replace(crate::clock::Clock::System);
+    // Phoenix, AZ.
+    let body = json!({"location": {"latitude": 33.45, "longitude": -112.07}});
+    applying(&state, body).await.unwrap();
+    assert_eq!(
+        state.clock.get(),
+        crate::clock::Clock::Zone(chrono_tz::America::Phoenix)
+    );
+}

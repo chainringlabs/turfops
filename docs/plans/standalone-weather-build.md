@@ -80,9 +80,9 @@ The first slice that changes what the owner sees. Five PRs:
    seasonal plan's timing activities and MCP `weather_history` on the record, with the
    estimated-soil rules — after it nothing reads the lake (#389, merged); (c2) the Timing
    page's basis labels, estimated dates and chart, with gap fills summarized rather than
-   noted change by change (in review).
-5. The clock follows the location, the no-location notice, MCP results without coordinates,
-   MCP tools on the record, and the retired-settings lines.
+   noted change by change (#390, merged).
+5. The clock follows the location (5a, in review), the no-location notice, MCP results
+   without coordinates, MCP tools on the record, and the retired-settings lines.
 
 What each covers:
 

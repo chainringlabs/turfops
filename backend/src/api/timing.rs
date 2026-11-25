@@ -84,7 +84,7 @@ pub(crate) async fn climate_read(state: &AppState) -> Result<ClimateRead, TurfOp
         }
         None => Err(e),
     };
-    let asked = match record_asked(&state.pool, &state.clock).await {
+    let asked = match record_asked(&state.pool, &state.clock.get()).await {
         Ok(asked) => asked,
         Err(e) => return stand_in(None, e),
     };

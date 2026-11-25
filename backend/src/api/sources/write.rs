@@ -55,6 +55,7 @@ pub fn pinnable(
 /// the sources as they now stand.
 // @spec SETUP-API-010, SYNC-SCHED-008
 pub async fn after_write(state: &AppState) -> Result<Json<SourcesView>, TurfOpsError> {
+    state.follow_location().await?;
     replanned(state).await?;
     Ok(Json(sources_view(state).await?))
 }

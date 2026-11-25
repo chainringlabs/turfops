@@ -21,7 +21,7 @@ pub async fn get_gdd(
     State(state): State<AppState>,
     Query(params): Query<GddQuery>,
 ) -> Result<Json<GddSummary>, TurfOpsError> {
-    let asked = record_asked(&state.pool, &state.clock).await?;
+    let asked = record_asked(&state.pool, &state.clock.get()).await?;
     let today = asked.at.today;
     let year = params.year.unwrap_or_else(|| today.year());
     let jan1 = NaiveDate::from_ymd_opt(year, 1, 1)

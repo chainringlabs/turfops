@@ -29,16 +29,18 @@ fn idle_pool() -> sqlx::PgPool {
 
 // @spec DEPLOY-START-001, DEPLOY-START-003
 #[test]
-fn startup_runs_logging_config_database_profile_clients_router_then_bind() {
+fn startup_runs_logging_config_database_profile_clock_clients_router_bind_then_schedule() {
     let steps = [
         "tracing_subscriber::fmt()",
         "Config::from_env()?",
         "create_pool(",
         "ensure_default_profile(&pool, &config).await?",
+        "clock::Clock::of_lawn(",
         "DataSyncService::initialize(",
         "OpenRouterClient::from_config(",
         "Router::new()",
         "TcpListener::bind(addr).await?",
+        "tokio::spawn(schedule.run())",
     ];
     let at: Vec<usize> = steps.iter().map(|s| position(s)).collect();
     for (pair, step) in at.windows(2).zip(steps.windows(2)) {

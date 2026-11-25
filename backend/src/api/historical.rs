@@ -42,7 +42,7 @@ pub async fn get_historical(
         }
     };
 
-    let asked = record_asked(&state.pool, &state.clock).await?;
+    let asked = record_asked(&state.pool, &state.clock.get()).await?;
     let record = WeatherRecord::new(state.pool.clone());
     // fetch_range returns newest-first; reverse to ascending for charting.
     let range = record.fetch_range(start, now, asked).await?;
@@ -59,7 +59,7 @@ pub async fn get_historical(
 
     // GDD accumulated from Jan 1 so the values are true year-to-date (resetting on year
     // boundaries), then only the points within the requested range.
-    let (accum_start, start_date, end_date) = gdd_window(&state.clock, start, now);
+    let (accum_start, start_date, end_date) = gdd_window(&state.clock.get(), start, now);
     let gdd = record.fetch_daily_gdd(accum_start, end_date, asked).await?;
     let gdd_records = gdd::accumulate_daily_gdd(&gdd.rows);
 
