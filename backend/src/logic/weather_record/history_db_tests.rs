@@ -74,3 +74,33 @@ async fn long_contracts_wait_for_the_backfill_and_recent_ones_answer_from_what_i
     hold(STATION, jan1(2011)).await;
     assert!(lab.record.fetch_climate_record(d(1), asked).await.is_ok());
 }
+
+// @spec WX-REC-FAIL-002
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn sources_wanted_from_different_years_are_loaded_once_each_holds_its_own(pool: PgPool) {
+    let lab = air_lab(pool).await;
+    // The estimate is wanted from 2012, a year after the station; each holds all of its own.
+    let estimate = lab.source(ESTIMATE).await.id;
+    let from_2012 = NaiveDate::from_ymd_opt(2012, 1, 1).unwrap();
+    sqlx::query(
+        "UPDATE weather_fetch_state SET wanted_from = $2, held_from = $2 WHERE source_id = $1",
+    )
+    .bind(estimate)
+    .bind(from_2012)
+    .execute(&lab.pool)
+    .await
+    .unwrap();
+
+    let asked = noon(20);
+    assert!(lab.record.fetch_climate_record(d(1), asked).await.is_ok());
+    assert!(lab
+        .record
+        .fetch_daily_soil_temp_averages(d(1), d(20), asked)
+        .await
+        .is_ok());
+    assert!(lab
+        .record
+        .fetch_daily_paired_averages(d(1), d(20), asked)
+        .await
+        .is_ok());
+}
