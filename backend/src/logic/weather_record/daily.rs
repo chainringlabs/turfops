@@ -4,9 +4,10 @@ use super::due::product_of;
 use super::record::{Asked, View, WeatherRecord};
 use super::resolve::{self, DayAir};
 use crate::datasources::cadence::Product;
-use crate::datasources::weather::{ClimateDay, DailyGddRow};
+use crate::datasources::weather::DailyGddRow;
 use crate::db::weather_queries::fetch_state;
 use crate::error::{Result, TurfOpsError};
+use crate::models::climate::ClimateDay;
 use crate::models::seasonal_plan::DailySoilTempAvg;
 use crate::models::weather_basis::{Basis, BasisSpan, Figure, Series};
 use crate::models::weather_record::{Input, Source, SourceKind};
@@ -112,7 +113,7 @@ impl WeatherRecord {
     }
 
     /// One row per local day from `start` that has any of: 5 cm soil, daily air.
-    // @spec WX-REC-API-011, WX-REC-FAIL-002
+    // @spec WX-REC-API-011, WX-REC-FAIL-002, TIME-ENG-047
     pub async fn fetch_climate_record(
         &self,
         start: NaiveDate,
@@ -130,9 +131,13 @@ impl WeatherRecord {
             .into_iter()
             .map(|date| {
                 let air = air.days.get(&date).map(|r| &r.value);
+                let soil_day = soil.days.get(&date);
                 ClimateDay {
                     date,
-                    soil_temp_5_f: soil.days.get(&date).map(|r| r.value),
+                    soil_temp_5_f: soil_day.map(|r| r.value),
+                    soil_estimated: soil_day.is_some_and(|r| {
+                        soil.candidates[r.from].source.kind == SourceKind::Estimate
+                    }),
                     air_min_f: air.map(|a| a.min_f),
                     air_avg_f: air.map(|a| a.mean_f),
                     gdd50: air.map(gdd50),

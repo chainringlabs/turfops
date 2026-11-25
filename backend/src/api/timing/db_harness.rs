@@ -1,185 +1,91 @@
-//! A real app state for the timing hooks: a migrated database, a parquet weather lake
-//! written by DuckDB, and optionally a forecast served by a local stub.
+//! A real app state for the timing handler and hooks: a migrated database holding the
+//! weather record's lawn near Avondale, PA, years of 5 cm soil and daily air on a typical
+//! year's curve, and optionally a forecast served by a local stub.
 
 use crate::clock::Clock;
-use crate::config::Config;
 use crate::datasources::OpenWeatherMapClient;
 use crate::db::queries;
+use crate::db::weather_queries::days::start_of_day;
+use crate::db::weather_queries::rows;
 use crate::logic::data_sync::DataSyncService;
+use crate::logic::weather_record::lab::{Lab, PRISM, STATION};
 use crate::logic::weather_sync::forecast::ForecastSlot;
-use crate::models::{GrassType, LawnProfile};
+use crate::models::weather_record::{DailyRow, HourlyRow};
+use crate::models::LawnProfile;
 use crate::state::AppState;
 use chrono::{DateTime, Datelike, Duration, NaiveDate, TimeZone, Utc};
 use sqlx::PgPool;
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub(super) const ZONE: Clock = Clock::Zone(chrono_tz::America::New_York);
 
-/// The station's typical year (°F): peak 77 on Jul 19, trough 33 in mid-January.
-const CURVE: &str = "(55 + 22 * cos(2 * pi() * (dayofyear(d) - 200) / 365.0))";
-
-/// Silver + gold parquet in a directory of its own, removed on drop.
-pub(crate) struct Lake {
-    dir: PathBuf,
+/// The typical year (°F): peak 77 on Jul 19, trough 33 in mid-January.
+fn curve(day: NaiveDate) -> f64 {
+    55.0 + 22.0 * (std::f64::consts::TAU * (f64::from(day.ordinal()) - 200.0) / 365.0).cos()
 }
 
-impl Lake {
-    fn new_dir() -> PathBuf {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let dir = std::env::temp_dir().join(format!(
-            "turfops_timing_lake_{}_{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::SeqCst)
-        ));
-        std::fs::create_dir_all(&dir).unwrap();
-        dir
+/// The record's lawn (created by the Lab), with `years` complete years before `through`'s
+/// year and that year up to `through`: the station's 5 cm soil on the curve (twelve
+/// hours a day, enough for a covered day) and PRISM's daily air under it (mean 5 °F under,
+/// minimum 16.5 °F under, maximum 6.5 °F over).
+pub(crate) async fn climate(pool: &PgPool, years: i32, through: NaiveDate) -> Lab {
+    let lab = Lab::new(pool.clone()).await;
+    let first = NaiveDate::from_ymd_opt(through.year() - years, 1, 1).unwrap();
+    let days: Vec<NaiveDate> = first.iter_days().take_while(|d| *d <= through).collect();
+    let hours: Vec<HourlyRow> = days
+        .iter()
+        .flat_map(|day| {
+            let start: DateTime<Utc> = start_of_day(chrono_tz::America::New_York, *day);
+            let soil = curve(*day);
+            (0..12).map(move |hour| {
+                let mut row = HourlyRow {
+                    observed_at: start + Duration::hours(hour),
+                    ..Default::default()
+                };
+                row.soil_temp_f = [Some(soil), Some(soil), None, None, None];
+                row
+            })
+        })
+        .collect();
+    let station = lab.source(STATION).await.id;
+    let mut conn = lab.pool.acquire().await.unwrap();
+    for chunk in hours.chunks(5000) {
+        rows::write_hourly(&mut conn, station, chunk).await.unwrap();
     }
-
-    /// Daily records from Jan 1 `years` years back through yesterday (the lawn's date).
-    pub(super) fn with_years(years: i32) -> Self {
-        let today = ZONE.today();
-        let start = NaiveDate::from_ymd_opt(today.year() - years, 1, 1).unwrap();
-        let lake = Self {
-            dir: Self::new_dir(),
-        };
-        let days = format!("range(TIMESTAMP '{start}', TIMESTAMP '{today}', INTERVAL 1 DAY) t(d)");
-        let conn = duckdb::Connection::open_in_memory().unwrap();
-        conn.execute_batch(&format!(
-            "COPY (
-                SELECT 3761 AS wbanno, CAST(d AS DATE) AS obs_date_local,
-                       ({CURVE} - 32) * 5 / 9 AS soil_temp_5
-                FROM {days}, range(24) h(hour)
-             ) TO '{silver}' (FORMAT PARQUET);
-             COPY (
-                SELECT CAST(d AS DATE) AS day,
-                       {CURVE} - 16.5 AS air_temp_min_f,
-                       {CURVE} - 5 AS air_temp_avg_f,
-                       greatest({CURVE} - 55, 0) AS gdd50,
-                       24 AS hours_observed
-                FROM {days}
-             ) TO '{gold}' (FORMAT PARQUET);",
-            silver = lake.silver(),
-            gold = lake.gold(),
-        ))
-        .unwrap();
-        lake
+    let air: Vec<DailyRow> = days
+        .iter()
+        .map(|day| {
+            let typical = curve(*day);
+            DailyRow {
+                day: *day,
+                air_max_f: Some(typical + 6.5),
+                air_min_f: Some(typical - 16.5),
+                air_mean_f: Some(typical - 5.0),
+                ..Default::default()
+            }
+        })
+        .collect();
+    let prism = lab.source(PRISM).await;
+    for chunk in air.chunks(2000) {
+        rows::write_daily(&mut conn, &prism, chunk).await.unwrap();
     }
-
-    /// Every silver column the 7-day summary and the climate record read, hourly from Jan 1
-    /// `years` years before `end` up to the hour before `end` (UTC), on the typical-year
-    /// curve: 5 and 10 cm soil on it, air 5 °F under it, RH 70 %, no rain, moisture 0.25.
-    pub(crate) fn full_until(years: i32, end: DateTime<Utc>) -> Self {
-        let start = NaiveDate::from_ymd_opt(end.year() - years, 1, 1).unwrap();
-        let end_ts = end.naive_utc();
-        let lake = Self {
-            dir: Self::new_dir(),
-        };
-        let curve = CURVE.replace("dayofyear(d)", "dayofyear(CAST(ts AS DATE))");
-        let gold_curve = CURVE;
-        let hours = format!(
-            "range(TIMESTAMP '{start} 00:00:00', TIMESTAMP '{end_ts}', INTERVAL 1 HOUR) t(ts)"
-        );
-        let days = format!(
-            "range(TIMESTAMP '{start}', TIMESTAMP '{}', INTERVAL 1 DAY) t(d)",
-            end_ts.date()
-        );
-        let conn = duckdb::Connection::open_in_memory().unwrap();
-        conn.execute_batch(&format!(
-            "COPY (
-                SELECT '03761' AS wbanno, ts AS obs_ts_utc, ts - INTERVAL 4 HOUR AS obs_ts_local,
-                       CAST(ts - INTERVAL 4 HOUR AS DATE) AS obs_date_local,
-                       ({curve} - 32) * 5 / 9 AS soil_temp_5, ({curve} - 32) * 5 / 9 AS soil_temp_10,
-                       CAST(NULL AS DOUBLE) AS soil_temp_20, CAST(NULL AS DOUBLE) AS soil_temp_50,
-                       CAST(NULL AS DOUBLE) AS soil_temp_100,
-                       0.25 AS soil_moisture_5, 0.25 AS soil_moisture_10, 0.25 AS soil_moisture_20,
-                       CAST(NULL AS DOUBLE) AS soil_moisture_50, CAST(NULL AS DOUBLE) AS soil_moisture_100,
-                       ({curve} - 5 - 32) * 5 / 9 AS air_temp_c,
-                       CAST(NULL AS DOUBLE) AS air_temp_min_c, CAST(NULL AS DOUBLE) AS air_temp_max_c,
-                       70.0 AS rh_pct, 0.0 AS precip_mm
-                FROM {hours}
-             ) TO '{silver}' (FORMAT PARQUET);
-             COPY (
-                SELECT CAST(d AS DATE) AS day,
-                       {gold_curve} - 16.5 AS air_temp_min_f,
-                       {gold_curve} - 5 AS air_temp_avg_f,
-                       {gold_curve} + 5 AS air_temp_max_f,
-                       {gold_curve} AS soil_temp_10_f_mean,
-                       greatest({gold_curve} - 55, 0) AS gdd50,
-                       24 AS hours_observed
-                FROM {days}
-             ) TO '{gold}' (FORMAT PARQUET);",
-            silver = lake.silver(),
-            gold = lake.gold(),
-        ))
-        .unwrap();
-        lake
-    }
-
-    /// A lake whose parquet files do not exist.
-    pub(super) fn missing() -> Self {
-        Self {
-            dir: Self::new_dir(),
-        }
-    }
-
-    pub(super) fn silver(&self) -> String {
-        self.dir.join("silver.parquet").to_string_lossy().into()
-    }
-
-    pub(super) fn gold(&self) -> String {
-        self.dir.join("gold.parquet").to_string_lossy().into()
-    }
-
-    /// Take the parquet away, as an unmounted lake would.
-    pub(super) fn unmount(&self) {
-        std::fs::remove_file(self.silver()).ok();
-        std::fs::remove_file(self.gold()).ok();
-    }
+    drop(conn);
+    lab
 }
 
-impl Drop for Lake {
-    fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.dir).ok();
-    }
-}
-
-/// App state over `lake` on `clock`, with no forecast.
-pub(crate) async fn app_state_on(pool: &PgPool, lake: &Lake, clock: Clock) -> AppState {
-    let mut config = config_for(lake);
+/// App state over the database on `clock`, with no forecast.
+pub(crate) async fn app_state_on(pool: &PgPool, clock: Clock) -> AppState {
+    let mut config = crate::logic::data_sync::test_env::config(&[]);
     config.clock = clock;
-    let sync = DataSyncService::initialize(&config, pool.clone())
-        .await
-        .summary_from_lake();
+    let sync = DataSyncService::initialize(&config, pool.clone()).await;
     AppState::new(pool.clone(), sync, None, false, clock)
 }
 
-fn config_for(lake: &Lake) -> Config {
-    serde_json::from_value(serde_json::json!({
-        "lawn": { "name": "Test", "grass_type": "TallFescue", "usda_zone": "7a" },
-        "noaa": { "station_wbanno": 3761 },
-        "datalake": { "silver_weather_path": lake.silver(), "gold_weather_path": lake.gold() },
-        "homeassistant": {
-            "url": "http://127.0.0.1:1", "token": "",
-            "temperature_entity": "t", "humidity_entity": "h"
-        },
-        "server": { "host": "127.0.0.1", "port": 3000 },
-        "database": {
-            "host": "localhost", "port": 5432, "name": "x", "user": "x",
-            "password": "x", "max_connections": 1
-        },
-        "mcp": {}
-    }))
-    .unwrap()
-}
-
-/// App state over `lake`, with the forecast fetched from `forecast_base` when given.
-pub(super) async fn app_state(pool: &PgPool, lake: &Lake, forecast_base: Option<&str>) -> AppState {
-    let mut config = config_for(lake);
+/// App state on the lawn's clock, with the forecast fetched from `forecast_base` when
+/// given.
+pub(super) async fn app_state(pool: &PgPool, forecast_base: Option<&str>) -> AppState {
+    let mut config = crate::logic::data_sync::test_env::config(&[]);
     config.clock = ZONE;
-    let mut sync = DataSyncService::initialize(&config, pool.clone())
-        .await
-        .summary_from_lake();
+    let mut sync = DataSyncService::initialize(&config, pool.clone()).await;
     if let Some(base) = forecast_base {
         // The forecast as the schedule would hold it after fetching from `base`: none
         // when that fetch fails.
@@ -194,17 +100,15 @@ pub(super) async fn app_state(pool: &PgPool, lake: &Lake, forecast_base: Option<
     AppState::new(pool.clone(), sync, None, false, ZONE)
 }
 
-/// Insert the lawn profile and return it as stored.
+/// The lawn profile as stored.
 pub(crate) async fn lawn(pool: &PgPool) -> LawnProfile {
-    let profile = LawnProfile::new("Test".into(), GrassType::TallFescue, "7a".into());
-    queries::create_lawn_profile(pool, &profile).await.unwrap();
     queries::get_default_lawn_profile(pool)
         .await
         .unwrap()
         .unwrap()
 }
 
-/// Local noon-ish instants for `day` at the given local hours.
+/// Local instants for `day` at the given local hours.
 fn at_hours(day: NaiveDate, hours: &[u32]) -> Vec<DateTime<Utc>> {
     let tz = chrono_tz::America::New_York;
     hours
@@ -213,7 +117,6 @@ fn at_hours(day: NaiveDate, hours: &[u32]) -> Vec<DateTime<Utc>> {
         .map(|t| t.with_timezone(&Utc))
         .collect()
 }
-
 /// An OpenWeatherMap 5-day/3-hour body: `days` of `(offset from today, temps)` with one
 /// 3-hourly point per temperature (8 points make a full day).
 pub(super) fn forecast_body(days: &[(i64, Vec<f64>)]) -> &'static str {

@@ -14,6 +14,7 @@ fn noisy_station(start: NaiveDate, through: NaiveDate) -> Vec<ClimateDay> {
             ClimateDay {
                 date: d,
                 soil_temp_5_f: Some(air + 5.0),
+                soil_estimated: false,
                 air_min_f: Some(air - 8.0),
                 air_avg_f: Some(air),
                 gdd50: Some((air - 50.0).max(0.0)),
@@ -45,7 +46,7 @@ fn forecast_soil_is_appended_after_the_station_and_smoothed_with_it() {
     let forecast = forecast_at(date(2026, 9, 20), &[50.0, 50.0, 50.0]);
     let raw: Vec<SoilPoint> = observed_points(&days)
         .into_iter()
-        .chain(forecast_points(&days, &forecast))
+        .chain(forecast_points(&days, &forecast, None))
         .collect();
     let data = SeasonData::build(&days, &forecast, 2026);
 
@@ -85,7 +86,7 @@ fn the_outlook_continues_from_the_last_soil_observation() {
     days.last_mut().unwrap().soil_temp_5_f = Some(days.last().unwrap().air_avg_f.unwrap() + 8.0);
     let forecast = forecast_at(date(2026, 9, 20), &[55.0, 58.0, 61.0]);
 
-    let outlook = forecast_points(&days, &forecast);
+    let outlook = forecast_points(&days, &forecast, None);
     let dates: Vec<NaiveDate> = outlook.iter().map(|p| p.date).collect();
     assert_eq!(
         dates,
@@ -110,7 +111,7 @@ fn the_outlook_fits_on_the_last_30_days_and_prefers_station_air() {
     let last = date(2026, 9, 19);
     let days = noisy_station(date(2026, 6, 1), last);
     let forecast = forecast_at(date(2026, 9, 18), &[55.0, 57.0, 59.0, 61.0]);
-    let baseline = forecast_points(&days, &forecast);
+    let baseline = forecast_points(&days, &forecast, None);
     assert_eq!(baseline.len(), 2);
 
     // Soil older than the 30-day training window has nothing to do with air: no effect.
@@ -121,13 +122,13 @@ fn the_outlook_fits_on_the_last_30_days_and_prefers_station_air() {
     {
         day.soil_temp_5_f = Some(100.0 - day.soil_temp_5_f.unwrap());
     }
-    assert_eq!(forecast_points(&old_noise, &forecast), baseline);
+    assert_eq!(forecast_points(&old_noise, &forecast, None), baseline);
 
     // On Sep 18–19 the station has air of its own: the forecast's value is not used.
     let mut overlapping = forecast.clone();
     overlapping[0] = forecast_day(date(2026, 9, 18), 20.0);
     overlapping[1] = forecast_day(date(2026, 9, 19), 95.0);
-    assert_eq!(forecast_points(&days, &overlapping), baseline);
+    assert_eq!(forecast_points(&days, &overlapping, None), baseline);
 }
 
 // @spec TIME-ENG-008
@@ -136,19 +137,25 @@ fn no_observation_forecast_or_fit_means_no_outlook() {
     let last = date(2026, 9, 19);
     let days = noisy_station(date(2026, 6, 1), last);
     let forecast = forecast_at(date(2026, 9, 20), &[55.0, 58.0]);
-    assert!(!forecast_points(&days, &forecast).is_empty());
+    assert!(!forecast_points(&days, &forecast, None).is_empty());
 
-    assert!(forecast_points(&days, &[]).is_empty(), "no forecast");
+    assert!(forecast_points(&days, &[], None).is_empty(), "no forecast");
 
     let mut no_soil = days.clone();
     for day in &mut no_soil {
         day.soil_temp_5_f = None;
     }
-    assert!(forecast_points(&no_soil, &forecast).is_empty(), "no soil");
+    assert!(
+        forecast_points(&no_soil, &forecast, None).is_empty(),
+        "no soil"
+    );
 
     // Too few paired days for a regression.
     let short = noisy_station(date(2026, 9, 15), last);
-    assert!(forecast_points(&short, &forecast).is_empty(), "no fit");
+    assert!(
+        forecast_points(&short, &forecast, None).is_empty(),
+        "no fit"
+    );
 
     let data = SeasonData::build(&short, &forecast, 2026);
     assert!(data.smoothed.iter().all(|p| !p.is_forecast));

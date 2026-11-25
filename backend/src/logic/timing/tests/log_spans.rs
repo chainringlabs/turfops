@@ -180,6 +180,7 @@ fn without_a_logged_application_no_window_is_ever_blocked() {
                 forecast: &[],
                 grass,
                 history: &[],
+                estimate: None,
             });
             assert!(
                 result

@@ -3,8 +3,8 @@
 mod disease;
 #[cfg(test)]
 mod error_tests;
-#[cfg(test)]
-mod history_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod history_db_tests;
 mod lawn;
 mod log;
 #[cfg(all(test, feature = "db-tests"))]

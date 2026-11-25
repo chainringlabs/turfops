@@ -100,6 +100,7 @@ fn this_seasons_activity_status_is_the_windows_state() {
             forecast: &[],
             grass: GrassType::TallFescue,
             history,
+            estimate: None,
         })
         .windows;
         let plan = plan_on(today, history);
@@ -163,13 +164,14 @@ fn the_plan_and_the_recommendation_state_the_same_seed_amount() {
         forecast: &[],
         grass: GrassType::TallFescue,
         history: &[],
+        estimate: None,
     });
     let soil = SoilNow {
         avg_5day_f: None,
         as_of: None,
         depth_cm: 5,
     };
-    let recs = to_recommendations(&result.windows, &soil, &LawnProfile::default(), today);
+    let recs = to_recommendations(&result.windows, &soil, None, &LawnProfile::default(), today);
     let rec = recs
         .iter()
         .find(|r| r.id == "timing_fall_seeding_2026")

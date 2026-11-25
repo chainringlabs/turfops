@@ -1,7 +1,7 @@
 //! The feed on a stopped clock (`--features db-tests`).
 
 use super::fixtures::{application, state_without_lake};
-use crate::api::timing::db_harness::{app_state_on, lawn, Lake};
+use crate::api::timing::db_harness::{app_state_on, climate, lawn};
 use crate::clock::Clock;
 use crate::db::queries;
 use crate::models::{ApplicationType, GrassType, LawnProfile, Recommendation, Severity};
@@ -67,8 +67,8 @@ async fn timing_rewrites_the_rules_fall_broadleaf_after_they_run(pool: PgPool) {
     // already in the feed and turn it into the "only if NOT seeding" Advisory.
     let day = NaiveDate::from_ymd_opt(2025, 9, 25).unwrap();
     let clock = stopped_on(day);
-    let lake = Lake::full_until(6, clock.now());
-    let state = app_state_on(&pool, &lake, clock).await;
+    climate(&pool, 6, day - Duration::days(1)).await;
+    let state = app_state_on(&pool, clock).await;
     // The rules' fall broadleaf window needs a soil week of 50–65 °F.
     state
         .sync_service

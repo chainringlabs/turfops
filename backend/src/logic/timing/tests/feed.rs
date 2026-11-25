@@ -17,6 +17,8 @@ fn view(label: &str, on: NaiveDate, passed: bool) -> BoundaryView {
         source: DateSource::Observed,
         passed,
         days_held: None,
+        estimated: false,
+        typical_error_days: None,
     }
 }
 
@@ -54,7 +56,13 @@ fn soil() -> SoilNow {
 
 fn severity(id: WindowId, state: WindowState, closes_on: NaiveDate) -> Option<Severity> {
     let w = timing_window(id, state, closes_on);
-    let recs = to_recommendations(&[w], &soil(), &LawnProfile::default(), date(2026, 5, 1));
+    let recs = to_recommendations(
+        &[w],
+        &soil(),
+        None,
+        &LawnProfile::default(),
+        date(2026, 5, 1),
+    );
     assert!(recs.len() <= 1);
     recs.first().map(|r| r.severity)
 }
@@ -102,7 +110,13 @@ fn a_window_recommendation_carries_the_windows_words_and_dates() {
         WindowState::Ideal,
         date(2026, 4, 21),
     );
-    let rec = &to_recommendations(&[w], &soil(), &LawnProfile::default(), date(2026, 4, 10))[0];
+    let rec = &to_recommendations(
+        &[w],
+        &soil(),
+        None,
+        &LawnProfile::default(),
+        date(2026, 4, 10),
+    )[0];
     assert_eq!(rec.id, "timing_spring_pre_emergent_2026");
     assert_eq!(rec.category, RecommendationCategory::PreEmergent);
     assert_eq!(rec.title, "The Window — The headline");
@@ -130,6 +144,7 @@ fn a_window_recommendation_carries_the_windows_words_and_dates() {
     let rec = &to_recommendations(
         &[seeding],
         &soil(),
+        None,
         &LawnProfile::default(),
         date(2026, 9, 20),
     )[0];
@@ -143,7 +158,7 @@ fn needs_of(id: WindowId, state: WindowState, grass: GrassType) -> Vec<crate::mo
         ..LawnProfile::default()
     };
     let w = timing_window(id, state, date(2026, 10, 6));
-    to_recommendations(&[w], &soil(), &profile, date(2026, 9, 20))[0]
+    to_recommendations(&[w], &soil(), None, &profile, date(2026, 9, 20))[0]
         .needs
         .clone()
 }

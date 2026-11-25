@@ -232,15 +232,17 @@ async fn forecast_stub() -> String {
     format!("http://{addr}")
 }
 
-/// Gives the lawn profile a location near Avondale, PA, so the weather record answers
-/// (with nothing in it: there is no basis plan).
-pub async fn locate(pool: &PgPool) {
-    let mut profile = queries::get_default_lawn_profile(pool)
-        .await
-        .unwrap()
-        .unwrap();
-    profile.location = Some(crate::models::LawnLocation::at(39.86, -75.79, None).unwrap());
-    queries::update_lawn_profile(pool, &profile).await.unwrap();
+/// App state frozen at noon Eastern on July 20, 2026, the record test lawn's "now".
+pub async fn lab_state(pool: PgPool) -> AppState {
+    let clock = Clock::Frozen {
+        at: chrono::TimeZone::with_ymd_and_hms(&Utc, 2026, 7, 20, 16, 0, 0).unwrap(),
+        zone: chrono_tz::America::New_York,
+    };
+    let lake = Lake::missing("lab-state");
+    let mut config = config(&lake.silver, &lake.gold);
+    config.clock = clock;
+    let sync = DataSyncService::initialize(&config, pool.clone()).await;
+    AppState::new(pool, sync, None, true, clock)
 }
 
 /// The record's test lawn near Avondale, PA, with warm, saturated hours from the hourly
@@ -253,13 +255,5 @@ pub async fn humid_lawn(pool: PgPool) -> AppState {
         lab.analysis_hours(day, 24, 80.0, 95.0, 0.0).await;
     }
     lab.analysis_hours(20, 12, 80.0, 95.0, 0.0).await;
-    let clock = Clock::Frozen {
-        at: chrono::TimeZone::with_ymd_and_hms(&Utc, 2026, 7, 20, 16, 0, 0).unwrap(),
-        zone: chrono_tz::America::New_York,
-    };
-    let lake = Lake::missing("humid-lawn");
-    let mut config = config(&lake.silver, &lake.gold);
-    config.clock = clock;
-    let sync = DataSyncService::initialize(&config, pool.clone()).await;
-    AppState::new(pool, sync, None, true, clock)
+    lab_state(pool).await
 }

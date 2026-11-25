@@ -22,6 +22,7 @@ export function stat(
 		latest: median,
 		sample_count: 10,
 		confidence: "High",
+		estimated_years: 0,
 		...overrides,
 	};
 }
@@ -34,6 +35,8 @@ export function boundary(overrides: Partial<BoundaryView> = {}): BoundaryView {
 		source: "Typical",
 		passed: false,
 		days_held: null,
+		estimated: false,
+		typical_error_days: null,
 		...overrides,
 	};
 }
@@ -87,8 +90,10 @@ export function seriesFor(year: number): SoilSeriesDay[] {
 		days.push({
 			date: d.toISOString().slice(0, 10),
 			this_year: null,
+			this_year_estimated: false,
 			forecast: null,
 			last_year: 60,
+			last_year_estimated: false,
 			typical: 61,
 		});
 		d.setUTCDate(d.getUTCDate() + 1);
@@ -102,7 +107,21 @@ export function response(
 	return {
 		generated_at: "2026-09-20T12:00:00Z",
 		today: "2026-09-20",
-		station: "NOAA USCRN station 3761",
+		basis: {
+			soil: {
+				kind: "Station",
+				source: "Avondale 2 N",
+				distance_miles: 20,
+				approximate: false,
+			},
+			air: {
+				kind: "Estimate",
+				source: "PRISM",
+				distance_miles: null,
+				approximate: false,
+			},
+			spans: [],
+		},
 		soil: { avg_5day_f: 66.24, as_of: "2026-09-19", depth_cm: 5 },
 		freeze: {
 			last_spring: stat("2026-04-10", { p90: "2026-04-25", sample_count: 12 }),

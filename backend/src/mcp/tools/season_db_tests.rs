@@ -47,7 +47,9 @@ async fn current_conditions_is_the_environmental_body_without_the_hourly_forecas
 // @spec MCP-TOOL-007
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn timing_windows_drop_the_soil_series_unless_detail_is_asked(pool: PgPool) {
-    let (state, _lake, _) = lawn_with_lake(pool, "timing", 40).await;
+    let today = crate::clock::Clock::System.today();
+    crate::api::timing::db_harness::climate(&pool, 6, today - chrono::Duration::days(1)).await;
+    let state = state(pool, &Lake::missing("timing")).await;
     let full = timeless(body(
         api::timing::get_timing_windows(State(state.clone())).await,
     ));

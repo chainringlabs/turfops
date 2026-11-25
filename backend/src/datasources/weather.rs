@@ -4,7 +4,6 @@ use crate::error::{Result, Source, TurfOpsError};
 use chrono::NaiveDate;
 use duckdb::Connection;
 
-mod climatology;
 mod disease;
 #[cfg(test)]
 pub(crate) mod fixtures;
@@ -12,8 +11,6 @@ pub(crate) mod fixtures;
 mod silver_tests;
 #[cfg(test)]
 mod window_tests;
-
-pub use climatology::{ClimateDay, ClimateRecord};
 
 /// Reads NOAA USCRN weather data from the Dagster data lake (parquet on a mounted
 /// filesystem) using an embedded DuckDB engine.
@@ -30,7 +27,6 @@ pub use climatology::{ClimateDay, ClimateRecord};
 #[derive(Clone)]
 pub struct WeatherLakeClient {
     silver_weather_path: String,
-    gold_weather_path: String,
     station_wbanno: i32,
 }
 
@@ -42,7 +38,6 @@ impl WeatherLakeClient {
     pub fn new(config: &DataLakeConfig, station_wbanno: i32) -> Self {
         Self {
             silver_weather_path: config.silver_weather_path.clone(),
-            gold_weather_path: config.gold_weather_path.clone(),
             station_wbanno,
         }
     }

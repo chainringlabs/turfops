@@ -1,17 +1,19 @@
 use crate::clock::Clock;
-use crate::datasources::weather::ClimateRecord;
 use crate::datasources::OpenRouterClient;
 use crate::logic::data_sync::DataSyncService;
 use crate::logic::rules::RulesEngine;
 use crate::logic::weather_sync::fetcher::Fetcher;
 use crate::logic::weather_sync::posted::PostedLog;
 use crate::logic::weather_sync::schedule::Waker;
+use crate::models::climate::ClimateRecord;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-/// Multi-year daily climate record from the lake with the time its read completed. Unlike
-/// the other lake reads this one spans 15 years of hourly data, so it is memoized briefly.
-pub type ClimateCache = Arc<RwLock<Option<(chrono::DateTime<chrono::Utc>, Arc<ClimateRecord>)>>>;
+/// The multi-year daily climate record from the weather record, with the basis plan it
+/// was read under (`plan_key`) and the time its read completed. It spans 15 years, so it
+/// is memoized briefly; a different plan is a different record.
+pub type ClimateCache =
+    Arc<RwLock<Option<(String, chrono::DateTime<chrono::Utc>, Arc<ClimateRecord>)>>>;
 
 /// The seasonal plan's 10 cm crossings from the weather record, kept for an hour unless
 /// the basis plan or the lawn's date changes (`key`; `None` holds a test's crossings).

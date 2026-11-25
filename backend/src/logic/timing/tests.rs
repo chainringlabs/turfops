@@ -10,6 +10,7 @@ use crate::models::ApplicationType;
 
 mod confirmation;
 mod definitions;
+mod estimated;
 mod feed;
 mod history;
 mod log_spans;
@@ -38,6 +39,7 @@ pub(super) fn station(through: NaiveDate, bias_2026: f64) -> Vec<ClimateDay> {
             ClimateDay {
                 date: d,
                 soil_temp_5_f: Some(soil),
+                soil_estimated: false,
                 air_min_f: Some(soil - 16.5),
                 air_avg_f: Some(air_avg),
                 gdd50: Some((air_avg - 50.0).max(0.0)),
@@ -53,6 +55,7 @@ fn run(today: NaiveDate, days: &[ClimateDay], history: &[Application]) -> Assess
         forecast: &[],
         grass: GrassType::TallFescue,
         history,
+        estimate: None,
     })
 }
 
@@ -247,6 +250,7 @@ fn forecast_cooling_flags_the_window_as_opening_soon() {
         forecast: &forecast,
         grass: GrassType::TallFescue,
         history: &[],
+        estimate: None,
     });
 
     let pre_em = window(&result, WindowId::FallPreEmergent);
@@ -294,6 +298,7 @@ fn soil_outlook_is_continuous_across_the_hole_between_station_air_and_forecast()
         forecast: &forecast,
         grass: GrassType::TallFescue,
         history: &[],
+        estimate: None,
     });
 
     let outlook: Vec<&SoilPoint> = result.smoothed.iter().filter(|p| p.is_forecast).collect();

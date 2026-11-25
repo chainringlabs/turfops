@@ -1,4 +1,5 @@
 pub mod application;
+pub mod climate;
 pub mod disease;
 pub mod disease_management;
 pub mod environmental;

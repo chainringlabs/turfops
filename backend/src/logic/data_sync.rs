@@ -51,7 +51,8 @@ const ANY_AGE: AgeLimits = AgeLimits {
 /// outside request of its own.
 pub struct DataSyncService {
     pool: PgPool,
-    /// The weather lake, still read by the pages that have not moved to the record.
+    /// The weather lake. No page reads it; it goes with the lake reader.
+    #[allow(dead_code)]
     weather_client: Option<WeatherLakeClient>,
     /// The forecast the fetch schedule keeps.
     forecast: ForecastSlot,
@@ -260,7 +261,8 @@ impl DataSyncService {
         forecast::status(&self.pool, &self.forecast).await
     }
 
-    /// Provide access to the weather lake client for direct queries (GDD, historical).
+    /// The weather lake client, when one is configured.
+    #[allow(dead_code)]
     pub fn weather_client(&self) -> Option<&WeatherLakeClient> {
         self.weather_client.as_ref()
     }
@@ -310,6 +312,16 @@ pub(crate) async fn record_asked(pool: &PgPool, clock: &Clock) -> crate::error::
         at: Moment { now, today },
         limits: AGE_LIMITS,
     })
+}
+
+/// The basis plan as one string, so a memo keyed on it is dropped when the plan changes.
+pub(crate) async fn plan_key(pool: &PgPool) -> crate::error::Result<String> {
+    let placed = crate::db::weather_queries::plan::read(pool).await?;
+    Ok(placed
+        .iter()
+        .map(|p| format!("{}:{}:{}", p.input.as_str(), p.rank, p.source.id))
+        .collect::<Vec<_>>()
+        .join(","))
 }
 
 /// One source in use and how its fetching is going.

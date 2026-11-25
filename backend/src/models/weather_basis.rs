@@ -28,6 +28,24 @@ pub struct Basis {
     pub approximate: bool,
 }
 
+impl Basis {
+    /// The basis in a sentence: "Avondale 2 N (20 mi)", "your sensor Patio", "the hourly
+    /// estimate for your location" (or "the soil estimate for your location").
+    pub fn in_words(&self) -> String {
+        match self.kind {
+            BasisKind::Station => match self.distance_miles {
+                Some(miles) => format!("{} ({miles:.0} mi)", self.source),
+                None => self.source.clone(),
+            },
+            BasisKind::Sensor => format!("your sensor {}", self.source),
+            BasisKind::Estimate if self.approximate => {
+                "the hourly estimate for your location".into()
+            }
+            BasisKind::Estimate => "the estimate for your location".into(),
+        }
+    }
+}
+
 impl From<&Source> for Basis {
     fn from(source: &Source) -> Self {
         let kind = match source.kind {

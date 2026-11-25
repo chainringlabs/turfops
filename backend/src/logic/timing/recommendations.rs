@@ -7,6 +7,7 @@ use crate::logic::rules::thresholds::OVERSEED_RATE_LBS_PER_KSQFT;
 use crate::models::timing::{
     BoundaryView, SoilNow, TimingWindow, WindowId, WindowPriority, WindowState,
 };
+use crate::models::weather_basis::Basis;
 use crate::models::{
     DataSource, GrassType, HerbicideTiming, LawnProfile, ProductCategory, ProductNeed,
     ProductTarget, Recommendation, RecommendationCategory, Severity,
@@ -21,6 +22,7 @@ const MISSED_NOTICE_DAYS: i64 = 21;
 pub fn to_recommendations(
     windows: &[TimingWindow],
     soil: &SoilNow,
+    soil_basis: Option<&Basis>,
     profile: &LawnProfile,
     today: NaiveDate,
 ) -> Vec<Recommendation> {
@@ -28,7 +30,7 @@ pub fn to_recommendations(
         .iter()
         .filter(|w| w.priority == WindowPriority::Primary)
         .filter_map(|w| Some((w, severity_for(w, today)?)))
-        .map(|(w, severity)| to_recommendation(w, severity, soil, profile))
+        .map(|(w, severity)| to_recommendation(w, severity, soil, soil_basis, profile))
         .collect()
 }
 
@@ -65,9 +67,15 @@ fn boundary_point(rec: Recommendation, name: &str, boundary: &BoundaryView) -> R
         .typical
         .as_ref()
         .map(|s| format!("typically {}", short(s.median)));
+    // @spec TIME-FEED-002
+    let dated = |date: NaiveDate| match (boundary.estimated, boundary.typical_error_days) {
+        (true, Some(days)) => format!("{}, estimated within {days:.0} days", short(date)),
+        (true, None) => format!("{}, estimated", short(date)),
+        (false, _) => short(date),
+    };
     let value = match (boundary.date, typical) {
-        (Some(date), Some(typical)) => format!("{} ({typical})", short(date)),
-        (Some(date), None) => short(date),
+        (Some(date), Some(typical)) => format!("{} ({typical})", dated(date)),
+        (Some(date), None) => dated(date),
         (None, Some(typical)) => format!("later than usual ({typical})"),
         (None, None) => return rec,
     };
@@ -96,6 +104,7 @@ fn to_recommendation(
     window: &TimingWindow,
     severity: Severity,
     soil: &SoilNow,
+    soil_basis: Option<&Basis>,
     profile: &LawnProfile,
 ) -> Recommendation {
     let mut action = window.guidance.join("\n");
@@ -125,11 +134,8 @@ fn to_recommendation(
     }
 
     if let Some(avg) = soil.avg_5day_f {
-        rec = rec.with_data_point(
-            "5 cm soil (5-day mean)",
-            format!("{avg:.1}°F"),
-            DataSource::SoilData.as_str(),
-        );
+        let source = soil_basis.map_or_else(|| "Weather record".to_string(), Basis::in_words);
+        rec = rec.with_data_point("5 cm soil (5-day mean)", format!("{avg:.1}°F"), &source);
     }
     rec = boundary_point(rec, "Opens", &window.opens);
     if let Some(ideal) = &window.ideal_until {
@@ -185,6 +191,8 @@ mod tests {
             source: DateSource::Observed,
             passed,
             days_held: None,
+            estimated: false,
+            typical_error_days: None,
         }
     }
 
@@ -216,7 +224,7 @@ mod tests {
     }
 
     fn severities(windows: &[TimingWindow], today: NaiveDate) -> Vec<Severity> {
-        to_recommendations(windows, &soil(), &LawnProfile::default(), today)
+        to_recommendations(windows, &soil(), None, &LawnProfile::default(), today)
             .iter()
             .map(|r| r.severity)
             .collect()
@@ -232,7 +240,13 @@ mod tests {
             window(WindowId::SpringPreEmergent, Primary, WindowState::NotYet),
             window(WindowId::SpringSeeding, Secondary, WindowState::Open),
         ];
-        let recs = to_recommendations(&windows, &soil(), &LawnProfile::default(), date(9, 28));
+        let recs = to_recommendations(
+            &windows,
+            &soil(),
+            None,
+            &LawnProfile::default(),
+            date(9, 28),
+        );
         assert_eq!(recs.len(), 1);
         assert_eq!(recs[0].id, "timing_fall_seeding_2026");
         assert_eq!(recs[0].severity, Severity::Warning);
@@ -250,7 +264,7 @@ mod tests {
             WindowPriority::Primary,
             WindowState::Open,
         );
-        let recs = to_recommendations(&[open], &soil(), &profile, date(9, 10));
+        let recs = to_recommendations(&[open], &soil(), None, &profile, date(9, 10));
         recs[0].suggested_action.clone().unwrap()
     }
 
@@ -305,8 +319,55 @@ mod tests {
             WindowPriority::Primary,
             WindowState::Closed,
         );
-        let recs = to_recommendations(&[missed], &soil(), &LawnProfile::default(), date(5, 1));
+        let recs = to_recommendations(
+            &[missed],
+            &soil(),
+            None,
+            &LawnProfile::default(),
+            date(5, 1),
+        );
         assert_eq!(recs.len(), 1);
         assert!(recs[0].needs.is_empty(), "{:?}", recs[0].needs);
+    }
+
+    // @spec TIME-FEED-002
+    #[test]
+    fn an_estimated_date_and_the_soils_basis_are_stated() {
+        let mut opens = boundary(Some(date(9, 14)), true);
+        opens.estimated = true;
+        opens.typical_error_days = Some(2.0);
+        let mut window = window(
+            WindowId::FallSeeding,
+            WindowPriority::Primary,
+            WindowState::Ideal,
+        );
+        window.opens = opens;
+        let basis = Basis {
+            kind: crate::models::weather_basis::BasisKind::Station,
+            source: "Avondale 2 N".into(),
+            distance_miles: Some(20.0),
+            approximate: false,
+        };
+        let recs = to_recommendations(
+            &[window],
+            &soil(),
+            Some(&basis),
+            &LawnProfile::default(),
+            date(9, 20),
+        );
+        let point = |label: &str| {
+            recs[0]
+                .data_points
+                .iter()
+                .find(|p| p.label == label)
+                .unwrap()
+                .clone()
+        };
+        assert_eq!(point("Opens").value, "Sep 14, estimated within 2 days");
+        let soil = point("5 cm soil (5-day mean)");
+        assert_eq!(
+            (soil.value.as_str(), soil.source.as_str()),
+            ("66.2°F", "Avondale 2 N (20 mi)")
+        );
     }
 }

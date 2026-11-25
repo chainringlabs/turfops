@@ -172,6 +172,7 @@ mod tests {
             forecast: &[],
             grass: GrassType::TallFescue,
             history,
+            estimate: None,
         })
         .windows
     }

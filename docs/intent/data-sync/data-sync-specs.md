@@ -72,5 +72,5 @@ Design: [data-sync-design.md](data-sync-design.md). Prefix `SYNC`. Facets: `SCHE
 
 ## Climate-record slot
 
-- [ ] **SYNC-MEMO-001**: The system shall keep one in-process climate-record slot, empty at startup and emptied when the basis plan changes, shared by every caller of the climate record (timing windows, the seasonal plan's timing activities, the MCP `weather_history` tool), measuring a record's age from when its read completed (the one-hour memo itself is TIME-ENG-038).
-- [ ] **SYNC-MEMO-002**: If re-reading the climate record fails, then the system shall leave the slot unchanged and serve the last memoized record while its read completed less than 24 hours ago, marked as from the last good read so the Timing page shows a data note saying so, and return the error to the caller only when no such record exists.
+- [x] **SYNC-MEMO-001**: The system shall keep one in-process climate-record slot, empty at startup and emptied when the basis plan changes, shared by every caller of the climate record (timing windows, the seasonal plan's timing activities, the MCP `weather_history` tool), measuring a record's age from when its read completed (the one-hour memo itself is TIME-ENG-038).
+- [x] **SYNC-MEMO-002**: If re-reading the climate record fails, then the system shall leave the slot unchanged and serve the last memoized record while its read completed less than 24 hours ago, marked as from the last good read so the Timing page shows a data note saying so, and return the error to the caller only when no such record exists.

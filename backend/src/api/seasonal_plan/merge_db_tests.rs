@@ -2,12 +2,12 @@
 //! swap and the final order.
 
 use super::db_support::*;
-use crate::datasources::weather::{ClimateDay, ClimateRecord};
+use crate::models::climate::{ClimateDay, ClimateRecord};
 use crate::models::seasonal_plan::SeasonalPlan;
 use crate::models::ApplicationType;
 use crate::state::AppState;
 use axum::http::StatusCode;
-use chrono::{Datelike, NaiveDate, Utc};
+use chrono::{Datelike, NaiveDate};
 use sqlx::PgPool;
 use std::sync::Arc;
 
@@ -172,18 +172,26 @@ fn climate(today: NaiveDate) -> ClimateRecord {
             ClimateDay {
                 date,
                 soil_temp_5_f: Some(soil),
+                soil_estimated: false,
                 air_min_f: Some(soil - 16.5),
                 air_avg_f: Some(soil - 5.0),
                 gdd50: Some((soil - 55.0).max(0.0)),
             }
         })
         .collect();
-    ClimateRecord { days }
+    ClimateRecord {
+        days,
+        basis: Vec::new(),
+    }
 }
 
+/// The climate record held fresh in the memo, under the lawn's basis plan.
 async fn with_timing(state: &AppState) {
     let record = Arc::new(climate(clock().today()));
-    *state.climate_cache.write().await = Some((Utc::now(), record));
+    let key = crate::logic::data_sync::plan_key(&state.pool)
+        .await
+        .unwrap();
+    *state.climate_cache.write().await = Some((key, state.clock.now(), record));
 }
 
 // @spec PLAN-MERGE-004

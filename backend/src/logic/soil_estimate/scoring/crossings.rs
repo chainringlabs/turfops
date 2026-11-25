@@ -132,6 +132,7 @@ fn timing_date(
             date,
             temp_f,
             is_forecast: false,
+            estimated: false,
         })
         .collect();
     let found = series::detect(&series::smooth(&daily), year, &rule)?;
