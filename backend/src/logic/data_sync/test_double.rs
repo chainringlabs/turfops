@@ -24,6 +24,7 @@ impl DataSyncService {
             refreshed_at: None,
             clock,
             lake_summary: true,
+            pinned: None,
         }
     }
 }

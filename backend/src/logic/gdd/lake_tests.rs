@@ -1,67 +1,10 @@
-//! GDD from the lake's gold layer, the yearly running total and the crabgrass bands.
+//! The yearly running total of GDD and the crabgrass bands.
 
 use super::*;
-use crate::config::DataLakeConfig;
-use crate::datasources::WeatherLakeClient;
 use chrono::NaiveDate;
-use duckdb::Connection;
-
-/// A gold parquet file of `(day, high, low, gdd50)` rows under the temp dir.
-pub(crate) fn gold_parquet(name: &str, rows: &[(NaiveDate, f64, f64, f64)]) -> String {
-    let path = std::env::temp_dir().join(format!(
-        "turfops_gold_{name}_{}.parquet",
-        std::process::id()
-    ));
-    let path_s = path.to_string_lossy().to_string();
-    let values: Vec<String> = rows
-        .iter()
-        .map(|(day, high, low, gdd)| format!("(DATE '{day}', {high:.1}, {low:.1}, {gdd:.1}, 24)"))
-        .collect();
-    Connection::open_in_memory()
-        .unwrap()
-        .execute_batch(&format!(
-            "COPY (SELECT * FROM (VALUES {}) \
-                   t(day, air_temp_max_f, air_temp_min_f, gdd50, hours_observed)) \
-             TO '{path_s}' (FORMAT PARQUET)",
-            values.join(", ")
-        ))
-        .unwrap();
-    path_s
-}
-
-pub(crate) fn lake(gold: &str) -> WeatherLakeClient {
-    WeatherLakeClient::new(
-        &DataLakeConfig {
-            silver_weather_path: "unused.parquet".into(),
-            gold_weather_path: gold.into(),
-        },
-        3761,
-    )
-}
 
 fn d(m: u32, day: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(2026, m, day).unwrap()
-}
-
-// @spec RULE-GDD-001
-#[tokio::test]
-async fn each_days_gdd_is_the_lakes_gdd50_summed_as_is() {
-    // Highs and lows whose (max+min)/2 − 50 would be 20, 0 and 10: the lake says otherwise,
-    // and the lake's value is the one used.
-    let gold = gold_parquet(
-        "as_is",
-        &[
-            (d(4, 1), 80.0, 60.0, 7.5),
-            (d(4, 2), 50.0, 40.0, 3.0),
-            (d(4, 3), 70.0, 50.0, 0.0),
-        ],
-    );
-    let rows = lake(&gold).fetch_daily_gdd(d(4, 1), d(4, 3)).await.unwrap();
-    let _ = std::fs::remove_file(&gold);
-    let history = accumulate_daily_gdd(&rows);
-    let daily: Vec<f64> = history.iter().map(|g| g.gdd_base50).collect();
-    assert_eq!(daily, vec![7.5, 3.0, 0.0]);
-    assert_eq!(history.last().unwrap().cumulative_gdd_base50, 10.5);
 }
 
 // @spec RULE-GDD-003

@@ -12,6 +12,7 @@ import {
 	getEnvironmental,
 	getHistorical,
 	getSoilTempForecast,
+	getSources,
 	refreshEnvironmental,
 } from "../api/client";
 import {
@@ -27,6 +28,7 @@ import {
 	SENSOR,
 	STATION,
 	soilForecast,
+	sourcesView,
 	summary,
 } from "../test/environmentalFixtures";
 import type { CurrentBasis } from "../types";
@@ -36,6 +38,7 @@ vi.mock("../api/client", () => ({
 	getEnvironmental: vi.fn(),
 	getHistorical: vi.fn(),
 	getSoilTempForecast: vi.fn(),
+	getSources: vi.fn(),
 	refreshEnvironmental: vi.fn(),
 }));
 
@@ -70,6 +73,7 @@ beforeEach(() => {
 		get: () => hidden,
 	});
 	vi.mocked(getEnvironmental).mockResolvedValue(summary());
+	vi.mocked(getSources).mockResolvedValue(sourcesView());
 	vi.mocked(getHistorical).mockResolvedValue(historical());
 	vi.mocked(getSoilTempForecast).mockResolvedValue(soilForecast());
 });
@@ -362,6 +366,20 @@ describe("Environmental page content", () => {
 			screen.getByRole("button", { name: "Show 3 more days" }),
 		);
 		expect(cards.children).toHaveLength(10);
+	});
+
+	// @spec WX-VIEW-PAGE-012
+	it("credits every source the page drew on, and no other", async () => {
+		render(<Environmental />);
+		const credits = await screen.findByRole("region", { name: "Sources" });
+		expect(credits).toHaveTextContent(
+			"PA Avondale 2 N — NOAA U.S. Climate Reference Network (USCRN)",
+		);
+		expect(credits).toHaveTextContent(
+			"Hourly analysis — Weather data by Open-Meteo.com (CC BY 4.0)",
+		);
+		expect(credits).toHaveTextContent("Patio temperature — Your sensor");
+		expect(credits).not.toHaveTextContent("NRCC");
 	});
 
 	// @spec WX-VIEW-PAGE-004

@@ -7,7 +7,7 @@ import type {
 	SoilTempForecast,
 	TimeSeriesPoint,
 } from "../types";
-import type { Basis } from "../types/sources";
+import type { Basis, SourcesView, SourceView } from "../types/sources";
 
 export const STATION: Basis = {
 	kind: "Station",
@@ -195,5 +195,63 @@ export function soilForecast(
 		},
 		generated_at: "2026-10-11T12:00:00Z",
 		...overrides,
+	};
+}
+
+/** The sources the fixtures rest on, and one the page does not use. */
+export function sourcesView(): SourcesView {
+	const source = (
+		id: number,
+		name: string,
+		kind: SourceView["kind"],
+		attribution: string,
+	): SourceView => ({
+		id,
+		name,
+		kind,
+		inputs: [],
+		last_success: null,
+		last_failure: null,
+		last_error: null,
+		held_from: null,
+		held_through: null,
+		wanted_from: null,
+		attribution,
+	});
+	return {
+		location: null,
+		inputs: [],
+		sources: [
+			source(
+				1,
+				"PA Avondale 2 N",
+				"Station",
+				"NOAA U.S. Climate Reference Network (USCRN)",
+			),
+			source(
+				2,
+				"Hourly analysis",
+				"Analysis",
+				"Weather data by Open-Meteo.com (CC BY 4.0)",
+			),
+			source(3, "Patio temperature", "Sensor", "Your sensor"),
+			source(
+				4,
+				"NRCC daily grid",
+				"Grid",
+				"Northeast Regional Climate Center, via RCC-ACIS",
+			),
+		],
+		forecast_provider: "OpenWeatherMap",
+		forecast: {
+			provider: "OpenWeatherMap",
+			fetched_at: null,
+			last_error: null,
+		},
+		connections: {
+			home_assistant: true,
+			openweathermap_key: true,
+			posted_readings: false,
+		},
 	};
 }

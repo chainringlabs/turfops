@@ -69,6 +69,15 @@ async fn timing_rewrites_the_rules_fall_broadleaf_after_they_run(pool: PgPool) {
     let clock = stopped_on(day);
     let lake = Lake::full_until(6, clock.now());
     let state = app_state_on(&pool, &lake, clock).await;
+    // The rules' fall broadleaf window needs a soil week of 50–65 °F.
+    state
+        .sync_service
+        .write()
+        .await
+        .pin_summary(crate::models::EnvironmentalSummary {
+            soil_temp_7day_avg_f: Some(58.0),
+            ..Default::default()
+        });
     let profile = lawn(&pool).await;
 
     let feed = feed(&state, &profile).await;

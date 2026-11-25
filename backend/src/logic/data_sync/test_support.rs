@@ -1,35 +1,15 @@
-//! A data sync service and app state for handler tests: the summary from a lake client
-//! over test parquet, and an optional forecast held as the schedule would hold it. The database pool is lazy and never connects.
+//! Test helpers for data sync: a summary for pages that still read the lake, a held
+//! forecast, and forecast fixtures.
 
 use super::*;
-use crate::models::WeatherForecast;
 #[cfg(feature = "db-tests")]
-use crate::models::{DailyForecast, ForecastProvider, WeatherCondition};
-use crate::state::AppState;
+use crate::models::{DailyForecast, ForecastProvider, WeatherCondition, WeatherForecast};
 #[cfg(feature = "db-tests")]
 use chrono::NaiveDate;
 #[cfg(feature = "db-tests")]
 use chrono::Utc;
 
 impl DataSyncService {
-    pub(crate) fn for_tests(
-        weather_client: Option<WeatherLakeClient>,
-        forecast: Option<WeatherForecast>,
-        clock: Clock,
-    ) -> Self {
-        let forecast = forecast.map(ForecastSlot::holding).unwrap_or_default();
-        Self {
-            pool: lazy_pool(),
-            weather_client,
-            forecast,
-            waker: None,
-            kept: Default::default(),
-            refreshed_at: None,
-            clock,
-            lake_summary: true,
-        }
-    }
-
     /// The same service answering with the lake's summary, for pages that still read
     /// the lake (tests).
     pub(crate) fn summary_from_lake(mut self) -> Self {
@@ -37,23 +17,19 @@ impl DataSyncService {
         self
     }
 
+    /// Answer with `summary` (and the forecast held), for pages that still read the lake
+    /// (tests).
+    #[cfg(feature = "db-tests")]
+    pub(crate) fn pin_summary(&mut self, summary: EnvironmentalSummary) {
+        self.lake_summary = true;
+        self.pinned = Some(summary);
+    }
+
     /// Read the forecast from `slot` from now on.
     #[cfg(feature = "db-tests")]
     pub(crate) fn use_forecast(&mut self, slot: ForecastSlot) {
         self.forecast = slot;
     }
-}
-
-/// A pool that is never used: nothing listens at its address.
-pub(crate) fn lazy_pool() -> PgPool {
-    sqlx::postgres::PgPoolOptions::new()
-        .connect_lazy("postgres://unused@127.0.0.1:1/unused")
-        .unwrap()
-}
-
-/// The lawn's clock in tests.
-pub(crate) fn eastern() -> Clock {
-    Clock::Zone(chrono_tz::America::New_York)
 }
 
 #[cfg(feature = "db-tests")]
@@ -87,18 +63,4 @@ pub(crate) fn forecast_day(
         max_wind_gust_mph: None,
         hours_covered,
     }
-}
-
-/// App state over the given lake client and forecast.
-pub(crate) fn app_state(
-    weather_client: Option<WeatherLakeClient>,
-    forecast: Option<WeatherForecast>,
-) -> AppState {
-    AppState::new(
-        lazy_pool(),
-        DataSyncService::for_tests(weather_client, forecast, eastern()),
-        None,
-        false,
-        eastern(),
-    )
 }

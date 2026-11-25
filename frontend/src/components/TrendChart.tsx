@@ -8,8 +8,16 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import type { TimeSeriesPoint } from "../types";
+import type { SeriesSpan, TimeSeriesPoint } from "../types";
 import ChartTable from "./ChartTable";
+import {
+	basisChanges,
+	basisOn,
+	localDay,
+	spanCaption,
+	splitByBasis,
+} from "./environmental/trendBasis";
+import { basisText } from "./sources/display";
 
 interface TrendChartProps {
 	data: TimeSeriesPoint[];
@@ -19,6 +27,8 @@ interface TrendChartProps {
 	thresholdValue?: number;
 	thresholdLabel?: string;
 	height?: number;
+	/** What this series rests on; measured stretches solid, estimated dotted. */
+	spans?: SeriesSpan[];
 }
 
 export default function TrendChart({
@@ -29,6 +39,7 @@ export default function TrendChart({
 	thresholdValue,
 	thresholdLabel,
 	height = 200,
+	spans = [],
 }: TrendChartProps) {
 	if (data.length === 0) {
 		return (
@@ -39,10 +50,15 @@ export default function TrendChart({
 		);
 	}
 
-	const chartData = data.map((p) => ({
-		time: new Date(p.timestamp).getTime(),
-		value: p.value,
+	// @spec WX-VIEW-BASIS-003
+	const chartData = splitByBasis(data, spans).map((p, i) => ({
+		...p,
+		value: data[i].value,
 	}));
+	const changes = basisChanges(spans).map((day) => {
+		const [y, m, d] = day.split("-").map(Number);
+		return new Date(y, m - 1, d).getTime();
+	});
 
 	const formatTime = (tick: number) => {
 		const d = new Date(tick);
@@ -117,19 +133,49 @@ export default function TrendChart({
 							}}
 						/>
 					)}
+					{changes.map((x) => (
+						<ReferenceLine key={x} x={x} stroke="#a0aec0" strokeWidth={1} />
+					))}
 					<Area
 						type="monotone"
-						dataKey="value"
+						dataKey="measured"
 						stroke={color}
 						fill={`url(#grad-${color.replace("#", "")})`}
 						strokeWidth={2}
 						dot={false}
+						connectNulls={false}
+					/>
+					{/* Dotted, not dashed: dashed is reserved for forecasts. */}
+					<Area
+						type="monotone"
+						dataKey="estimated"
+						stroke={color}
+						strokeDasharray="2 3"
+						fill="none"
+						strokeWidth={2}
+						dot={false}
+						connectNulls={false}
 					/>
 				</AreaChart>
 			</ResponsiveContainer>
+			{spans.length > 0 && <p style={styles.caption}>{spanCaption(spans)}</p>}
 			<ChartTable
-				columns={["Time", `${label} (${unit})`]}
-				rows={chartData.map((p) => [formatTooltipTime(p.time), p.value])}
+				columns={
+					spans.length > 0
+						? ["Time", `${label} (${unit})`, "Basis"]
+						: ["Time", `${label} (${unit})`]
+				}
+				rows={data.map((p) => {
+					const row: (string | number)[] = [
+						formatTooltipTime(new Date(p.timestamp).getTime()),
+						p.value,
+					];
+					if (spans.length > 0) {
+						const basis = basisOn(spans, localDay(p.timestamp));
+						row.push(basis ? basisText(basis) : "—");
+					}
+					return row;
+				})}
 			/>
 		</div>
 	);
@@ -148,6 +194,7 @@ const styles: Record<string, React.CSSProperties> = {
 		color: "#4a5568",
 		marginBottom: 8,
 	},
+	caption: { fontSize: "0.75rem", color: "#718096", margin: "0.25rem 0 0" },
 	empty: {
 		color: "#a0aec0",
 		fontSize: "0.8rem",

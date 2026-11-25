@@ -420,6 +420,17 @@ export interface HistoricalData {
 	soil_moisture_10: TimeSeriesPoint[];
 	precipitation_mm: TimeSeriesPoint[];
 	gdd_accumulation: TimeSeriesPoint[];
+	/** What each series rests on, as runs of days on one basis. */
+	basis?: SeriesSpan[];
+}
+
+/** A run of one chart series' days on one basis. */
+export interface SeriesSpan {
+	/** The series' field name, such as `soil_temp_10_f`. */
+	series: string;
+	from: string;
+	to: string;
+	basis: Basis;
 }
 
 // Nitrogen budget types
