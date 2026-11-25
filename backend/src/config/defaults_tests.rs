@@ -43,7 +43,10 @@ fn the_database_password_is_the_only_setting_without_a_default() {
         config.datalake.gold_weather_path,
         "/data/gold/weather/daily_weather.parquet"
     );
-    assert_eq!(config.homeassistant.url, "http://localhost:8123");
+    assert_eq!(
+        config.homeassistant.url, "",
+        "no Home Assistant unless one is given"
+    );
     assert_eq!(
         (
             config.lawn.name.as_str(),
@@ -70,7 +73,13 @@ fn blank_optional_credentials_and_origin_are_not_configured() {
             ("OPENROUTER_API_KEY", blank),
             ("MCP_TOKEN", blank),
             ("CORS_ALLOWED_ORIGIN", blank),
+            ("HA_URL", blank),
+            ("HA_TOKEN", blank),
+            ("OWM_API_KEY", blank),
         ]);
+        assert!(config.homeassistant.url.is_empty(), "{blank:?}");
+        assert!(config.homeassistant.token.is_empty(), "{blank:?}");
+        assert!(config.openweathermap.is_none(), "{blank:?}");
         assert!(config.openrouter.is_none(), "{blank:?}");
         assert!(config.mcp.token.is_none(), "{blank:?}");
         assert!(config.server.cors_allowed_origin.is_none(), "{blank:?}");

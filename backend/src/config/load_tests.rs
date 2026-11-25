@@ -44,19 +44,11 @@ fn a_missing_or_empty_database_password_stops_startup() {
 // @spec DEPLOY-CONFIG-012
 #[test]
 fn an_unusable_setting_is_named_with_the_default_used() {
-    let vars = with(&[
-        ("SERVER_HOST", "my-laptop"),
-        ("DB_MAX_CONNECTIONS", "lots"),
-        ("HA_TEMPERATURE_UNIT", "kelvin"),
-    ]);
+    let vars = with(&[("SERVER_HOST", "my-laptop"), ("DB_MAX_CONNECTIONS", "lots")]);
     let (config, warnings) = load(&vars).unwrap();
     assert_eq!(config.server.host, "0.0.0.0");
     assert_eq!(config.database.max_connections, 10);
-    for (var, default) in [
-        ("SERVER_HOST", "0.0.0.0"),
-        ("DB_MAX_CONNECTIONS", "10"),
-        ("HA_TEMPERATURE_UNIT", "fahrenheit"),
-    ] {
+    for (var, default) in [("SERVER_HOST", "0.0.0.0"), ("DB_MAX_CONNECTIONS", "10")] {
         assert!(
             warnings
                 .iter()
@@ -64,12 +56,32 @@ fn an_unusable_setting_is_named_with_the_default_used() {
             "{var}: {warnings:?}"
         );
     }
-    let (_, none) = load(&with(&[
-        ("SERVER_HOST", "127.0.0.1"),
-        ("HA_TEMPERATURE_UNIT", "Celsius"),
-    ]))
-    .unwrap();
+    let (_, none) = load(&with(&[("SERVER_HOST", "127.0.0.1")])).unwrap();
     assert!(none.is_empty(), "{none:?}");
+}
+
+// @spec DEPLOY-CONFIG-015
+#[test]
+fn each_retired_setting_that_is_set_is_named_once_as_having_no_effect() {
+    let retired = [
+        ("DATALAKE_ROOT", "/data"),
+        ("WEATHER_SILVER_PATH", "/data/silver.parquet"),
+        ("WEATHER_GOLD_PATH", "/data/gold.parquet"),
+        ("NOAA_STATION_WBANNO", "3761"),
+        ("HA_TEMPERATURE_UNIT", "kelvin"),
+    ];
+    let (_, warnings) = load(&with(&retired)).unwrap();
+    for (name, _) in retired {
+        let lines: Vec<&String> = warnings.iter().filter(|w| w.starts_with(name)).collect();
+        assert_eq!(lines.len(), 1, "{name}: {warnings:?}");
+        assert!(
+            lines[0].contains("no longer has any effect"),
+            "{}",
+            lines[0]
+        );
+    }
+    let (_, none) = load(&with(&[("DATALAKE_ROOT", "  ")])).unwrap();
+    assert!(none.is_empty(), "blank is not set: {none:?}");
 }
 
 // @spec DEPLOY-CONFIG-013

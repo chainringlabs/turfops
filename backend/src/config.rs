@@ -75,8 +75,6 @@ pub struct HomeAssistantConfig {
     pub token: String,
     pub temperature_entity: String,
     pub humidity_entity: String,
-    #[serde(default)]
-    pub temperature_unit: TemperatureUnit,
 }
 
 // @spec DEPLOY-CONFIG-010, DEPLOY-LOG-003
@@ -87,17 +85,8 @@ impl std::fmt::Debug for HomeAssistantConfig {
             .field("token", &"[REDACTED]")
             .field("temperature_entity", &self.temperature_entity)
             .field("humidity_entity", &self.humidity_entity)
-            .field("temperature_unit", &self.temperature_unit)
             .finish()
     }
-}
-
-#[derive(Debug, Clone, Copy, Default, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum TemperatureUnit {
-    #[default]
-    Fahrenheit,
-    Celsius,
 }
 
 /// The OpenWeatherMap key given in the environment, imported once into the app's stored

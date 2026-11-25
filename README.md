@@ -178,22 +178,9 @@ Valid soil types: `Clay`, `ClayLoam`, `Loam`, `SandyLoam`, `Sand`
 
 Valid irrigation types: `InGround`, `Hose`, `Manual`, `None`
 
-### Weather Data Lake (NOAA USCRN)
+### Weather
 
-NOAA USCRN observations are read from a Dagster-built data lake: parquet files on a filesystem mounted read-only into the container and queried in-process with embedded DuckDB. There is no database connection to configure.
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATALAKE_HOST_PATH` | Host path of the lake, bind-mounted to `/data` (read-only) by Docker Compose | `/data` |
-| `DATALAKE_ROOT` | Lake mount point inside the container; the silver/gold paths derive beneath it | `/data` |
-| `WEATHER_SILVER_PATH` | Override for the hourly silver parquet | `$DATALAKE_ROOT/silver/weather/silver_weather.parquet` |
-| `WEATHER_GOLD_PATH` | Override for the daily gold parquet | `$DATALAKE_ROOT/gold/weather/daily_weather.parquet` |
-| `NOAA_STATION_WBANNO` | NOAA USCRN station ID | `3761` (PA Avondale) |
-
-- **Silver** (hourly, °C / mm / % RH) backs the live soil reading, 7-day summary, trend charts, and the **disease risk models** (air temp, relative humidity, precipitation).
-- **Gold** (daily, °F, precomputed `gdd50`) backs GDD, the seasonal plan, and the soil-temperature forecast.
-
-> **Note**: The container runs as uid 65532 and needs read access to the mounted files. The lake is loaded about once a day, so station data trails real time by up to a day — see [Disease Risk](#disease-risk).
+TurfOps fetches its own weather into PostgreSQL for the lawn's location, set in the app's setup: nearby NOAA USCRN and USDA SCAN stations, the PRISM and NRCC daily grids, an hourly analysis, a soil-temperature estimate, and your own sensors. There is nothing to mount or configure. `DATALAKE_ROOT`, `WEATHER_SILVER_PATH`, `WEATHER_GOLD_PATH`, `NOAA_STATION_WBANNO` and `HA_TEMPERATURE_UNIT` no longer have any effect; each is named once in the startup log if set.
 
 ### Home Assistant
 
@@ -205,7 +192,6 @@ Connect to a Home Assistant instance to read local temperature and humidity sens
 | `HA_TOKEN` | Long-lived access token | *(empty)* |
 | `HA_TEMPERATURE_ENTITY` | Entity ID for temperature sensor | `sensor.temp_humidity_sensor_temperature` |
 | `HA_HUMIDITY_ENTITY` | Entity ID for humidity sensor | `sensor.temp_humidity_sensor_humidity` |
-| `HA_TEMPERATURE_UNIT` | Unit reported by sensor (`fahrenheit` or `celsius`) | `fahrenheit` |
 
 To generate a long-lived access token: Home Assistant → Profile → Long-Lived Access Tokens → Create Token.
 
@@ -291,19 +277,11 @@ LAWN_SOIL_TYPE=ClayLoam
 LAWN_SIZE_SQFT=8000
 LAWN_IRRIGATION_TYPE=InGround
 
-# NOAA station
-NOAA_STATION_WBANNO=3761
-
-# Weather data lake (host path mounted read-only at /data)
-DATALAKE_HOST_PATH=/path/to/datalake
-DATALAKE_ROOT=/data
-
 # Home Assistant
 HA_URL=http://192.168.1.50:8123
 HA_TOKEN=your_long_lived_access_token_here
 HA_TEMPERATURE_ENTITY=sensor.temp_humidity_sensor_temperature
 HA_HUMIDITY_ENTITY=sensor.temp_humidity_sensor_humidity
-HA_TEMPERATURE_UNIT=fahrenheit
 
 # OpenWeatherMap key (optional; choose the provider in setup)
 OWM_API_KEY=your_api_key_here

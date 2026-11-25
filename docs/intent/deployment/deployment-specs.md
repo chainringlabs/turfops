@@ -8,7 +8,7 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 
 - [x] **DEPLOY-IMAGE-001**: The Docker image shall be built in three stages (frontend build on Node, backend build on Rust, distroless runtime), with every base image pinned by digest.
 - [x] **DEPLOY-IMAGE-002**: The runtime image shall add to its base only the release backend binary, the built SPA at `/app/static` and the timezone database at `/usr/share/zoneinfo`, with no shell or package manager.
-- [ ] **DEPLOY-IMAGE-003**: The runtime stage shall use the Chainguard `glibc-dynamic` base, which supplies the shared libraries the backend binary loads, and shall copy no shared library of its own.
+- [x] **DEPLOY-IMAGE-003**: The runtime stage shall use the Chainguard `glibc-dynamic` base, which supplies the shared libraries the backend binary loads, and shall copy no shared library of its own.
 - [x] **DEPLOY-IMAGE-004**: The image's backend build stage shall copy `docs/timing-windows.md` and `docs/agronomy-methods.md` to `/docs/` before compiling, so the MCP server's embedded methodology resources resolve, and `.dockerignore` shall leave `docs/*.md` in the build context.
 - [x] **DEPLOY-IMAGE-005**: The runtime image shall run the backend as the non-root uid 65532, with the binary and static files owned by 65532:65532.
 - [x] **DEPLOY-IMAGE-006**: The runtime image shall set `STATIC_DIR=/app/static`, expose port 3000 and use the backend binary as its entrypoint.
@@ -27,24 +27,24 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 - [x] **DEPLOY-COMPOSE-007**: The Compose stack shall publish the app on host port 3000, and PostgreSQL on host port 5433 bound to the host's loopback interface only (`127.0.0.1:5433:5432`), so a local `cargo run` can use the Compose database but other machines on the network cannot reach it.
 - [x] **DEPLOY-COMPOSE-009**: The Compose `db` service shall mount its named volume `turfops_data` where the PostgreSQL 18 image keeps its data (the volume root `/var/lib/postgresql`, under which the image stores the cluster in `18/docker`), so a fresh `docker compose up` initializes the database and keeps it across container recreation.
 - [x] **DEPLOY-COMPOSE-010**: The Compose `app` service shall pass `LAWN_LATITUDE` and `LAWN_LONGITUDE` as `${KEY:-}` with no default value, so a host that sets neither leaves the lawn without a location rather than at 0,0.
-- [ ] **DEPLOY-COMPOSE-011**: The Compose `app` service shall mount no volume, and the stack of `db` and `app` shall be a complete installation that needs no other service and no file from the host.
+- [x] **DEPLOY-COMPOSE-011**: The Compose `app` service shall mount no volume, and the stack of `db` and `app` shall be a complete installation that needs no other service and no file from the host.
 
 ## Configuration
 
 - [x] **DEPLOY-CONFIG-001**: The backend shall read its configuration from environment variables once at startup, giving every setting a default except `DATABASE_PASSWORD`.
 - [x] **DEPLOY-CONFIG-002**: If `DATABASE_PASSWORD` is unset or empty at startup, then the backend shall stop with a configuration error naming `DATABASE_PASSWORD` and exit non-zero.
-- [ ] **DEPLOY-CONFIG-003**: Where `OPENROUTER_API_KEY`, `MCP_TOKEN`, `SENSOR_TOKEN`, `HA_URL`, `HA_TOKEN`, `OWM_API_KEY` or `CORS_ALLOWED_ORIGIN` is empty or whitespace-only, the backend shall treat that setting as not set.
+- [x] **DEPLOY-CONFIG-003**: Where `OPENROUTER_API_KEY`, `MCP_TOKEN`, `SENSOR_TOKEN`, `HA_URL`, `HA_TOKEN`, `OWM_API_KEY` or `CORS_ALLOWED_ORIGIN` is empty or whitespace-only, the backend shall treat that setting as not set.
 - [x] **DEPLOY-CONFIG-004**: The backend shall construct the OpenRouter client whenever `OPENROUTER_API_KEY` is non-blank, with its enabled flag from `OPENROUTER_ENABLED` (DEPLOY-CONFIG-013; on by default), the model from `OPENROUTER_MODEL` and the base URL from `OPENROUTER_BASE_URL` (default `https://openrouter.ai/api/v1`); a turned-off client answers with the assistant's "turned off" 503 instead of calling out.
 - [x] **DEPLOY-CONFIG-007**: If `DATABASE_PORT`, `SERVER_PORT` or `LAWN_GRASS_TYPE` cannot be parsed, then the backend shall log a warning naming the value and use its default (5432, 3000, TallFescue).
 - [x] **DEPLOY-CONFIG-008**: The backend shall size its PostgreSQL pool from `DB_MAX_CONNECTIONS`, defaulting to 10.
 - [x] **DEPLOY-CONFIG-009**: When the backend starts with no lawn profile in the database, it shall create one from `LAWN_NAME`, `LAWN_GRASS_TYPE`, `LAWN_USDA_ZONE`, `LAWN_SOIL_TYPE`, `LAWN_SIZE_SQFT`, `LAWN_IRRIGATION_TYPE`, `LAWN_LATITUDE` and `LAWN_LONGITUDE`; once a profile exists, the backend shall ignore the `LAWN_*` settings except to give a location to a profile that has none (APP-PROF-015).
 - [x] **DEPLOY-CONFIG-010**: Every configuration struct that holds a credential shall print it as `[REDACTED]` in its `Debug` output.
 - [x] **DEPLOY-CONFIG-011**: Where the backend is built with the `dev-env` feature, it shall load a `.env` file before reading configuration; the default build shall read only the process environment.
-- [ ] **DEPLOY-CONFIG-012**: If any configuration setting is set to a non-empty value the backend cannot use (for example an unparseable `SERVER_HOST`, `DB_MAX_CONNECTIONS` or `LAWN_SIZE_SQFT`, an unknown `LAWN_SOIL_TYPE` or `LAWN_IRRIGATION_TYPE`, or an invalid `RUST_LOG` filter), then the backend shall log a warning naming the setting and the default it used, and shall still start.
-- [ ] **DEPLOY-CONFIG-013**: When `OPENROUTER_ENABLED` is set, the backend shall treat `true`, `1` or `yes`, in any letter case, as on and any other value as off; when unset, the flag shall be on.
+- [x] **DEPLOY-CONFIG-012**: If any configuration setting is set to a non-empty value the backend cannot use (for example an unparseable `SERVER_HOST`, `DB_MAX_CONNECTIONS` or `LAWN_SIZE_SQFT`, an unknown `LAWN_SOIL_TYPE` or `LAWN_IRRIGATION_TYPE`, or an invalid `RUST_LOG` filter), then the backend shall log a warning naming the setting and the default it used, and shall still start.
+- [x] **DEPLOY-CONFIG-013**: When `OPENROUTER_ENABLED` is set, the backend shall treat `true`, `1` or `yes`, in any letter case, as on and any other value as off; when unset, the flag shall be on.
 - [x] **DEPLOY-CONFIG-014**: If `SENSOR_TOKEN` is set to fewer than 32 characters, then the backend shall stop with a configuration error naming `SENSOR_TOKEN` and exit non-zero.
-- [ ] **DEPLOY-CONFIG-015**: When the backend starts with `DATALAKE_ROOT`, `WEATHER_SILVER_PATH`, `WEATHER_GOLD_PATH`, `NOAA_STATION_WBANNO` or `HA_TEMPERATURE_UNIT` set, it shall log one line for each naming it and saying it no longer has any effect, and shall start.
-- [ ] **DEPLOY-CONFIG-016**: The backend shall read `HA_URL`, `HA_TOKEN` and `OWM_API_KEY` only to seed the app's stored settings on a first run (SETUP-CRED-002), and no environment variable shall override a location, source, sensor, provider or credential stored in the app.
+- [x] **DEPLOY-CONFIG-015**: When the backend starts with `DATALAKE_ROOT`, `WEATHER_SILVER_PATH`, `WEATHER_GOLD_PATH`, `NOAA_STATION_WBANNO` or `HA_TEMPERATURE_UNIT` set, it shall log one line for each naming it and saying it no longer has any effect, and shall start.
+- [x] **DEPLOY-CONFIG-016**: The backend shall read `HA_URL`, `HA_TOKEN` and `OWM_API_KEY` only to seed the app's stored settings on a first run (SETUP-CRED-002), and no environment variable shall override a location, source, sensor, provider or credential stored in the app.
 - [x] **DEPLOY-CONFIG-017**: When the backend starts with `OWM_ENABLED`, `OWM_LATITUDE` or `OWM_LONGITUDE` set, it shall log one line for each naming it and saying it no longer has any effect because the forecast is fetched from the provider chosen in the app for the lawn's location, shall take nothing from it, and shall start.
 
 ## Timezone ("today")
@@ -61,24 +61,24 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 - [ ] **DEPLOY-START-001**: When the backend starts, it shall initialize logging, then read configuration, then connect to PostgreSQL and run migrations, then ensure a lawn profile exists and build the app clock, then construct the source and OpenRouter clients, then assemble the router and bind `SERVER_HOST:SERVER_PORT`, then start the fetch schedule.
 - [x] **DEPLOY-START-002**: When the backend starts, it shall apply every pending migration embedded in the binary (timestamped, forward-only `.sql` files from `backend/src/db/migrations/`) before binding the listener, so a binary always runs against the schema it ships with.
 - [x] **DEPLOY-START-003**: If PostgreSQL is still unreachable when the startup connection retries (DEPLOY-START-007) run out, or a migration fails at startup, then the backend shall exit non-zero without binding the listener.
-- [ ] **DEPLOY-START-004**: The backend shall bind its listener without waiting on any weather source, Home Assistant or OpenRouter, so an unreachable integration never prevents startup.
+- [x] **DEPLOY-START-004**: The backend shall bind its listener without waiting on any weather source, Home Assistant or OpenRouter, so an unreachable integration never prevents startup.
 - [x] **DEPLOY-START-005**: The backend shall issue database queries through sqlx's runtime API (no compile-time-checked query macros or offline query metadata), so the image and CI build without a database.
-- [ ] **DEPLOY-START-006**: When the running backend receives SIGTERM, it shall stop accepting new connections, let in-flight requests finish, tell the fetch schedule to stop (SYNC-SCHED-010), and then exit.
+- [x] **DEPLOY-START-006**: When the running backend receives SIGTERM, it shall stop accepting new connections, let in-flight requests finish, tell the fetch schedule to stop (SYNC-SCHED-010), and then exit.
 - [x] **DEPLOY-START-007**: If PostgreSQL is unreachable at startup, then the backend shall retry the connection with increasing backoff for about one minute, logging each failed attempt at WARN, before giving up.
 
 ## Router, middleware and error contract
 
-- [ ] **DEPLOY-HTTP-001**: The backend shall apply a 1 MiB request-body limit to every `/api/v1` route (the CORS policy is UI-SRV-004 to 006; `/mcp` mounting and its token rules are MCP-CFG-001 to 005; `/api/v1/sensor-readings` mounting and its token rule are WX-SRC-POST-001 to 003).
+- [x] **DEPLOY-HTTP-001**: The backend shall apply a 1 MiB request-body limit to every `/api/v1` route (the CORS policy is UI-SRV-004 to 006; `/mcp` mounting and its token rules are MCP-CFG-001 to 005; `/api/v1/sensor-readings` mounting and its token rule are WX-SRC-POST-001 to 003).
 - [x] **DEPLOY-HTTP-004**: Where `STATIC_DIR/index.html` exists at startup, the backend shall serve `STATIC_DIR` as the router fallback, answering any unmatched path with `index.html` (client-side routing); otherwise it shall run API-only and log a warning.
 - [x] **DEPLOY-HTTP-005**: The backend shall render every API handler error as JSON `{"error": "<message>"}` with status 404 for not-found, 400 for invalid data, 503 for an unavailable data source, 409 for a conflict with an existing record, and 500 for every other error.
 - [x] **DEPLOY-HTTP-006**: When an API write violates an application-log duplicate guard (`applications_unique_turf` / `applications_unique_plant`), the backend shall answer 409 with "An identical entry (same type, product and date) is already logged. Edit the existing entry, or change the product name if this was a different product."
-- [ ] **DEPLOY-HTTP-007**: If an API handler fails with a configuration, database, HTTP-client, I/O or JSON error, then the backend shall log the error's details at ERROR and keep them out of the response body.
+- [x] **DEPLOY-HTTP-007**: If an API handler fails with a configuration, database, HTTP-client, I/O or JSON error, then the backend shall log the error's details at ERROR and keep them out of the response body.
 - [x] **DEPLOY-HTTP-008**: When the backend answers 500, the `error` message shall be plain language that says something went wrong on the server and what to do (try again; the details are in the server log).
 - [x] **DEPLOY-HTTP-009**: When the backend answers 503 for an unavailable data source, the `error` message shall be written for the owner, naming the source that is unavailable, and shall carry no upstream response body, request URL, credential or internal error text; those details shall go to the log.
 - [x] **DEPLOY-HTTP-010**: If an `/api/v1` request cannot be extracted (malformed JSON body, a path id that is not a number, a body over 1 MiB), then the backend shall answer with the JSON `{"error"}` shape and a plain-language message saying what was wrong with the request, not the framework's plain-text rejection.
 - [x] **DEPLOY-HTTP-011**: If an API write violates a unique index other than the application-log duplicate guards (`applications_unique_turf` / `applications_unique_plant`), then the backend shall answer 409 with a generic plain-language message that the record conflicts with one that already exists, never the duplicate-application text.
 - [ ] **DEPLOY-HTTP-012**: When a weather contract cannot answer because the lawn has no location, the backend shall answer 503 with "TurfOps doesn't know where your lawn is yet, so weather, timing and disease information are unavailable. Set the location in Setup."
-- [ ] **DEPLOY-HTTP-013**: When a weather contract cannot answer because history is still loading, the backend shall answer 503 with a sentence giving the years held and wanted and saying that current conditions and the forecast are already available.
+- [x] **DEPLOY-HTTP-013**: When a weather contract cannot answer because history is still loading, the backend shall answer 503 with a sentence giving the years held and wanted and saying that current conditions and the forecast are already available.
 
 ## Health endpoint
 
@@ -91,7 +91,7 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 - [x] **DEPLOY-LOG-001**: The backend shall write text logs to stdout, filtered by `RUST_LOG` (default `info`; an invalid filter falls back to `info`), with logging initialized before configuration is read so configuration warnings are logged.
 - [ ] **DEPLOY-LOG-002**: When the backend starts, it shall log at INFO whether the lawn has a location, which integrations are configured, any credential it imported from the environment on this start (never its value), the OpenRouter model, whether `/mcp` and `/api/v1/sensor-readings` are mounted, the CORS origin and the bind address.
 - [x] **DEPLOY-LOG-003**: No log line and no HTTP response body produced by the backend shall contain a credential.
-- [ ] **DEPLOY-LOG-004**: The fetch schedule shall log each failed fetch at WARN with the client's detail and each completed backfill year at INFO.
+- [x] **DEPLOY-LOG-004**: The fetch schedule shall log each failed fetch at WARN with the client's detail and each completed backfill year at INFO.
 
 ## CI, release and supply chain
 

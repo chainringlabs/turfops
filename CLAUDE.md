@@ -163,8 +163,7 @@ turfops/
 
 See `backend/.env.example` for full list:
 - `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD` — App PostgreSQL connection
-- `DATALAKE_ROOT` — Mount point of the NOAA weather data lake (default `/data`); silver/gold weather parquet paths derive beneath it. Override individually with `WEATHER_SILVER_PATH` / `WEATHER_GOLD_PATH`.
-- `NOAA_STATION_WBANNO` — USCRN station filter (default 3761)
+- Retired, each logged once at startup as having no effect: `DATALAKE_ROOT`, `WEATHER_SILVER_PATH`, `WEATHER_GOLD_PATH`, `NOAA_STATION_WBANNO`, `HA_TEMPERATURE_UNIT` (and `OWM_ENABLED` / `OWM_LATITUDE` / `OWM_LONGITUDE`). The example Compose mounts no volume for the app.
 - `HA_URL`, `HA_TOKEN` — Home Assistant connection. Also copied once into the app's database (`service_credential`) on a start that finds no connection ever stored there; the setup endpoints read and change that stored copy, and forgetting it in the app is not undone by a restart. The pages still read the environment until the cutover
 - `OWM_API_KEY` — OpenWeatherMap API key (an empty value = not configured, same for the other optional keys); copied once into `service_credential` the same way; it does not choose OpenWeatherMap (the provider is chosen in setup). `OWM_LATITUDE` / `OWM_LONGITUDE` / `OWM_ENABLED` are no longer read
 - `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_ENABLED` — landscape-plant care plans (503 without a key)

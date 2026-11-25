@@ -82,6 +82,28 @@ fn forecast_config(get: Lookup, w: &mut Vec<String>) -> Option<OpenWeatherMapCon
         .map(|api_key| OpenWeatherMapConfig { api_key })
 }
 
+/// Settings the lake and the old Home Assistant reading took, which nothing reads now.
+const RETIRED: [&str; 5] = [
+    "DATALAKE_ROOT",
+    "WEATHER_SILVER_PATH",
+    "WEATHER_GOLD_PATH",
+    "NOAA_STATION_WBANNO",
+    "HA_TEMPERATURE_UNIT",
+];
+
+// @spec DEPLOY-CONFIG-015
+/// One line for each retired setting that is set, saying it no longer has any effect.
+fn retired_settings(get: Lookup, w: &mut Vec<String>) {
+    for retired in RETIRED {
+        if get(retired).is_some_and(|value| !value.trim().is_empty()) {
+            w.push(format!(
+                "{retired} no longer has any effect: TurfOps fetches its own weather for the \
+                 lawn's location. Remove it from your settings."
+            ));
+        }
+    }
+}
+
 /// A feature flag: `true`, `1` or `yes` in any case is on, anything else off, unset on.
 // @spec DEPLOY-CONFIG-013
 fn flag(get: Lookup, key: &str) -> bool {
@@ -93,6 +115,7 @@ fn flag(get: Lookup, key: &str) -> bool {
 pub fn from_vars(get: Lookup) -> Result<(Config, Vec<String>)> {
     let mut warnings: Vec<String> = Vec::new();
     let w = &mut warnings;
+    retired_settings(get, w);
     let config = Config {
         lawn: LawnConfig {
             name: env_or(get, "LAWN_NAME", "Main Lawn"),
@@ -124,9 +147,15 @@ pub fn from_vars(get: Lookup) -> Result<(Config, Vec<String>)> {
                 gold_weather_path,
             }
         },
+        // @spec DEPLOY-CONFIG-003, DEPLOY-CONFIG-016
+        // Read only to seed the app's stored connection on a first run; blank is not set.
         homeassistant: HomeAssistantConfig {
-            url: env_or(get, "HA_URL", "http://localhost:8123"),
-            token: env_or(get, "HA_TOKEN", ""),
+            url: var(get, "HA_URL")
+                .map(|v| v.trim().to_string())
+                .unwrap_or_default(),
+            token: var(get, "HA_TOKEN")
+                .map(|v| v.trim().to_string())
+                .unwrap_or_default(),
             temperature_entity: env_or(
                 get,
                 "HA_TEMPERATURE_ENTITY",
@@ -137,19 +166,6 @@ pub fn from_vars(get: Lookup) -> Result<(Config, Vec<String>)> {
                 "HA_HUMIDITY_ENTITY",
                 "sensor.temp_humidity_sensor_humidity",
             ),
-            temperature_unit: match var(get, "HA_TEMPERATURE_UNIT")
-                .map(|v| v.trim().to_ascii_lowercase())
-                .as_deref()
-            {
-                None | Some("") | Some("fahrenheit") => TemperatureUnit::Fahrenheit,
-                Some("celsius") => TemperatureUnit::Celsius,
-                Some(other) => {
-                    w.push(format!(
-                        "HA_TEMPERATURE_UNIT={other:?} isn't usable; using fahrenheit."
-                    ));
-                    TemperatureUnit::Fahrenheit
-                }
-            },
         },
         // docker-compose passes unset optional keys as empty strings; empty = not configured.
         openweathermap: forecast_config(get, w),
