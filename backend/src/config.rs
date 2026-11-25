@@ -33,7 +33,8 @@ pub struct Config {
     pub mcp: McpConfig,
     #[serde(default)]
     pub sensor_readings: crate::api::sensor_readings::SensorReadingsConfig,
-    /// The lawn's clock, resolved from `TZ`.
+    /// The clock data sync starts on: the host's default zone. The app's clock follows
+    /// the lawn's location (`AppState::clock`); tests freeze this one.
     #[serde(skip)]
     pub clock: crate::clock::Clock,
 }

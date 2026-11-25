@@ -141,7 +141,7 @@ async fn record_crossings(state: &AppState) -> Arc<RecordCrossings> {
 }
 
 async fn find_crossings(state: &AppState) -> Result<Arc<RecordCrossings>, TurfOpsError> {
-    let asked = record_asked(&state.pool, &state.clock).await?;
+    let asked = record_asked(&state.pool, &state.clock.get()).await?;
     let today = asked.at.today;
     let key = format!("{today}|{}", plan_key(&state.pool).await?);
     let now = asked.at.now;

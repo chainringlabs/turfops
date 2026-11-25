@@ -100,8 +100,8 @@ async fn sources_contribute_in_order_and_a_lake_outage_costs_only_its_own(pool: 
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn follow_ups_are_judged_on_the_lawn_clock(pool: PgPool) {
     // Kiritimati (UTC+14) is always at least a day ahead of Pago Pago (UTC-11).
-    let ahead = Clock::from_tz(Some("Pacific/Kiritimati")).unwrap();
-    let behind = Clock::from_tz(Some("Pacific/Pago_Pago")).unwrap();
+    let ahead = Clock::Zone(chrono_tz::Pacific::Kiritimati);
+    let behind = Clock::Zone(chrono_tz::Pacific::Pago_Pago);
     let profile = lawn(&pool).await;
     let due = ahead.today();
     let id = follow_up(&pool, profile.id.unwrap(), due, 0).await;
