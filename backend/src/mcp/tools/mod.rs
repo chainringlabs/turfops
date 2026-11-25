@@ -27,12 +27,18 @@ use serde::Serialize;
 use serde_json::Value;
 use std::future::Future;
 
-/// A tool result carrying `value` as JSON text.
+/// A tool result carrying `value` as JSON text, with the lawn's coordinates removed.
 /// A body that will not serialize is a tool error the model can read, logged as an error,
 /// never a JSON-RPC protocol error.
-// @spec MCP-ERR-007
+// @spec MCP-ERR-007, MCP-TOOL-029
 fn json_result<T: Serialize>(value: &T) -> Result<CallToolResult, ErrorData> {
-    match ContentBlock::json(value) {
+    let content = serde_json::to_value(value)
+        .map_err(|err| rmcp::model::ErrorData::internal_error(err.to_string(), None))
+        .and_then(|mut value| {
+            crate::mcp::trim::without_coordinates(&mut value);
+            ContentBlock::json(value)
+        });
+    match content {
         Ok(content) => Ok(CallToolResult::success(vec![content])),
         Err(err) => {
             tracing::error!(error = %err.message, "MCP tool result is not serializable");
@@ -77,10 +83,7 @@ fn error_message(err: TurfOpsError) -> String {
         }
         TurfOpsError::Http(err) => {
             tracing::warn!(error = %err, "MCP tool: upstream request failed");
-            format!(
-                "An external data source (forecast or Home Assistant) did not respond. \
-                 {MISSING_DATA_HINT}"
-            )
+            format!("An outside service TurfOps relies on did not respond. {MISSING_DATA_HINT}")
         }
         other => {
             tracing::error!(error = %other, "MCP tool failed");

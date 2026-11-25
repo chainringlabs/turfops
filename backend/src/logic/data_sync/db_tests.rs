@@ -46,7 +46,7 @@ async fn the_dashboard_carries_the_source_status_and_the_forecast_status(pool: P
 
 // @spec SYNC-CONN-005, SYNC-CONN-008, MCP-SNAP-009
 #[sqlx::test(migrations = "src/db/migrations")]
-async fn the_mcp_snapshot_carries_the_source_status_and_the_forecast_status(pool: PgPool) {
+async fn the_mcp_snapshot_carries_the_source_status(pool: PgPool) {
     let (ha, state) = located_with_patio_stub(pool).await;
     let call = serde_json::json!({
         "jsonrpc": "2.0",
@@ -77,10 +77,12 @@ async fn the_mcp_snapshot_carries_the_source_status_and_the_forecast_status(pool
     let snapshot: serde_json::Value = serde_json::from_str(text).unwrap();
     let data_sources = &snapshot["data_sources"];
     assert!(
-        names(&data_sources["sources"]).contains(&"PA Avondale 2 N, PA (USCRN)"),
+        names(data_sources).contains(&"PA Avondale 2 N, PA (USCRN)"),
         "{snapshot}"
     );
-    assert_eq!(data_sources["forecast"]["provider"], "OpenMeteo");
-    assert!(data_sources.get("homeassistant").is_none(), "{snapshot}");
+    assert!(
+        !snapshot.to_string().contains("homeassistant"),
+        "{snapshot}"
+    );
     assert_eq!(ha.count(), 0, "data sync asks no outside source");
 }

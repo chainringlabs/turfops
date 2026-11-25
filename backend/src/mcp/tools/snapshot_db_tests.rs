@@ -83,7 +83,13 @@ async fn the_snapshot_carries_each_part_shaped_as_its_tool_would(pool: PgPool) {
     let (state, _lake, snap) = snapshot(pool, "snap-parts").await;
     let s = || State(state.clone());
 
-    assert_eq!(snap["profile"], body(api::profile::get_profile(s()).await));
+    let mut profile = body(api::profile::get_profile(s()).await);
+    assert!(profile["location"]["latitude"].is_number());
+    trim::without_coordinates(&mut profile);
+    assert_eq!(snap["profile"], profile);
+    // @spec MCP-TOOL-029
+    let text = snap.to_string();
+    assert!(!text.contains("latitude") && !text.contains("longitude"));
 
     let mut conditions = body(api::environmental::get_environmental(s()).await);
     trim::drop_hourly_forecast(&mut conditions);
@@ -180,13 +186,18 @@ async fn the_nitrogen_part_is_this_years_totals_without_the_feedings(pool: PgPoo
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_snapshot_reports_source_status_under_data_syncs_names(pool: PgPool) {
     let (state, _lake, snap) = snapshot(pool, "snap-sources").await;
-    let sync = state.sync_service.read().await;
-    let sources = sync.sources().await.unwrap();
-    let forecast = sync.forecast_status().await.unwrap();
-    assert_eq!(
-        snap["data_sources"],
-        json!({"sources": sources, "forecast": forecast})
-    );
+    let sources = state.sync_service.read().await.sources().await.unwrap();
+    let expected = trim::source_status(serde_json::to_value(&sources).unwrap());
+    assert_eq!(snap["data_sources"], expected);
+    let first = &snap["data_sources"][0];
+    let mut keys: Vec<&str> = first
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort();
+    assert_eq!(keys, ["fetched_at", "inputs", "kind", "name", "ok"]);
 }
 
 // @spec MCP-SNAP-006, MCP-SNAP-007
@@ -246,5 +257,5 @@ async fn with_no_lawn_every_part_explains_its_absence(pool: PgPool) {
         notes.contains(&"profile unavailable: No lawn profile found"),
         "{notes:?}"
     );
-    assert!(snap["data_sources"].is_object());
+    assert!(snap["data_sources"].is_array());
 }

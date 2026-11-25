@@ -16,15 +16,59 @@ use sqlx::PgPool;
 
 // @spec MCP-TOOL-004
 #[sqlx::test(migrations = "src/db/migrations")]
-async fn lawn_profile_is_the_profile_body(pool: PgPool) {
+async fn lawn_profile_is_the_profile_body_without_coordinates(pool: PgPool) {
     let (state, _lake, _) = lawn_with_lake(pool, "profile", 2).await;
+    let mut profile = body(api::profile::get_profile(State(state.clone())).await);
+    profile["location"] = json!({
+        "latitude": 39.86, "longitude": -75.79,
+        "place_name": "Avondale, PA", "timezone": "America/New_York"
+    });
+    let mut stored = crate::db::queries::get_default_lawn_profile(&state.pool)
+        .await
+        .unwrap()
+        .unwrap();
+    stored.location =
+        Some(crate::models::LawnLocation::at(39.86, -75.79, Some("Avondale, PA".into())).unwrap());
+    crate::db::queries::update_lawn_profile(&state.pool, &stored)
+        .await
+        .unwrap();
     let reply = call_tool(&state, "lawn_profile", json!({})).await.json();
-    assert_eq!(
-        reply,
-        body(api::profile::get_profile(State(state.clone())).await)
-    );
     assert_eq!(reply["name"], "Front");
     assert_eq!(reply["lawn_size_sqft"], 5000.0);
+    assert_eq!(
+        reply["location"],
+        json!({"place_name": "Avondale, PA", "timezone": "America/New_York"})
+    );
+}
+
+// @spec MCP-TOOL-028, MCP-TOOL-029
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn sources_is_the_sources_body_without_connections_pins_ids_or_coordinates(pool: PgPool) {
+    let today = crate::clock::Clock::System.today();
+    crate::api::timing::db_harness::climate(&pool, 1, today - chrono::Duration::days(1)).await;
+    let state = state(pool, &Lake::missing("sources")).await;
+    let full = body(api::sources::read::get_sources(State(state.clone())).await);
+    assert!(full["location"]["latitude"].is_number());
+    assert!(full.get("connections").is_some());
+    let reply = call_tool(&state, "sources", json!({})).await.json();
+    let text = reply.to_string();
+    assert!(
+        !text.contains("latitude") && !text.contains("longitude"),
+        "{text}"
+    );
+    assert!(reply.get("connections").is_none());
+    assert!(reply["sources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|s| s.get("id").is_none() && s["attribution"].is_string()));
+    assert!(reply["inputs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|i| i.get("pinned_station_ref").is_none() && i.get("standing").is_some()));
+    assert_eq!(reply["location"]["timezone"], "America/New_York");
+    assert_eq!(reply["forecast_provider"], full["forecast_provider"]);
 }
 
 async fn feed(state: &crate::state::AppState, include_inactive: bool) -> Value {

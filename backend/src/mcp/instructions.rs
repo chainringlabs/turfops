@@ -1,7 +1,7 @@
 //! The server instructions returned at `initialize`: how a model should use TurfOps.
 //! The lawn itself (grass, size, soil, irrigation) comes from the `lawn_profile` tool.
 
-// @spec MCP-DOC-001, MCP-DOC-002, MCP-DOC-003, MCP-DOC-004, MCP-DOC-005, MCP-DOC-006, MCP-DOC-007, MCP-DOC-008, MCP-DOC-009, MCP-DOC-010, MCP-DOC-011
+// @spec MCP-DOC-001, MCP-DOC-002, MCP-DOC-003, MCP-DOC-004, MCP-DOC-005, MCP-DOC-006, MCP-DOC-007, MCP-DOC-008, MCP-DOC-009, MCP-DOC-010, MCP-DOC-011, MCP-DOC-012
 pub const INSTRUCTIONS: &str = "\
 TurfOps is the source of truth for one home lawn: its weather and soil readings, \
 agronomic recommendations, seeding / pre-emergent timing windows, disease risk, \
@@ -12,13 +12,22 @@ tools. Never guess a reading, date or product that a tool can give you. The reso
 methods; read them when the user asks why TurfOps says what it does.
 
 SETTING
-- Cool-season lawn (tall fescue / Kentucky bluegrass / perennial rye / a Mixed blend) in \
-USDA zone 7a, southeast Pennsylvania. Soil readings come from a NOAA USCRN station whose \
-data lake lags about a day; `today` in the responses is the lawn's local date (the \
-server's `TZ`). The forecast is \
-OpenWeatherMap. Keep observed values and forecast values distinct in your answers.
-- Temperatures are Fahrenheit. Soil timing uses the 5 cm depth; the dashboard's live \
-soil reading and the grub window use 10 cm.
+- A cool-season lawn (tall fescue / Kentucky bluegrass / perennial rye / a Mixed blend) \
+in the contiguous United States; where it is and which grass it has come from \
+`lawn_profile`. `today` in the responses is the lawn's local date. Keep observed values \
+and forecast values distinct in your answers.
+- Temperatures are Fahrenheit. Soil timing uses the 5 cm depth; the live soil reading \
+and the grub window use 10 cm.
+
+BASIS
+- Every weather value has a basis: measured at a named station (with its distance), the \
+owner's sensor, or estimated for the lawn's location. Say which when you give a reading \
+or a date that rests on one, and never present an estimate as a measurement.
+- An estimated soil date comes with its typical error (`typical_error_days`); relay it. A \
+disease tier marked `approximate` rests on an hourly estimate of air and humidity; say so.
+- Soil moisture may have no source for this location: say that, never infer a value.
+- Call `sources` to answer where any value comes from, why it is estimated, or whether a \
+source is down.
 
 PRODUCTS AND RATES
 - Never state a product's label rate or any pesticide (fungicide, herbicide, insect \
@@ -44,8 +53,8 @@ Core aeration belongs to the fall seeding window.
 TIMING WINDOWS
 - States: NotYet, OpeningSoon, Open, Ideal, Closing, Closed, Done (already logged), \
 Blocked (ruled out by the log). Boundary dates carry a source: Observed (held 5 days in \
-station data), Tentative (seen, not yet held), Forecast (soil outlook), Typical (median \
-of up to 15 station years, with p10/p90 spread).
+the record's soil), Tentative (seen, not yet held), Forecast (soil outlook), Typical \
+(median of up to 15 years, with p10/p90 spread).
 - A boundary with `date: null` means \"later than usual — not yet seen\", not unknown. Do \
 not invent a date for it.
 

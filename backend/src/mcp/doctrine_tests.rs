@@ -22,7 +22,7 @@ fn the_doctrine_is_static_and_leaves_the_lawns_particulars_to_the_profile() {
         .filter(|(i, _)| !doctrine[..*i].trim_end().ends_with("1,000"));
     assert_eq!(sizes.count(), 0, "states a lawn size");
     // The grass is named only as the cool-season family, not this lawn's species.
-    says(&["Cool-season lawn (tall fescue / Kentucky bluegrass / perennial rye / a Mixed blend)"]);
+    says(&["cool-season lawn (tall fescue / Kentucky bluegrass / perennial rye / a Mixed blend)"]);
     // The particulars arrive with the snapshot, whose first part is the profile.
     says(&["call `lawn_snapshot`"]);
 }
@@ -44,16 +44,38 @@ tools.",
 #[test]
 fn the_doctrine_describes_the_setting() {
     says(&[
-        "Cool-season lawn",
-        "USDA zone 7a, southeast Pennsylvania",
-        "NOAA USCRN station",
-        "lags about a day",
-        "The forecast is \
-OpenWeatherMap",
-        "Keep observed values and forecast values distinct",
+        "in the contiguous United States; where it is and which grass it has come from \
+`lawn_profile`",
+        "`today` in the responses is the lawn's local date",
+        "Keep observed values \
+and forecast values distinct",
         "Temperatures are Fahrenheit",
-        "Soil timing uses the 5 cm depth; the dashboard's live \
-soil reading and the grub window use 10 cm",
+        "Soil timing uses the 5 cm depth; the live soil reading \
+and the grub window use 10 cm",
+    ]);
+    // Nothing about one place, station or provider.
+    for particular in [
+        "southeast Pennsylvania",
+        "USCRN",
+        "OpenWeatherMap",
+        "lags about a day",
+    ] {
+        assert!(!INSTRUCTIONS.contains(particular), "names {particular:?}");
+    }
+}
+
+// @spec MCP-DOC-012
+#[test]
+fn the_doctrine_says_every_value_has_a_basis_to_relay() {
+    says(&[
+        "Every weather value has a basis: measured at a named station (with its distance), the \
+owner's sensor, or estimated for the lawn's location. Say which when you give a reading \
+or a date that rests on one, and never present an estimate as a measurement.",
+        "An estimated soil date comes with its typical error (`typical_error_days`); relay it.",
+        "A \
+disease tier marked `approximate` rests on an hourly estimate of air and humidity; say so.",
+        "Soil moisture may have no source for this location: say that, never infer a value.",
+        "Call `sources` to answer where any value comes from",
     ]);
 }
 
