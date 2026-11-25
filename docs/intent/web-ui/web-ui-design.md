@@ -177,7 +177,7 @@ Every error the UI shows is plain language that says what went wrong and, where 
 | Timeout | "That took too long to answer. Try again." |
 | No response (status 0, or `fetch`'s `TypeError`) | "TurfOps couldn't be reached. Check your connection and try again." |
 | 404 whose message mentions the lawn profile | "There is no lawn profile yet. Set one up in Settings to get started." |
-| 503 for a lawn with no location | Not an error sentence: the page shows `SetupNotice` |
+| 503 for a lawn with no location (the body's `reason` is `location_not_set`; `needsLocation(e)`) | Not an error sentence: the page shows `SetupNotice` |
 | 500-class other than 503 | "Something went wrong on the server. Try again; the details are in the server log." |
 | 400, 409, 503 and any other status | The server's message as written (a 503 names the unavailable source and the affected features), else `sentenceForStatus`. |
 | Anything that is not an `ApiError` | The server-error sentence. |

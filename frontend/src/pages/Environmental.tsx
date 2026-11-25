@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	getEnvironmental,
 	getHistorical,
+	getProfile,
 	getSoilTempForecast,
 	getSources,
 	refreshEnvironmental,
 } from "../api/client";
-import { describeError } from "../api/errors";
+import { describeError, needsLocation } from "../api/errors";
 import {
 	crossingWhen,
 	forecastPrecip,
@@ -24,6 +25,7 @@ import {
 	SOIL_TEMP_GAUGE,
 } from "../components/gaugeConfigs";
 import PredictionChart from "../components/PredictionChart";
+import SetupNotice from "../components/SetupNotice";
 import BasisLabel from "../components/sources/BasisLabel";
 import { currentBasisOf } from "../components/sources/display";
 import TrendChart from "../components/TrendChart";
@@ -60,7 +62,17 @@ export default function Environmental() {
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
+	// @spec SETUP-FLOW-001, UI-ERR-012: the lawn has no location
+	const [needsSetup, setNeedsSetup] = useState(false);
 	const abortRef = useRef<AbortController | null>(null);
+
+	useEffect(() => {
+		getProfile()
+			.then((profile) => {
+				if (profile.location === null) setNeedsSetup(true);
+			})
+			.catch(() => {});
+	}, []);
 
 	const fetchData = useCallback(async () => {
 		abortRef.current?.abort();
@@ -149,6 +161,7 @@ export default function Environmental() {
 			// under the new selector.
 			.catch((e) => {
 				if (!cancelled) {
+					if (needsLocation(e)) setNeedsSetup(true);
 					setHistData(null);
 					setHistError(describeError(e));
 					setHistLoading(false);
@@ -205,6 +218,16 @@ export default function Environmental() {
 		);
 	const forecastDays = data?.forecast?.daily_summary ?? [];
 	const shownDays = showAllDays ? forecastDays : forecastDays.slice(0, 7);
+
+	if (needsSetup)
+		return (
+			<div>
+				<div style={sharedStyles.headerRow}>
+					<h1 style={sharedStyles.pageTitle}>Environmental Data</h1>
+				</div>
+				<SetupNotice />
+			</div>
+		);
 
 	return (
 		<div>

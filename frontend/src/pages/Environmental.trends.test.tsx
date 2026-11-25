@@ -23,6 +23,10 @@ import Environmental from "./Environmental";
 vi.mock("../api/client", () => ({
 	getEnvironmental: vi.fn(),
 	getHistorical: vi.fn(),
+	// A lawn with a location unless a test says otherwise.
+	getProfile: vi.fn(() =>
+		Promise.resolve({ location: { latitude: 39.86, longitude: -75.79 } }),
+	),
 	getSoilTempForecast: vi.fn(),
 	getSources: vi.fn(),
 	refreshEnvironmental: vi.fn(),

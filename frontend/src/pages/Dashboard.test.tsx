@@ -188,6 +188,30 @@ function before(a: Element, b: Element) {
 }
 
 describe("Dashboard", () => {
+	// @spec FEED-UI-015, SETUP-FLOW-001
+	it("with no location shows the setup notice in place of the weather, and keeps alerts and applications", async () => {
+		vi.mocked(getDashboard).mockResolvedValue({
+			...dashboard,
+			profile: { ...dashboard.profile, location: null },
+		} as unknown as DashboardResponse);
+		await renderDashboard();
+		const notice = screen.getByRole("heading", {
+			name: "Tell TurfOps where your lawn is",
+		});
+		expect(notice.parentElement).toHaveTextContent("dates use UTC");
+		expect(
+			screen.getByRole("link", { name: "Set your location" }),
+		).toHaveAttribute("href", "/setup?step=location");
+		expect(screen.queryByText("Soil Temp (10cm)")).toBeNull();
+		expect(screen.queryByText(/All sources current|failed/)).toBeNull();
+		expect(
+			screen.getByRole("heading", { name: "Active Alerts" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("heading", { name: "Recent Applications" }),
+		).toBeInTheDocument();
+	});
+
 	// @spec FEED-UI-008
 	it("shows the endpoint's alerts as read-only cards", async () => {
 		await renderDashboard();

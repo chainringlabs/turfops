@@ -350,7 +350,18 @@ impl IntoResponse for TurfOpsError {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
         };
-        let body = serde_json::json!({ "error": self.owner_message() });
+        let mut body = serde_json::json!({ "error": self.owner_message() });
+        // @spec DEPLOY-HTTP-012
+        // The web UI shows its setup notice, not an error, for a lawn with no location.
+        if matches!(
+            self,
+            TurfOpsError::Unavailable {
+                outage: Outage::LocationNotSet,
+                ..
+            }
+        ) {
+            body["reason"] = "location_not_set".into();
+        }
         (status, axum::Json(body)).into_response()
     }
 }
@@ -367,6 +378,29 @@ mod tests {
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         (status, json["error"].as_str().unwrap().to_string())
+    }
+
+    // @spec DEPLOY-HTTP-012
+    #[tokio::test]
+    async fn no_location_is_a_503_whose_reason_says_so() {
+        let response = TurfOpsError::location_not_set().into_response();
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(
+            json["error"],
+            "TurfOps doesn't know where your lawn is yet, so weather, timing and disease \
+             information are unavailable. Set the location in Setup."
+        );
+        assert_eq!(json["reason"], "location_not_set");
+        let other = TurfOpsError::history_loading(3, 15).into_response();
+        let bytes = axum::body::to_bytes(other.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert!(json.get("reason").is_none());
     }
 
     // @spec DEPLOY-HTTP-009, UI-ERR-003, PLANT-AI-007
