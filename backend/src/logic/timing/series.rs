@@ -14,6 +14,8 @@ pub struct SoilPoint {
     pub date: NaiveDate,
     pub temp_f: f64,
     pub is_forecast: bool,
+    /// An observed day whose soil rests on the soil estimate.
+    pub estimated: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -75,6 +77,8 @@ pub struct Detected {
     /// happened somewhere inside the gap. Fine for "has it happened yet?", but not a
     /// date to put into the historical record.
     pub after_gap: bool,
+    /// One of the run's first `SUSTAIN_DAYS` observed days rests on the soil estimate.
+    pub estimated: bool,
 }
 
 impl Detected {
@@ -130,9 +134,13 @@ pub fn detect(smoothed: &[SoilPoint], season_year: i32, crossing: &Crossing) -> 
             continue;
         }
         let observed = u32::from(!point.is_forecast);
+        // @spec TIME-ENG-047
+        let estimated_here = point.estimated && observed == 1;
         let current = match run {
             Some((detected, prev)) if point.date == prev + Duration::days(1) => Detected {
                 days_held: detected.days_held + observed,
+                estimated: detected.estimated
+                    || (estimated_here && detected.days_held < SUSTAIN_DAYS),
                 ..detected
             },
             _ => {
@@ -143,6 +151,7 @@ pub fn detect(smoothed: &[SoilPoint], season_year: i32, crossing: &Crossing) -> 
                     days_held: observed,
                     // A season already past the threshold opens on the scan start.
                     after_gap: point.date != from && !follows_data,
+                    estimated: estimated_here,
                 }
             }
         };
@@ -174,6 +183,7 @@ mod tests {
                 date: start + Duration::days(i as i64),
                 temp_f,
                 is_forecast: false,
+                estimated: false,
             })
             .collect()
     }

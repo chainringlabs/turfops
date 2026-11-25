@@ -3,7 +3,7 @@ use crate::error::TurfOpsError;
 use crate::logic::data_sync::record_asked;
 use crate::logic::disease::{self, weather_days};
 use crate::logic::weather_record::record::WeatherRecord;
-use crate::models::weather_basis::{Basis, BasisKind, BasisSpan};
+use crate::models::weather_basis::BasisSpan;
 use crate::models::{
     DailyWeather, Disease, DiseaseContext, DiseaseRiskResponse, LawnProfile, ProductCategory,
     Recommendation, RiskBasis, ShelfFungicide, ShelfProduct, StockStatus, AFTERNOON_HOURS,
@@ -201,8 +201,8 @@ fn data_notes(
             notes.push(format!(
                 "From {}, air temperature and humidity come from {} instead of {}.",
                 pair[1].from.format("%b %-d"),
-                described(&pair[1].basis),
-                described(&pair[0].basis)
+                pair[1].basis.in_words(),
+                pair[0].basis.in_words()
             ));
         }
     }
@@ -229,19 +229,6 @@ fn data_notes(
     notes
 }
 
-/// A basis in a sentence: "Avondale 2 N (20 mi)", "your sensor Patio", "the hourly
-/// estimate for your location".
-fn described(basis: &Basis) -> String {
-    match basis.kind {
-        BasisKind::Station => match basis.distance_miles {
-            Some(miles) => format!("{} ({miles:.0} mi)", basis.source),
-            None => basis.source.clone(),
-        },
-        BasisKind::Sensor => format!("your sensor {}", basis.source),
-        BasisKind::Estimate => "the hourly estimate for your location".into(),
-    }
-}
-
 /// "Gray Leaf Spot" → "Gray leaf spot".
 fn sentence_case(name: &str) -> String {
     let lower = name.to_lowercase();
@@ -261,6 +248,7 @@ mod shelf_db_tests;
 mod tests {
     use super::*;
     use crate::logic::disease::test_support::{date, day, run_of};
+    use crate::models::weather_basis::{Basis, BasisKind};
     use crate::models::weather_record::Input;
 
     fn station() -> Basis {

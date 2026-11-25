@@ -11,19 +11,25 @@ use chrono::Duration;
 use serde_json::{json, Value};
 use sqlx::PgPool;
 
-/// A lawn with a lake, a forecast, eight logged applications (three with a follow-up due
-/// today, so the feed is longer than the dashboard's three) and its snapshot.
+/// The record's lawn with six years of climate, a forecast, eight logged applications
+/// (three of different types with a follow-up due today, so the feed is longer than the
+/// dashboard's three) and its snapshot.
 async fn snapshot(pool: PgPool, name: &str) -> (crate::state::AppState, Lake, Value) {
-    let lawn = lawn(&pool).await;
-    locate(&pool).await;
+    let today = crate::clock::Clock::System.today();
+    crate::api::timing::db_harness::climate(&pool, 6, today - Duration::days(1)).await;
+    let lawn = crate::api::timing::db_harness::lawn(&pool)
+        .await
+        .id
+        .unwrap();
     let lake = Lake::with_days(name, 40, &[]);
     let state = state_with_forecast(pool.clone(), &lake).await;
     let today = state.clock.today();
     for i in 0..8 {
-        let kind = if i % 2 == 0 {
-            ApplicationType::Mowing
-        } else {
-            ApplicationType::Fertilizer
+        // The feed keeps one follow-up per type: the three due today differ.
+        let kind = match i {
+            2 => ApplicationType::PostEmergent,
+            _ if i % 2 == 0 => ApplicationType::Mowing,
+            _ => ApplicationType::Fertilizer,
         };
         let id = log(
             &pool,
@@ -88,7 +94,7 @@ async fn the_snapshot_carries_each_part_shaped_as_its_tool_would(pool: PgPool) {
     let feed = call_tool(&state, "recommendations", json!({})).await.json();
     assert!(
         feed.as_array().unwrap().len() > 3,
-        "the full feed, not the dashboard's 3"
+        "the full feed, not the dashboard's 3: {feed}"
     );
     assert_eq!(timeless(snap["recommendations"].clone()), timeless(feed));
 
@@ -193,19 +199,15 @@ async fn a_lake_outage_nulls_its_parts_with_notes_and_keeps_the_rest(pool: PgPoo
     let snap = reply.json();
     assert!(snap["timing_windows"].is_null());
     assert!(snap["disease_risk"].is_null());
-    let lake = "The NOAA weather data lake could not be read, so station soil readings, \
-                timing windows and disease risk are unavailable. Tell the user this data is \
-                missing rather than estimating it.";
+    // Both read the weather record, which has no location for this lawn.
+    let unplaced = "Data source unavailable: TurfOps doesn't know where your lawn is yet, so \
+                    weather, timing and disease information are unavailable. Set the location \
+                    in Setup. Tell the user this data is missing rather than estimating it.";
     assert_eq!(
         snap["notes"],
         json!([
-            format!("timing_windows unavailable: {lake}"),
-            // Disease risk reads the weather record, which has no location for this lawn.
-            "disease_risk unavailable: Data source unavailable: TurfOps doesn't know where \
-             your lawn is yet, so weather, timing and disease information are unavailable. \
-             Set the location in Setup. Tell the user this data is missing rather than \
-             estimating it."
-                .to_string(),
+            format!("timing_windows unavailable: {unplaced}"),
+            format!("disease_risk unavailable: {unplaced}"),
         ])
     );
     for kept in [

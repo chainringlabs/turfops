@@ -1,6 +1,6 @@
 use super::climatology::FREEZE_F;
 use super::series::SoilPoint;
-use crate::datasources::weather::ClimateDay;
+use crate::models::climate::ClimateDay;
 use crate::models::timing::{SeasonContext, SoilSeriesDay};
 use crate::models::DailyForecast;
 use chrono::{Datelike, Duration, NaiveDate};
@@ -143,13 +143,15 @@ pub fn build_series(
                 .iter()
                 .filter_map(|&y| by_date.get(&in_year(date, y)).map(|p| p.temp_f))
                 .collect();
+            let observed = point.filter(|p| !p.is_forecast);
+            let last = by_date.get(&in_year(date, year - 1));
             SoilSeriesDay {
                 date,
-                this_year: point.filter(|p| !p.is_forecast).map(|p| round(p.temp_f)),
+                this_year: observed.map(|p| round(p.temp_f)),
+                this_year_estimated: observed.is_some_and(|p| p.estimated),
                 forecast: point.filter(|p| p.is_forecast).map(|p| round(p.temp_f)),
-                last_year: by_date
-                    .get(&in_year(date, year - 1))
-                    .map(|p| round(p.temp_f)),
+                last_year: last.map(|p| round(p.temp_f)),
+                last_year_estimated: last.is_some_and(|p| p.estimated),
                 typical: (past.len() >= MIN_BASELINE_YEARS)
                     .then(|| round(past.iter().sum::<f64>() / past.len() as f64)),
             }
@@ -212,12 +214,17 @@ mod tests {
             date: d,
             temp_f,
             is_forecast,
+            estimated: false,
+        };
+        let estimated = |p: SoilPoint| SoilPoint {
+            estimated: true,
+            ..p
         };
         let smoothed = vec![
             point(date(2023, 9, 20), 64.0, false),
             point(date(2024, 9, 20), 66.0, false),
-            point(date(2025, 9, 20), 65.04, false),
-            point(date(2026, 9, 20), 68.0, false),
+            estimated(point(date(2025, 9, 20), 65.04, false)),
+            estimated(point(date(2026, 9, 20), 68.0, false)),
             point(date(2026, 9, 21), 67.0, true),
         ];
         let series = build_series(&smoothed, date(2026, 9, 20), &[2023, 2024, 2025]);
@@ -228,10 +235,12 @@ mod tests {
         assert_eq!(sep20.forecast, None);
         assert_eq!(sep20.last_year, Some(65.0));
         assert_eq!(sep20.typical, Some(65.0));
+        assert!(sep20.this_year_estimated && sep20.last_year_estimated);
 
         let sep21 = series.iter().find(|d| d.date == date(2026, 9, 21)).unwrap();
         assert_eq!(sep21.this_year, None);
         assert_eq!(sep21.forecast, Some(67.0));
+        assert!(!sep21.this_year_estimated && !sep21.last_year_estimated);
         assert_eq!(sep21.typical, None);
     }
 }

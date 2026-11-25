@@ -161,6 +161,8 @@ mod tests {
             source,
             passed,
             days_held: (source == DateSource::Tentative).then_some(3),
+            estimated: false,
+            typical_error_days: None,
         }
     }
 
@@ -231,6 +233,7 @@ mod tests {
             latest: d(9, 26),
             sample_count: 13,
             confidence: WindowConfidence::High,
+            estimated_years: 0,
         });
         let v = views(opens, boundary(None, DateSource::Typical, false));
         // Sep 20: past the median, as in half of all years — not "behind".

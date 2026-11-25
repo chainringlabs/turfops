@@ -70,9 +70,4 @@ async fn daily_reads_use_the_lakes_local_date_as_given() {
         (disease.days[0].date, disease.days[0].hours_covered),
         (label, 12.0)
     );
-
-    let climate = client.fetch_climate_record(start).await.unwrap();
-    assert_eq!(climate.days.len(), 1);
-    assert_eq!(climate.days[0].date, label);
-    assert_eq!(climate.days[0].soil_temp_5_f, Some(50.0));
 }

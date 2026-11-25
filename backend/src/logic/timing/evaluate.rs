@@ -1,7 +1,8 @@
 use super::climatology::{date_stat, gdd_reached};
-use super::series::{detect, Detected, SeasonDay, SoilPoint};
+use super::series::{detect, Crossing, Detected, Direction, SeasonDay, SoilPoint};
 use super::windows::{Boundary, WindowSpec};
-use crate::datasources::weather::ClimateDay;
+use crate::logic::soil_estimate::scores::{self, Calibration};
+use crate::models::climate::ClimateDay;
 use crate::models::timing::{BoundaryView, DateSource, DateStat, WindowState};
 use chrono::{Duration, NaiveDate};
 
@@ -25,6 +26,42 @@ pub struct Season<'a> {
     /// Last day of station soil data. The lake trails today by a day or two, and a
     /// crossing cannot be "late" on days the station has not reported yet.
     pub last_observed: Option<NaiveDate>,
+    /// The stored 5 cm soil estimate's calibration, which decides what an estimated run
+    /// may date; `None` when there is no stored estimate (no estimated run is datable).
+    pub calibration: Option<Calibration>,
+}
+
+impl Season<'_> {
+    // @spec TIME-ENG-048, TIME-ENG-049
+    /// The estimate's scored median error in days when it may date `crossing` at 5 cm.
+    pub fn estimate_error_days(&self, crossing: &Crossing) -> Option<f64> {
+        let direction = match crossing.direction {
+            Direction::Rising => scores::Direction::Rising,
+            Direction::Falling => scores::Direction::Falling,
+        };
+        scores::embedded()
+            .datable(
+                super::SOIL_DEPTH_CM,
+                crossing.threshold_f,
+                direction,
+                self.calibration?,
+            )
+            .map(|accuracy| accuracy.median_days)
+    }
+
+    /// A run that may be used: measured, or estimated and datable.
+    fn usable(&self, crossing: &Crossing, run: &Detected) -> bool {
+        !run.estimated || self.estimate_error_days(crossing).is_some()
+    }
+
+    // @spec TIME-ENG-050
+    /// Some history year dates `crossing` from a confirmed run on measured soil.
+    pub fn measured_history(&self, crossing: &Crossing) -> bool {
+        self.history_years.iter().any(|&year| {
+            detect(self.smoothed, year, crossing)
+                .is_some_and(|run| run.confirmed() && !run.after_gap && !run.estimated)
+        })
+    }
 }
 
 /// A boundary's standing in the evaluated season.
@@ -34,25 +71,44 @@ pub struct Resolved {
     pub source: DateSource,
     pub passed: bool,
     pub days_held: Option<u32>,
+    /// The deciding run rests on the soil estimate.
+    pub estimated: bool,
+    /// For an estimated date, the estimate's scored median error in days.
+    pub typical_error_days: Option<f64>,
+}
+
+impl Resolved {
+    fn plain(date: Option<NaiveDate>, source: DateSource, passed: bool) -> Self {
+        Self {
+            date,
+            source,
+            passed,
+            days_held: None,
+            estimated: false,
+            typical_error_days: None,
+        }
+    }
 }
 
 // @spec TIME-ENG-019
 /// When the boundary fell in a past year. A freeze-anchored boundary is dated from that
 /// year's own freeze so the typical spread reflects how much the freeze really moves;
 /// only the current season (`resolve`) pins it to the typical freeze, since by the time
-/// a freeze is in the forecast it is too late to seed.
-fn historical_date(boundary: &Boundary, season: &Season, year: i32) -> Option<NaiveDate> {
+/// a freeze is in the forecast it is too late to seed. The flag says the date came
+/// from an estimated run.
+fn historical_date(boundary: &Boundary, season: &Season, year: i32) -> Option<(NaiveDate, bool)> {
     match boundary {
-        // A run that begins right after a sensor outage dates the outage, not the crossing.
+        // A run that begins right after a sensor outage dates the outage, not the crossing;
+        // an estimated run counts only where the estimate may date the crossing.
         Boundary::Soil(crossing) => detect(season.smoothed, year, crossing)
-            .filter(|d| d.confirmed() && !d.after_gap)
-            .map(|d| d.date),
+            .filter(|d| d.confirmed() && !d.after_gap && season.usable(crossing, d))
+            .map(|d| (d.date, d.estimated)),
         Boundary::BeforeFirstFreeze(days) => season
             .fall_freezes
             .iter()
             .find(|(y, _)| *y == year)
-            .map(|(_, freeze)| *freeze - Duration::days(*days)),
-        Boundary::Gdd(target) => gdd_reached(season.days, year, *target),
+            .map(|(_, freeze)| (*freeze - Duration::days(*days), false)),
+        Boundary::Gdd(target) => gdd_reached(season.days, year, *target).map(|d| (d, false)),
         // The earliest of several triggers is unknown while any one of them is: a year
         // with no freeze on record must not report its soil crossing as "the close".
         Boundary::Earliest(options) => options
@@ -60,18 +116,24 @@ fn historical_date(boundary: &Boundary, season: &Season, year: i32) -> Option<Na
             .map(|o| historical_date(o, season, year))
             .collect::<Option<Vec<_>>>()?
             .into_iter()
-            .min(),
+            .min_by_key(|(date, _)| *date),
     }
 }
 
-/// Typical dates for the boundary, expressed in `season_year`.
+// @spec TIME-ENG-051
+/// Typical dates for the boundary, expressed in `season_year`, with how many of the
+/// years behind them were dated from an estimated run.
 pub fn typical(boundary: &Boundary, season: &Season, season_year: i32) -> Option<DateStat> {
-    let events: Vec<(i32, NaiveDate)> = season
+    let dated: Vec<(i32, NaiveDate, bool)> = season
         .history_years
         .iter()
-        .filter_map(|&y| historical_date(boundary, season, y).map(|d| (y, d)))
+        .filter_map(|&y| historical_date(boundary, season, y).map(|(d, e)| (y, d, e)))
         .collect();
-    date_stat(&events, season_year)
+    let events: Vec<(i32, NaiveDate)> = dated.iter().map(|(y, d, _)| (*y, *d)).collect();
+    date_stat(&events, season_year).map(|stat| DateStat {
+        estimated_years: dated.iter().filter(|(_, _, e)| *e).count(),
+        ..stat
+    })
 }
 
 // @spec TIME-ENG-029, TIME-ENG-030, TIME-ENG-031, TIME-ENG-032
@@ -96,24 +158,16 @@ fn from_typical(
         Some(m) if scan_over || !season.data_fresh => (Some(m), true),
         _ => (None, false),
     };
-    Resolved {
-        date,
-        source: DateSource::Typical,
-        passed,
-        days_held: None,
-    }
+    Resolved::plain(date, DateSource::Typical, passed)
 }
 
-fn from_detected(detected: Detected, today: NaiveDate) -> Resolved {
+/// A detected run as a boundary's standing; `error_days` is the estimate's scored error
+/// when the run is estimated.
+fn from_detected(detected: Detected, today: NaiveDate, error_days: Option<f64>) -> Resolved {
     if detected.forecast_only() {
         // The outlook starts the day after the last station day, which trails today by a
         // day or two — a forecast crossing in that gap means "about now", not a past date.
-        return Resolved {
-            date: Some(detected.date.max(today)),
-            source: DateSource::Forecast,
-            passed: false,
-            days_held: None,
-        };
+        return Resolved::plain(Some(detected.date.max(today)), DateSource::Forecast, false);
     }
     let confirmed = detected.confirmed();
     Resolved {
@@ -125,38 +179,39 @@ fn from_detected(detected: Detected, today: NaiveDate) -> Resolved {
         },
         passed: true,
         days_held: (!confirmed).then_some(detected.days_held),
+        estimated: detected.estimated,
+        typical_error_days: error_days.filter(|_| detected.estimated),
     }
 }
 
 // @spec TIME-ENG-022, TIME-ENG-023, TIME-ENG-024, TIME-ENG-025, TIME-ENG-026, TIME-ENG-027
+// @spec TIME-ENG-048, TIME-ENG-049
 pub fn resolve(boundary: &Boundary, season: &Season, season_year: i32) -> Resolved {
     let median = || typical(boundary, season, season_year).map(|s| s.median);
     match boundary {
         // With stale station data only a confirmed crossing is trusted. A run still in
         // progress when the data stopped, or one seen only in a forecast that no longer
         // connects to the station series, falls back to the calendar like no run at all.
+        // An estimated run the estimate may not date is no usable run.
         Boundary::Soil(crossing) => match detect(season.smoothed, season_year, crossing) {
-            Some(detected) if season.data_fresh || detected.confirmed() => {
-                from_detected(detected, season.today)
+            Some(detected)
+                if (season.data_fresh || detected.confirmed())
+                    && season.usable(crossing, &detected) =>
+            {
+                from_detected(detected, season.today, season.estimate_error_days(crossing))
             }
             _ => from_typical(median(), crossing.scan_to, season, season_year),
         },
         Boundary::BeforeFirstFreeze(_) => {
             let date = median();
-            Resolved {
+            Resolved::plain(
                 date,
-                source: DateSource::Typical,
-                passed: date.is_some_and(|d| d <= season.today),
-                days_held: None,
-            }
+                DateSource::Typical,
+                date.is_some_and(|d| d <= season.today),
+            )
         }
         Boundary::Gdd(target) => match gdd_reached(season.days, season_year, *target) {
-            Some(date) => Resolved {
-                date: Some(date),
-                source: DateSource::Observed,
-                passed: true,
-                days_held: None,
-            },
+            Some(date) => Resolved::plain(Some(date), DateSource::Observed, true),
             None => from_typical(median(), GDD_SCAN_END, season, season_year),
         },
         Boundary::Earliest(options) => {
@@ -185,12 +240,7 @@ fn earliest_of(resolved: &[Resolved]) -> Resolved {
     first(&|r| r.passed && r.source != DateSource::Tentative)
         .or_else(|| first(&|r| r.passed))
         .or_else(|| first(&|r| !r.passed))
-        .unwrap_or(Resolved {
-            date: None,
-            source: DateSource::Typical,
-            passed: false,
-            days_held: None,
-        })
+        .unwrap_or(Resolved::plain(None, DateSource::Typical, false))
 }
 
 pub fn view(boundary: &Boundary, season: &Season, season_year: i32) -> BoundaryView {
@@ -202,6 +252,8 @@ pub fn view(boundary: &Boundary, season: &Season, season_year: i32) -> BoundaryV
         source: resolved.source,
         passed: resolved.passed,
         days_held: resolved.days_held,
+        estimated: resolved.estimated,
+        typical_error_days: resolved.typical_error_days,
     }
 }
 
@@ -276,8 +328,9 @@ mod tests {
             date: NaiveDate::from_ymd_opt(2026, 9, 19).unwrap(),
             days_held: 0,
             after_gap: false,
+            estimated: false,
         };
-        let resolved = from_detected(seen, today);
+        let resolved = from_detected(seen, today, None);
         assert_eq!(resolved.source, DateSource::Forecast);
         assert_eq!(resolved.date, Some(today));
         assert!(!resolved.passed);
@@ -345,12 +398,16 @@ mod tests {
             source: DateSource::Tentative,
             passed: true,
             days_held: Some(2),
+            estimated: false,
+            typical_error_days: None,
         };
         let observed_gdd = Resolved {
             date: Some(d(5, 2)),
             source: DateSource::Observed,
             passed: true,
             days_held: None,
+            estimated: false,
+            typical_error_days: None,
         };
         let close = earliest_of(&[tentative_soil, observed_gdd]);
         assert_eq!(close.source, DateSource::Observed);

@@ -1,14 +1,14 @@
 # Seeding & Pre-Emergent Timing Windows
 
 `GET /api/v1/timing-windows` answers three start/end-of-season questions from the
-station's own record rather than from calendar dates:
+lawn's weather record rather than from calendar dates:
 
 - When should I **seed or overseed** (fall, with spring and dormant seeding as fallbacks)?
 - When should the **spring pre-emergent** go down?
 - When should the **fall pre-emergent** go down — and should it at all this year?
 
 Code: `backend/src/logic/timing/` (pure logic), `backend/src/api/timing.rs` (handler),
-`backend/src/datasources/weather/climatology.rs` (lake query),
+`backend/src/logic/weather_record/daily.rs` (`fetch_climate_record`),
 `backend/src/models/timing.rs` (response types).
 UI: `frontend/src/pages/Timing.tsx` (`/timing`), `frontend/src/components/timing/`,
 `frontend/src/types/timing.ts`; the dashboard shows `TimingWidget`.
@@ -17,15 +17,25 @@ UI: `frontend/src/pages/Timing.tsx` (`/timing`), `frontend/src/components/timing
 
 | Input | Source | Notes |
 |-------|--------|-------|
-| Daily mean soil temperature at **5 cm** | Lake silver hourly `soil_temp_5`, grouped by `obs_date_local`; days with < 12 hourly readings are dropped | Germination thresholds are defined at ~2 in. The gold layer only aggregates the 10 cm probe, which lags 5 cm by roughly a week in both spring and fall. |
-| Daily min / mean air temperature, `gdd50` | Lake gold `daily_weather.parquet` (`hours_observed >= 12`) | Min air temp drives freeze dates; mean air temp drives the soil forecast and the 30-day anomaly. |
-| 5-day forecast | OpenWeatherMap daily summary | Converted to 5 cm soil estimates with the existing lagged air→soil regression (`logic/soil_temp_prediction`), refit on the last 30 days of 5 cm data. Station air and forecast air are joined into one daily series, with the hole between them (the lake trails by a day or more; the forecast starts today) linearly interpolated up to 7 days — otherwise every outlook day whose lagged driver falls in the hole is lost. The outlook is shifted by the model's error on the last observed day so it continues from the measured value. |
+| Daily mean soil temperature at **5 cm** | The weather record, resolved per local day: the owner's sensor, a station within 50 miles with ≥ 12 hourly readings, or the soil estimate for the location; each day says whether it is estimated | Germination thresholds are defined at ~2 in. The 10 cm probe lags 5 cm by roughly a week in both spring and fall. |
+| Daily min / mean air temperature, `gdd50` | The weather record's resolved daily air (the PRISM grid at the lawn, or the owner's sensor) | Min air temp drives freeze dates; mean air temp drives the soil forecast and the 30-day anomaly. |
+| Forecast (first 10 full days) | The forecast the fetch schedule holds, from the chosen provider | Converted to 5 cm soil. While the last soil day is measured and ≥ 14 of the last 30 days are, by the lagged air→soil regression (`logic/soil_temp_prediction`) refit on those measured days and shifted by its error on the last observed day; otherwise by the stored 5 cm soil estimate run forward. Recorded air and forecast air are joined into one daily series, the hole between them linearly interpolated up to 7 days. |
 | Application log | Postgres | `Overseed` and `PreEmergent` entries mark windows done or blocked. |
 
 Up to **15 calendar years** are read (`HISTORY_YEARS`). A year counts toward the typical
 dates only if it is complete (before the current year) and has ≥ 300 days of 5 cm soil
-data. The read is memoized in-process for one hour (`AppState::climate_cache`); nothing
-is cached in Postgres, so the current season is always evaluated on current data.
+data, measured or estimated. The read is memoized in-process for one hour
+(`AppState::climate_cache`), and re-read when the basis plan changes; nothing is cached in
+Postgres, so the current season is always evaluated on current data.
+
+**Estimated soil.** A crossing run is estimated when any of its first 5 days rests on the
+soil estimate. It counts — this season and in every history year — only where the
+estimate's scored error at 5 cm beats the spread between years for that threshold and
+direction (`scores::datable`, under the stored 5 cm fit's calibration). Such a date is
+marked estimated with the estimate's median error in days, and a typical date says how
+many of its years were estimated. While the lawn's soil rests on the estimate, a window
+with a soil trigger the estimate cannot date and no measured history year is not shown,
+with a note.
 
 ## Method
 
@@ -142,13 +152,14 @@ The windows are the single source for pre-emergent and seeding timing everywhere
   Closed → Missed), so a cold spring keeps pre-emergent Active past its typical close
   exactly as the Timing page does; other years use the typical dates. The handler drops
   the plan's own 10 cm version of every activity the windows answer for on that lawn
-  (`plan::owned_ids`) and adds the timing ones, so when the lake is unavailable — or for
+  (`plan::owned_ids`) and adds the timing ones, so when the weather record cannot answer — or for
   a warm-season lawn, which has no seeding window — the legacy 10 cm activity remains. A
   window ruled out by the log is left off the plan, and because removal goes by
   `owned_ids` rather than by what came back, its legacy twin cannot reappear; a fall
   `PreEmergent` no longer marks the *spring* application complete.
 
-A lake outage degrades the feed to no timing recommendations rather than an error.
+A weather record that cannot answer (no location, history still loading) degrades the
+feed to no timing recommendations rather than an error.
 
 ## Page
 
@@ -188,11 +199,10 @@ tools (reviewed 2026-09-20). Deliberate differences:
 
 ## Caveats
 
-- The station (USCRN PA Avondale by default) is not the yard. Soil there is measured
-  under natural sod; a thin, sunny, south-facing lawn warms earlier in spring.
+- A station is not the yard. Soil there is measured under natural sod; a thin, sunny,
+  south-facing lawn warms earlier in spring. Estimated soil is a model of the location.
 - With under 5 complete history years the response carries a note that typical dates
   are rough. Percentiles equal earliest/latest until there are ~10 years.
-- The soil forecast reaches only as far as OpenWeatherMap's 5-day forecast and is
-  omitted when the 30-day air→soil fit is weak (R² < 0.3).
-- `today` is the **station-local** date, from the lake's UTC offset (read with the climate
-  record). The container clock is usually UTC, which runs a day ahead every evening.
+- The soil forecast reaches at most 10 full forecast days, and is omitted when the
+  30-day air→soil fit is weak (R² < 0.3) and there is no stored estimate.
+- `today` is the lawn's local date.

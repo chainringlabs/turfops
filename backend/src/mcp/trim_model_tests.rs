@@ -77,7 +77,7 @@ fn the_series_trim_matches_the_timing_response() {
     let response = TimingResponse {
         generated_at: Utc::now(),
         today: today(),
-        station: "NOAA USCRN station 3761".into(),
+        basis: Default::default(),
         soil: SoilNow {
             avg_5day_f: Some(70.0),
             as_of: Some(today()),

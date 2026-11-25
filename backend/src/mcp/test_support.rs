@@ -72,6 +72,7 @@ impl Lake {
     /// rows with air min 50 °F, 10 GDD, and a varying air mean and 10 cm soil mean (so
     /// the air-to-soil regression has something to fit). `gold_only` dates exist in gold
     /// alone (air min 41 °F, mean 51 °F, 1 GDD).
+    #[cfg(feature = "db-tests")]
     pub fn with_days(name: &str, days: i64, gold_only: &[chrono::NaiveDate]) -> Self {
         let dir = std::env::temp_dir();
         static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
@@ -192,6 +193,7 @@ pub struct ToolReply {
 
 impl ToolReply {
     /// The reply's JSON body.
+    #[cfg(feature = "db-tests")]
     pub fn json(&self) -> Value {
         assert!(!self.is_error, "tool error: {}", self.text);
         serde_json::from_str(&self.text).unwrap_or_else(|e| panic!("{e}: {}", self.text))

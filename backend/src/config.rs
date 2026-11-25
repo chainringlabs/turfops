@@ -63,7 +63,9 @@ pub struct NoaaConfig {
 pub struct DataLakeConfig {
     /// Silver hourly weather parquet (cleaned, deduped, one row per hourly observation).
     pub silver_weather_path: String,
-    /// Gold daily weather parquet (pre-aggregated daily means + gdd50).
+    /// Gold daily weather parquet. Accepted but no longer read: every daily series comes
+    /// from the weather record.
+    #[allow(dead_code)]
     pub gold_weather_path: String,
 }
 

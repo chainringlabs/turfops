@@ -48,6 +48,7 @@ fn data_is_fresh_up_to_five_days_after_the_last_soil_day() {
         .into_iter()
         .map(|d| ClimateDay {
             soil_temp_5_f: None,
+            soil_estimated: false,
             ..d
         })
         .collect();
@@ -88,6 +89,7 @@ fn a_crossing_seen_only_in_the_forecast_is_dated_no_earlier_than_today() {
         date: date(2026, 9, day),
         temp_f: 65.0,
         is_forecast: true,
+        estimated: false,
     }));
     let today = date(2026, 9, 4);
     let season = Season {

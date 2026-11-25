@@ -79,10 +79,7 @@ fn warm_season_lawns_only_get_the_pre_emergent_activities() {
     assert_eq!(ids, vec!["pre_emergent", "fall_pre_emergent"]);
 }
 
-fn plan_on(
-    today: NaiveDate,
-    days: &[crate::datasources::weather::ClimateDay],
-) -> Vec<PlannedActivity> {
+fn plan_on(today: NaiveDate, days: &[crate::models::climate::ClimateDay]) -> Vec<PlannedActivity> {
     let data = SeasonData::build(days, &[], today.year());
     activities(
         &data.season(days, today),

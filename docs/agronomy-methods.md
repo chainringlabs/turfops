@@ -10,12 +10,16 @@ a threshold, tier or rule in the code changes.**
 - Cool-season lawn (tall fescue, Kentucky bluegrass, perennial ryegrass, or a `Mixed`
   cool-season blend) in USDA zone 7a, southeast Pennsylvania. Warm-season grass types
   exist in the model but get no cool-season program (no fall feedings or seeding).
-- **Soil and rain**: NOAA USCRN station PA Avondale (WBANNO 3761), read from a local
-  data lake. Silver = hourly observations; gold = daily means and `gdd50`. The lake
-  trails real time by about a day, so "today" is station-local and usually partial.
-- **Air temperature / humidity now**: a Home Assistant patio sensor.
-- **Forecast**: OpenWeatherMap 5-day / 3-hourly, bucketed by local date. Whole-day
-  judgments skip the partial first and last day.
+- **Weather record**: TurfOps fetches its own weather into a per-lawn record — the
+  owner's sensors, nearby stations (NOAA USCRN and others), the PRISM grid at the lawn,
+  the hourly analysis for the location, and a soil estimate — and resolves each input,
+  each day, to one basis. Every value says what it rests on; "today" is the lawn's local
+  date.
+- **Air temperature / humidity now**: the owner's sensor when one is mapped (a Home
+  Assistant patio sensor here), else a nearby station or the hourly analysis.
+- **Forecast**: from the provider chosen in setup (Open-Meteo, the National Weather
+  Service or OpenWeatherMap), bucketed by local date. Whole-day judgments skip the
+  partial first and last day.
 - All temperatures are °F. Timing windows use **5 cm** soil; the live reading, grub
   window and soil-temperature outlook use **10 cm**.
 
@@ -24,10 +28,9 @@ a threshold, tier or rule in the code changes.**
 | Situation | What TurfOps does |
 |-----------|-------------------|
 | Newest soil reading older than 72 h | Not used as current; `soil_observed_at` shows the real time and the dashboard shows a banner |
-| Station data older than 5 days | Timing windows trust only confirmed crossings and otherwise fall back to the calendar |
+| Soil data older than 5 days | Timing windows trust only confirmed crossings and otherwise fall back to the calendar |
 | Forecast fetch fails | A forecast up to 6 h old is kept |
-| Lake read fails | Timing recommendations drop out rather than guess |
-| Weather record cannot answer (no location, or a read fails) | Disease recommendations drop out rather than guess |
+| Weather record cannot answer (no location, history loading, or a read fails) | Timing and disease recommendations drop out rather than guess |
 
 ## Thresholds (TTTF, zone 7a)
 

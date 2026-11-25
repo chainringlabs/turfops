@@ -23,6 +23,7 @@ fn history_is_up_to_15_complete_years_with_300_soil_days() {
         .map(|d| ClimateDay {
             date: d,
             soil_temp_5_f: Some(55.0),
+            soil_estimated: false,
             air_min_f: Some(40.0),
             air_avg_f: Some(50.0),
             gdd50: Some(0.0),
@@ -54,6 +55,7 @@ fn day(on: NaiveDate, air_min_f: Option<f64>) -> ClimateDay {
     ClimateDay {
         date: on,
         soil_temp_5_f: Some(50.0),
+        soil_estimated: false,
         air_min_f,
         air_avg_f: Some(50.0),
         gdd50: Some(0.0),

@@ -1,8 +1,8 @@
 use crate::db::soil_estimate_queries;
-use crate::db::weather_queries::plan;
+
 use crate::db::{plant_queries, queries};
 use crate::error::TurfOpsError;
-use crate::logic::data_sync::record_asked;
+use crate::logic::data_sync::{plan_key, record_asked};
 use crate::logic::plant_maintenance::{build_plant_activities, plant_log_range};
 use crate::logic::rules::plan_state::{season_states, SeasonInputs, SeasonState};
 use crate::logic::seasonal_plan::{
@@ -143,15 +143,7 @@ async fn record_crossings(state: &AppState) -> Arc<RecordCrossings> {
 async fn find_crossings(state: &AppState) -> Result<Arc<RecordCrossings>, TurfOpsError> {
     let asked = record_asked(&state.pool, &state.clock).await?;
     let today = asked.at.today;
-    let placed = plan::read(&state.pool).await?;
-    let key = format!(
-        "{today}|{}",
-        placed
-            .iter()
-            .map(|p| format!("{}:{}:{}", p.input.as_str(), p.rank, p.source.id))
-            .collect::<Vec<_>>()
-            .join(",")
-    );
+    let key = format!("{today}|{}", plan_key(&state.pool).await?);
     let now = asked.at.now;
     if let Some((held, at, found)) = state.crossing_memo.read().await.as_ref() {
         let same = held.as_ref().is_none_or(|held| *held == key);

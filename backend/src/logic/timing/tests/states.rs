@@ -20,6 +20,8 @@ fn b(label: &str, on: Option<(u32, u32)>, source: DateSource, passed: bool) -> B
         source,
         passed,
         days_held: (source == DateSource::Tentative).then_some(2),
+        estimated: false,
+        typical_error_days: None,
     }
 }
 
@@ -129,6 +131,7 @@ fn stat(median: (u32, u32), p90: (u32, u32)) -> DateStat {
         latest: d(p90) + Duration::days(2),
         sample_count: 12,
         confidence: WindowConfidence::High,
+        estimated_years: 0,
     }
 }
 

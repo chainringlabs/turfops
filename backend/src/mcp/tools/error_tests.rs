@@ -57,16 +57,6 @@ fn an_unreadable_lake_names_what_is_missing_without_path_or_sql() {
     );
 }
 
-// @spec MCP-ERR-003
-#[tokio::test]
-async fn a_tool_over_a_missing_lake_says_the_lake_could_not_be_read() {
-    let state = state(unreachable_pool(), &Lake::missing("lake-err")).await;
-    let reply = call_tool(&state, "weather_history", json!({})).await;
-    assert!(reply.is_error);
-    assert_eq!(reply.text, format!("{LAKE_TEXT} {MISSING_DATA_HINT}"));
-    assert!(!reply.text.contains("nonexistent"), "{}", reply.text);
-}
-
 // @spec MCP-ERR-004
 #[tokio::test]
 async fn a_failed_upstream_request_says_a_source_did_not_respond() {

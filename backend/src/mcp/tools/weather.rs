@@ -1,14 +1,16 @@
-//! Station weather history as daily rows. The REST `/historical` endpoint downsamples
-//! hourly points for its charts, so it cannot give a true daily rain total; this tool
-//! joins two daily lake reads instead: silver aggregated per local day (air, humidity,
-//! rain) and the memoized climate record (5 cm soil, gold `gdd50`).
+//! Weather history as daily rows. The REST `/historical` endpoint downsamples hourly
+//! points for its charts, so it cannot give a true daily rain total; this tool joins two
+//! daily reads of the weather record instead: hourly air, humidity and rain per local day,
+//! and the memoized climate record (5 cm soil, daily air, `gdd50`).
 
 use super::{json_result, tool_error};
 use crate::api;
-use crate::datasources::weather::ClimateDay;
-use crate::error::{Source, TurfOpsError};
+use crate::error::TurfOpsError;
+use crate::logic::data_sync::record_asked;
+use crate::logic::weather_record::record::WeatherRecord;
 use crate::mcp::TurfOpsMcp;
-use crate::models::{celsius_to_fahrenheit, DailyWeather};
+use crate::models::climate::ClimateDay;
+use crate::models::{celsius_to_fahrenheit, DailyWeather, AFTERNOON_HOURS, DAWN_HOURS};
 use chrono::{Duration, NaiveDate};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::CallToolResult;
@@ -27,7 +29,7 @@ pub struct WeatherHistoryParams {
     pub days: Option<i64>,
 }
 
-/// One station-local day. Any value can be missing (sensor outages, the lake's lag).
+/// One lawn-local day. Any value can be missing (a source not yet reporting).
 #[derive(Debug, Default, PartialEq, Serialize)]
 pub struct HistoryDay {
     pub date: NaiveDate,
@@ -77,20 +79,14 @@ impl TurfOpsMcp {
 impl TurfOpsMcp {
     // @spec MCP-HIST-003, MCP-HIST-007
     async fn history(&self, days: i64) -> Result<WeatherHistory, TurfOpsError> {
-        let client = self
-            .state
-            .sync_service
-            .read()
-            .await
-            .weather_client()
-            .cloned();
-        let client = client.ok_or_else(|| TurfOpsError::not_configured(Source::WeatherLake))?;
-        let start = history_start(self.state.clock.today(), days);
-        let (lake, climate) = tokio::try_join!(
-            client.fetch_daily_disease_inputs(start),
-            api::timing::climate_record(&self.state, &client),
+        let asked = record_asked(&self.state.pool, &self.state.clock).await?;
+        let start = history_start(asked.at.today, days);
+        let record = WeatherRecord::new(self.state.pool.clone());
+        let (observed, climate) = tokio::try_join!(
+            record.fetch_daily_disease_inputs(start, DAWN_HOURS, AFTERNOON_HOURS, asked),
+            api::timing::climate_record(&self.state),
         )?;
-        Ok(join_days(&lake.days, &climate.days, start))
+        Ok(join_days(&observed.days, &climate.days, start))
     }
 }
 
@@ -122,7 +118,7 @@ fn join_days(
         let r = entry(&mut rows, day.date);
         r.soil_5cm_f = day.soil_temp_5_f.map(round1);
         r.gdd50 = day.gdd50.map(round1);
-        // Gold's air values fill a day silver has nothing for.
+        // The daily air fills a day the hourly air has nothing for.
         r.air_mean_f = r.air_mean_f.or(day.air_avg_f.map(round1));
         r.air_min_f = r.air_min_f.or(day.air_min_f.map(round1));
     }
@@ -132,9 +128,9 @@ fn join_days(
         rain_total_in: round2(days.iter().filter_map(|d| d.rain_in).sum()),
         gdd50_total: round1(days.iter().filter_map(|d| d.gdd50).sum()),
         days,
-        note: "Station-local days from NOAA USCRN. A day with fewer than 24 hours observed \
-               is partial; its totals are low and its min / max may be missing the dawn \
-               low or afternoon high.",
+        note: "Lawn-local days from the weather record. A day with fewer than 24 hours \
+               observed is partial; its totals are low and its min / max may be missing the \
+               dawn low or afternoon high.",
     }
 }
 
@@ -190,6 +186,7 @@ mod tests {
         ClimateDay {
             date: d(date),
             soil_temp_5_f: soil,
+            soil_estimated: false,
             air_min_f: Some(50.0),
             air_avg_f: Some(60.0),
             gdd50: gdd,
@@ -226,7 +223,7 @@ mod tests {
 
     // @spec MCP-HIST-003, MCP-HIST-005
     #[test]
-    fn days_before_start_are_dropped_and_gold_fills_missing_air() {
+    fn days_before_start_are_dropped_and_daily_air_fills_missing_air() {
         let history = join_days(
             &[observed("2026-09-10", 20.0, 0.0, 24.0)],
             &[

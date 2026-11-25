@@ -75,8 +75,11 @@ The first slice that changes what the owner sees. Five PRs:
    summary (PR 2).
 4. Timing windows, disease risk and `/historical`, in three parts: (a) `/historical` from the
    record, with basis-aware trend charts and the Environmental page's source credits
-   (#387); (b) disease risk from the record, approximate tiers marked (in review, stacked
-   on 4a); (c) timing windows from the record.
+   (#387, merged); (b) disease risk from the record, approximate tiers marked (#388,
+   merged); (c) timing windows from the record, in two parts: (c1) the windows, the
+   seasonal plan's timing activities and MCP `weather_history` on the record, with the
+   estimated-soil rules — after it nothing reads the lake (in review); (c2) the Timing
+   page's basis labels, estimated dates and chart.
 5. The clock follows the location, the no-location notice, MCP results without coordinates,
    MCP tools on the record, and the retired-settings lines.
 

@@ -2,13 +2,22 @@ use crate::models::seasonal_plan::WindowConfidence;
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::Serialize;
 
+/// What the windows' inputs rest on: 5 cm soil and daily air on the newest day the
+/// record holds, and their spans over the current year.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct TimingBasis {
+    pub soil: Option<crate::models::weather_basis::Basis>,
+    pub air: Option<crate::models::weather_basis::Basis>,
+    pub spans: Vec<crate::models::weather_basis::BasisSpan>,
+}
+
 /// Response of `GET /api/v1/timing-windows`: seeding and pre-emergent windows derived
-/// from the station's 5 cm soil-temperature record and its freeze climatology.
+/// from the weather record's 5 cm soil temperature and its freeze climatology.
 #[derive(Debug, Clone, Serialize)]
 pub struct TimingResponse {
     pub generated_at: DateTime<Utc>,
     pub today: NaiveDate,
-    pub station: String,
+    pub basis: TimingBasis,
     pub soil: SoilNow,
     pub freeze: FreezeDates,
     pub windows: Vec<TimingWindow>,
@@ -39,6 +48,8 @@ pub struct DateStat {
     pub latest: NaiveDate,
     pub sample_count: usize,
     pub confidence: WindowConfidence,
+    /// How many of the `sample_count` years were dated from an estimated soil run.
+    pub estimated_years: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -121,6 +132,10 @@ pub struct BoundaryView {
     pub passed: bool,
     /// Observed days the soil trigger has held so far (tentative crossings only).
     pub days_held: Option<u32>,
+    /// The date rests on the soil estimate.
+    pub estimated: bool,
+    /// For an estimated date, the estimate's scored median error in days.
+    pub typical_error_days: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -161,7 +176,11 @@ pub struct SeasonContext {
 pub struct SoilSeriesDay {
     pub date: NaiveDate,
     pub this_year: Option<f64>,
+    /// This year's value rests on the soil estimate.
+    pub this_year_estimated: bool,
     pub forecast: Option<f64>,
     pub last_year: Option<f64>,
+    /// Last year's value rests on the soil estimate.
+    pub last_year_estimated: bool,
     pub typical: Option<f64>,
 }

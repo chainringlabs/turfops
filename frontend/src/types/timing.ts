@@ -1,3 +1,4 @@
+import type { Basis } from "./sources";
 // Mirrors backend/src/models/timing.rs
 
 import type { WindowConfidence } from ".";
@@ -31,6 +32,8 @@ export interface DateStat {
 	latest: string;
 	sample_count: number;
 	confidence: WindowConfidence;
+	/** How many of `sample_count` years were dated from the soil estimate. */
+	estimated_years: number;
 }
 
 export interface BoundaryView {
@@ -41,6 +44,10 @@ export interface BoundaryView {
 	source: DateSource;
 	passed: boolean;
 	days_held: number | null;
+	/** The date rests on the soil estimate. */
+	estimated: boolean;
+	/** For an estimated date, the estimate's scored median error in days. */
+	typical_error_days: number | null;
 }
 
 export interface TimingWindow {
@@ -83,15 +90,34 @@ export interface SeasonContext {
 export interface SoilSeriesDay {
 	date: string;
 	this_year: number | null;
+	/** This year's value rests on the soil estimate. */
+	this_year_estimated: boolean;
 	forecast: number | null;
 	last_year: number | null;
+	/** Last year's value rests on the soil estimate. */
+	last_year_estimated: boolean;
 	typical: number | null;
+}
+
+/** One stretch of days whose input rests on one basis. */
+export interface TimingBasisSpan {
+	input: string;
+	from: string;
+	to: string;
+	basis: Basis;
+}
+
+/** What 5 cm soil and daily air rest on: the newest day's, and this year's spans. */
+export interface TimingBasis {
+	soil: Basis | null;
+	air: Basis | null;
+	spans: TimingBasisSpan[];
 }
 
 export interface TimingResponse {
 	generated_at: string;
 	today: string;
-	station: string;
+	basis: TimingBasis;
 	soil: SoilNow;
 	freeze: FreezeDates;
 	windows: TimingWindow[];

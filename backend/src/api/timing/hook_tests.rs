@@ -1,6 +1,6 @@
 //! The timing windows' hooks into the recommendation feed and the seasonal plan.
 
-use super::db_harness::{app_state, forecast_body, lawn, Lake, ZONE};
+use super::db_harness::{app_state, climate, forecast_body, lawn, ZONE};
 use super::*;
 use crate::models::seasonal_plan::ActivityStatus;
 use crate::models::timing::{WindowId, WindowState};
@@ -20,10 +20,18 @@ fn fall_herbicide() -> Recommendation {
 
 // @spec TIME-FEED-007
 #[sqlx::test(migrations = "src/db/migrations")]
-async fn an_unreadable_lake_leaves_the_feed_as_the_rules_made_it(pool: PgPool) {
+async fn an_unanswering_record_leaves_the_feed_as_the_rules_made_it(pool: PgPool) {
+    // A lawn with no location: the weather record cannot answer.
+    let unplaced = crate::models::LawnProfile::new(
+        "Test".into(),
+        crate::models::GrassType::TallFescue,
+        "7a".into(),
+    );
+    queries::create_lawn_profile(&pool, &unplaced)
+        .await
+        .unwrap();
     let profile = lawn(&pool).await;
-    let lake = Lake::missing();
-    let state = app_state(&pool, &lake, None).await;
+    let state = app_state(&pool, None).await;
     let mut recs = vec![fall_herbicide()];
     apply_to_feed(&state, &profile, &[], &mut recs).await;
     assert_eq!(recs.len(), 1, "no timing or aeration recommendation added");
@@ -33,21 +41,30 @@ async fn an_unreadable_lake_leaves_the_feed_as_the_rules_made_it(pool: PgPool) {
 
 // @spec TIME-PLAN-006
 #[sqlx::test(migrations = "src/db/migrations")]
-async fn without_the_lake_or_its_history_the_plan_keeps_its_own_activities(pool: PgPool) {
-    let profile = lawn(&pool).await;
+async fn without_an_answer_or_a_history_the_plan_keeps_its_own_activities(pool: PgPool) {
     let year = ZONE.today().year();
-
-    let missing = Lake::missing();
-    let state = app_state(&pool, &missing, None).await;
-    assert!(plan_activities(&state, &profile, year).await.is_none());
+    let yesterday = ZONE.today() - Duration::days(1);
 
     // Only this year on record: no typical dates, so no activities.
-    let no_history = Lake::with_years(0);
-    let state = app_state(&pool, &no_history, None).await;
+    climate(&pool, 0, yesterday).await;
+    let mut profile = lawn(&pool).await;
+    let state = app_state(&pool, None).await;
     assert!(plan_activities(&state, &profile, year).await.is_none());
 
-    let lake = Lake::with_years(6);
-    let state = app_state(&pool, &lake, None).await;
+    // The record cannot answer once the lawn has no location.
+    profile.location = None;
+    queries::update_lawn_profile(&pool, &profile).await.unwrap();
+    let state = app_state(&pool, None).await;
+    assert!(plan_activities(&state, &profile, year).await.is_none());
+}
+
+// @spec TIME-PLAN-006
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn with_a_history_the_plan_gets_timing_activities(pool: PgPool) {
+    climate(&pool, 6, ZONE.today() - Duration::days(1)).await;
+    let profile = lawn(&pool).await;
+    let state = app_state(&pool, None).await;
+    let year = ZONE.today().year();
     assert!(plan_activities(&state, &profile, year).await.is_some());
 }
 
@@ -75,14 +92,14 @@ fn status_for(state: WindowState) -> Option<ActivityStatus> {
 // @spec TIME-PLAN-007
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_plan_reads_the_windows_as_the_timing_page_does(pool: PgPool) {
+    climate(&pool, 6, ZONE.today() - Duration::days(1)).await;
     let profile = lawn(&pool).await;
-    let lake = Lake::with_years(6);
     // A full week of forecast, so the soil outlook runs.
     let week: Vec<(i64, Vec<f64>)> = (0..7)
         .map(|d| (d, vec![50.0, 48.0, 52.0, 60.0, 66.0, 64.0, 58.0, 54.0]))
         .collect();
     let base = stub_http(200, forecast_body(&week)).await;
-    let state = app_state(&pool, &lake, Some(&base)).await;
+    let state = app_state(&pool, Some(&base)).await;
 
     let page = compute(&state, &profile).await.unwrap();
     assert!(

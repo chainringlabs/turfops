@@ -17,10 +17,6 @@ const DEW_POINT_SQL: &str =
      / (17.625 - (ln(rh_pct / 100) + 17.625 * air_temp_c / (243.04 + air_temp_c)))";
 
 impl WeatherLakeClient {
-    pub fn station_wbanno(&self) -> i32 {
-        self.station_wbanno
-    }
-
     // @spec DIS-MODEL-DAY-004
     /// Aggregate silver hourly observations into one row per local calendar day from
     /// `start` onward. Hours missing air temp or RH are skipped, so `hours_covered`

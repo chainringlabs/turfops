@@ -1,7 +1,8 @@
-//! `GET /api/v1/timing-windows` against a real database and weather lake.
+//! `GET /api/v1/timing-windows` against a real database and the weather record.
 
-use super::db_harness::{app_state, forecast_body, lawn, Lake, ZONE};
+use super::db_harness::{app_state, climate, forecast_body, lawn, ZONE};
 use super::*;
+use crate::models::weather_basis::BasisKind;
 use crate::test_support::stub_http;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -16,20 +17,44 @@ async fn status_of(state: AppState) -> StatusCode {
     }
 }
 
+/// Six years and this year through yesterday.
+async fn six_years(pool: &PgPool) {
+    climate(pool, 6, ZONE.today() - Duration::days(1)).await;
+}
+
 // @spec TIME-ENG-041
 #[sqlx::test(migrations = "src/db/migrations")]
-async fn no_profile_is_404_and_an_unreadable_lake_is_503(pool: PgPool) {
-    let lake = Lake::with_years(6);
+async fn no_profile_is_404_and_the_records_outages_are_its_503s(pool: PgPool) {
     assert_eq!(
-        status_of(app_state(&pool, &lake, None).await).await,
+        status_of(app_state(&pool, None).await).await,
         StatusCode::NOT_FOUND
     );
 
-    lawn(&pool).await;
-    let missing = Lake::missing();
+    six_years(&pool).await;
+    // History still loading: the station's download has not reached what is wanted.
+    sqlx::query("UPDATE weather_fetch_state SET held_from = NULL, held_through = NULL")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let state = app_state(&pool, None).await;
+    let loading = get_timing_windows(State(state.clone())).await.unwrap_err();
+    assert!(
+        loading.owner_message().contains("history"),
+        "{}",
+        loading.owner_message()
+    );
     assert_eq!(
-        status_of(app_state(&pool, &missing, None).await).await,
+        loading.into_response().status(),
         StatusCode::SERVICE_UNAVAILABLE
+    );
+
+    let mut profile = lawn(&pool).await;
+    profile.location = None;
+    queries::update_lawn_profile(&pool, &profile).await.unwrap();
+    let unplaced = get_timing_windows(State(state)).await.unwrap_err();
+    assert_eq!(
+        unplaced.owner_message(),
+        TurfOpsError::location_not_set().owner_message()
     );
 }
 
@@ -47,14 +72,23 @@ fn keys(value: &serde_json::Value) -> Vec<&str> {
 // @spec TIME-ENG-040, TIME-ENG-044
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_response_carries_windows_context_series_and_notes(pool: PgPool) {
-    lawn(&pool).await;
-    let lake = Lake::with_years(6);
-    let Json(response) = get_timing_windows(State(app_state(&pool, &lake, None).await))
+    six_years(&pool).await;
+    let Json(response) = get_timing_windows(State(app_state(&pool, None).await))
         .await
         .unwrap();
     let today = ZONE.today();
     assert_eq!(response.today, today);
-    assert_eq!(response.station, "NOAA USCRN station 3761");
+    assert_eq!(
+        response.basis.soil.as_ref().map(|b| b.kind),
+        Some(BasisKind::Station)
+    );
+    assert_eq!(
+        response.basis.air.as_ref().map(|b| b.kind),
+        Some(BasisKind::Estimate)
+    );
+    let jan1 = NaiveDate::from_ymd_opt(today.year(), 1, 1).unwrap();
+    assert!(!response.basis.spans.is_empty());
+    assert!(response.basis.spans.iter().all(|s| s.from >= jan1));
     assert_eq!(response.soil.as_of, Some(today - Duration::days(1)));
     assert!(response.soil.avg_5day_f.is_some());
     assert!(response.freeze.first_fall.is_some() && response.freeze.last_spring.is_some());
@@ -72,6 +106,7 @@ async fn the_response_carries_windows_context_series_and_notes(pool: PgPool) {
     assert_eq!(
         keys(&json),
         vec![
+            "basis",
             "context",
             "data_notes",
             "freeze",
@@ -79,7 +114,6 @@ async fn the_response_carries_windows_context_series_and_notes(pool: PgPool) {
             "history_years",
             "series",
             "soil",
-            "station",
             "today",
             "windows"
         ]
@@ -106,7 +140,16 @@ async fn the_response_carries_windows_context_series_and_notes(pool: PgPool) {
     );
     assert_eq!(
         keys(&window["opens"]),
-        vec!["date", "days_held", "label", "passed", "source", "typical"]
+        vec![
+            "date",
+            "days_held",
+            "estimated",
+            "label",
+            "passed",
+            "source",
+            "typical",
+            "typical_error_days"
+        ]
     );
     assert_eq!(
         keys(&json["context"]),
@@ -140,20 +183,32 @@ async fn table_counts(pool: &PgPool) -> Vec<(String, i64)> {
     counts
 }
 
-// @spec TIME-ENG-038
+// @spec TIME-ENG-038, SYNC-MEMO-001, SYNC-MEMO-002, TIME-ENG-046
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_climate_record_is_memoized_in_memory_not_in_postgres(pool: PgPool) {
-    lawn(&pool).await;
-    let lake = Lake::with_years(6);
-    let state = app_state(&pool, &lake, None).await;
+    six_years(&pool).await;
+    let state = app_state(&pool, None).await;
     let before = table_counts(&pool).await;
     let Json(first) = get_timing_windows(State(state.clone())).await.unwrap();
     assert_eq!(first.windows.len(), 5);
     assert!(state.climate_cache.read().await.is_some(), "held in memory");
     assert_eq!(table_counts(&pool).await, before, "nothing stored");
 
-    // Within the hour the memoized record answers even with the lake gone.
-    lake.unmount();
+    // A record read under another basis plan is not served: it is read again.
+    let held = state.climate_cache.read().await.clone().unwrap().2;
+    if let Some((key, _, _)) = state.climate_cache.write().await.as_mut() {
+        *key = "another plan".into();
+    }
+    let Json(_) = get_timing_windows(State(state.clone())).await.unwrap();
+    let reread = state.climate_cache.read().await.clone().unwrap();
+    assert!(!Arc::ptr_eq(&held, &reread.2), "re-read under the new plan");
+    assert_ne!(reread.0, "another plan");
+
+    // Within the hour the memoized record answers even when the record cannot: the lawn
+    // has lost its location.
+    let mut profile = lawn(&pool).await;
+    profile.location = None;
+    queries::update_lawn_profile(&pool, &profile).await.unwrap();
     let Json(again) = get_timing_windows(State(state.clone())).await.unwrap();
     assert_eq!(again.history_years.len(), 6);
     assert!(again
@@ -161,8 +216,8 @@ async fn the_climate_record_is_memoized_in_memory_not_in_postgres(pool: PgPool) 
         .iter()
         .all(|n| !n.contains("last good read")));
 
-    // An hour on, the record is read again — and the lake is gone.
-    if let Some((read_at, _)) = state.climate_cache.write().await.as_mut() {
+    // An hour on, the record is read again, fails, and the last good read stands in.
+    if let Some((_, read_at, _)) = state.climate_cache.write().await.as_mut() {
         *read_at -= chrono::Duration::minutes(61);
     }
     let Json(stale) = get_timing_windows(State(state)).await.unwrap();
@@ -176,10 +231,9 @@ async fn the_climate_record_is_memoized_in_memory_not_in_postgres(pool: PgPool) 
 // @spec TIME-ENG-045
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn a_failed_forecast_fetch_still_answers_without_the_forecast(pool: PgPool) {
-    lawn(&pool).await;
-    let lake = Lake::with_years(6);
+    six_years(&pool).await;
     let base = stub_http(500, r#"{"cod":500,"message":"upstream down"}"#).await;
-    let state = app_state(&pool, &lake, Some(&base)).await;
+    let state = app_state(&pool, Some(&base)).await;
     let Json(response) = get_timing_windows(State(state)).await.unwrap();
     assert_eq!(response.windows.len(), 5);
     assert!(response.series.iter().all(|d| d.forecast.is_none()));
@@ -198,14 +252,12 @@ const MILD: [f64; 8] = [50.0, 48.0, 52.0, 60.0, 66.0, 64.0, 58.0, 54.0];
 // @spec TIME-ENG-009
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn only_full_forecast_days_reach_the_windows(pool: PgPool) {
-    lawn(&pool).await;
-    let lake = Lake::with_years(6);
+    six_years(&pool).await;
     let alerts = |body: &'static str| {
         let pool = pool.clone();
-        let lake = &lake;
         async move {
             let base = stub_http(200, body).await;
-            let state = app_state(&pool, lake, Some(&base)).await;
+            let state = app_state(&pool, Some(&base)).await;
             let Json(r) = get_timing_windows(State(state)).await.unwrap();
             assert!(r.data_notes.iter().all(|n| !n.starts_with(NO_FORECAST)));
             r.context.forecast_alerts

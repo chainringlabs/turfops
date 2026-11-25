@@ -1,4 +1,4 @@
-use crate::datasources::weather::ClimateDay;
+use crate::models::climate::ClimateDay;
 use crate::models::seasonal_plan::WindowConfidence;
 use crate::models::timing::DateStat;
 use chrono::{Datelike, Duration, NaiveDate};
@@ -162,6 +162,7 @@ pub fn date_stat(events: &[(i32, NaiveDate)], target_season_year: i32) -> Option
         latest: to_date(offsets[n - 1]),
         sample_count: n,
         confidence: confidence(n),
+        estimated_years: 0,
     })
 }
 
@@ -181,6 +182,7 @@ mod tests {
             .map(|d| ClimateDay {
                 date: d,
                 soil_temp_5_f: Some(55.0),
+                soil_estimated: false,
                 air_min_f: Some(min_for(d)),
                 air_avg_f: None,
                 gdd50: Some(if d.month() >= 5 { 10.0 } else { 0.0 }),

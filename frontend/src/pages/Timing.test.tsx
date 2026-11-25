@@ -1,10 +1,20 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { getTimingWindows } from "../api/client";
 import { ApiError } from "../api/errors";
 import { response, stat } from "../components/timing/testFixtures";
 import Timing from "./Timing";
+
+/** The page inside a router: its basis label links to the Sources page. */
+function show() {
+	return render(
+		<MemoryRouter>
+			<Timing />
+		</MemoryRouter>,
+	);
+}
 
 vi.mock("../api/client", () => ({ getTimingWindows: vi.fn() }));
 // The chart has its own tests; here it only marks its place on the page.
@@ -30,7 +40,7 @@ function rejectWith(err: ApiError) {
 describe("Timing page layout", () => {
 	it("shows notes, tiles, context, primary cards by urgency, chart, other options, then the method", async () => {
 		mocked.mockResolvedValue(response());
-		render(<Timing />);
+		show();
 		await screen.findByText("Headline fall_seeding");
 
 		const order = [
@@ -54,7 +64,7 @@ describe("Timing page layout", () => {
 
 	it("fills the tiles: soil mean with as-of date, spring freeze as late as p90, fall freeze as early as p10", async () => {
 		mocked.mockResolvedValue(response());
-		render(<Timing />);
+		show();
 		await screen.findByText("66.2°F");
 		expect(screen.getByText("as of Sep 19")).toBeInTheDocument();
 		expect(screen.getByText("Apr 10")).toBeInTheDocument();
@@ -74,7 +84,7 @@ describe("Timing page layout", () => {
 				},
 			}),
 		);
-		render(<Timing />);
+		show();
 		await screen.findByText("this year: Oct 18");
 		expect(screen.queryByText(/as early as/)).not.toBeInTheDocument();
 	});
@@ -84,7 +94,7 @@ describe("Timing page layout", () => {
 describe("Timing page errors", () => {
 	it("tells an owner with no lawn profile to set one up in Settings", async () => {
 		rejectWith(new ApiError(404, "No lawn profile found"));
-		render(<Timing />);
+		show();
 		const msg = await screen.findByText(/Set one up in Settings/);
 		expect(msg.textContent).not.toMatch(/404/);
 	});
@@ -93,14 +103,14 @@ describe("Timing page errors", () => {
 		const sentence =
 			"The weather data lake can't be read right now, so soil, disease, timing and history data are unavailable. Try again in a few minutes; if it persists, check that the lake is mounted at DATALAKE_ROOT.";
 		rejectWith(new ApiError(503, sentence));
-		render(<Timing />);
+		show();
 		const msg = await screen.findByText(sentence);
 		expect(msg.textContent).not.toMatch(/503|\{/);
 	});
 
 	it("never shows internal detail for a server failure", async () => {
 		rejectWith(new ApiError(500, '{"error":"duckdb: IO Error /data/silver"}'));
-		render(<Timing />);
+		show();
 		const msg = await screen.findByText(/Something went wrong on the server/);
 		expect(msg.textContent).not.toMatch(/duckdb|500|\{/);
 	});

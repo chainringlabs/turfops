@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getTimingWindows } from "../api/client";
 import { describeError } from "../api/errors";
+import BasisLabel from "../components/sources/BasisLabel";
 import SoilSeasonChart from "../components/timing/SoilSeasonChart";
 import TimingMethod from "../components/timing/TimingMethod";
 import WindowCard from "../components/timing/WindowCard";
@@ -48,7 +49,7 @@ export default function Timing() {
 		<div>
 			<div style={sharedStyles.headerRow}>
 				<h1 style={sharedStyles.pageTitle}>Seeding & Pre-Emergent Timing</h1>
-				<span style={styles.station}>{data.station}</span>
+				{data.basis.soil && <BasisLabel basis={data.basis.soil} />}
 			</div>
 
 			{data.data_notes.length > 0 && (
@@ -142,7 +143,6 @@ export default function Timing() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-	station: { fontSize: "0.75rem", color: "#718096" },
 	notes: {
 		padding: "0.5rem 0.75rem",
 		backgroundColor: "#ebf8ff",
