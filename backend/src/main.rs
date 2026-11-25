@@ -69,15 +69,6 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::from_env()?;
     tracing::info!("Configuration loaded");
 
-    // @spec DEPLOY-TZ-003, DEPLOY-TZ-004
-    tracing::info!("Clock: {}", config.clock.describe(chrono::Utc::now()));
-    if config.clock.is_system() {
-        tracing::warn!(
-            "TZ is not set: every date gate follows the host's default zone (UTC in the \
-             container image). Set TZ to the lawn's timezone, for example America/New_York"
-        );
-    }
-
     // Connect to app database and run migrations
     let pool = create_pool(
         config.database.connect_options(),
@@ -87,6 +78,11 @@ async fn main() -> anyhow::Result<()> {
 
     // Create default profile if DB is empty
     ensure_default_profile(&pool, &config).await?;
+
+    // The app's clock: the lawn's location's zone, or the host's default without one.
+    // @spec DEPLOY-TZ-002, DEPLOY-TZ-003
+    let clock = clock::Clock::of_lawn(queries::get_default_lawn_profile(&pool).await?.as_ref());
+    tracing::info!("Clock: {}", clock.describe(chrono::Utc::now()));
 
     import_connections(&pool, &config).await?;
 
@@ -115,25 +111,18 @@ async fn main() -> anyhow::Result<()> {
     let sync_service = sync_service
         .with_forecast(schedule.forecast_slot())
         .with_waker(weather_waker.clone());
-    let weather_schedule = tokio::spawn(schedule.run());
     let pool_for_setup = pool.clone();
 
     // Create app state
     let mcp_token = config.mcp.token.clone();
     let sensor_token = config.sensor_readings.token.clone();
-    let state = AppState::new(
-        pool,
-        sync_service,
-        openrouter,
-        mcp_token.is_some(),
-        config.clock,
-    )
-    .waking(weather_waker)
-    .posting_when(sensor_token.is_some())
-    .fetching(logic::weather_sync::fetcher::Fetcher::new(
-        pool_for_setup,
-        logic::weather_sync::fetcher::Clients::new(),
-    ));
+    let state = AppState::new(pool, sync_service, openrouter, mcp_token.is_some(), clock)
+        .waking(weather_waker)
+        .posting_when(sensor_token.is_some())
+        .fetching(logic::weather_sync::fetcher::Fetcher::new(
+            pool_for_setup,
+            logic::weather_sync::fetcher::Clients::new(),
+        ));
 
     // Build router
     let app = Router::new()
@@ -333,6 +322,8 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Starting server on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
+    // The schedule starts once the listener is bound.
+    let weather_schedule = tokio::spawn(schedule.run());
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await?;
