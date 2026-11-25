@@ -24,10 +24,10 @@ mod test_support;
 mod tests;
 #[cfg(test)]
 mod window_tests;
-pub use crossings::analyze_year;
-use crossings::{aggregate_crossings, voting_years, AggregatedWindow};
 #[cfg(test)]
-use crossings::{find_threshold_crossings, year_settled};
+use crossings::find_threshold_crossings;
+use crossings::{aggregate_crossings, voting_years, AggregatedWindow};
+pub use crossings::{crossings_from_record, RecordCrossings};
 
 /// Activities that only make sense on cool-season turf: fall seeding and aeration, and the
 /// spring / fall / winterizer feeding program. A warm-season lawn is fed in summer and goes
@@ -43,10 +43,10 @@ const COOL_SEASON_ONLY: [&str; 6] = [
     "winterizer",
 ];
 
-/// Build the full seasonal plan from aggregated threshold data and application history.
-/// Only settled years (PLAN-CACHE-005) with cached crossings vote: the 10 most recent before
-/// the plan year. Statuses are judged on `today`, the lawn's local date.
-// @spec PLAN-CROSS-010, PLAN-MERGE-008
+/// Build the full seasonal plan from the year's crossings and the application history.
+/// Only settled years (PLAN-CROSS-013) with crossings vote: the 10 most recent before the
+/// plan year. Statuses are judged on `today`, the lawn's local date.
+// @spec PLAN-CROSS-010, PLAN-CROSS-012, PLAN-MERGE-008
 pub fn build_seasonal_plan(
     year: i32,
     crossings: &[ThresholdCrossing],
@@ -67,6 +67,10 @@ pub fn build_seasonal_plan(
         .filter(|c| voters.contains(&c.year))
         .cloned()
         .collect();
+    let estimated_years = voters
+        .iter()
+        .filter(|y| voting.iter().any(|c| c.year == **y && c.estimated))
+        .count() as i32;
     let mut activities = build_activities(year, &voting, applications, today);
     if !grass.is_cool_season() {
         activities.retain(|a| !COOL_SEASON_ONLY.contains(&a.id.as_str()));
@@ -76,6 +80,7 @@ pub fn build_seasonal_plan(
         year,
         activities,
         data_years_used: voters.len() as i32,
+        estimated_years,
         generated_at: chrono::Utc::now(),
         today,
     }

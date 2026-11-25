@@ -24,8 +24,8 @@ fn status(plan: &SeasonalPlan, id: &str) -> String {
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_plan_defaults_to_this_year_and_carries_every_field(pool: PgPool) {
     create_profile(&pool, "Front").await;
-    settled_history(&pool, STATION, this_year()).await;
     let state = state(&pool, None);
+    settled_history(&state, this_year()).await;
 
     let plan = get_plan(&state, None).await.unwrap();
     assert_eq!(plan.year, this_year());
@@ -82,8 +82,8 @@ async fn completion_reads_the_default_profiles_log_for_the_plan_year(pool: PgPoo
     let lawn = create_profile(&pool, "Front").await;
     let other = create_profile(&pool, "Back").await;
     let year = this_year() + 1;
-    settled_history(&pool, STATION, year).await;
     let state = state(&pool, None);
+    settled_history(&state, year).await;
     let aerated = |profile, on| application(profile, ApplicationType::Aeration, on);
 
     log(&pool, aerated(lawn, d(year - 1, 12, 31))).await;
@@ -113,10 +113,10 @@ async fn completion_reads_the_default_profiles_log_for_the_plan_year(pool: PgPoo
 async fn without_timing_windows_every_10cm_activity_stays(pool: PgPool) {
     create_profile(&pool, "Front").await;
     let year = this_year() + 1;
-    settled_history(&pool, STATION, year).await;
     // A lake whose parquet is missing: the timing windows cannot be dated.
     let dir = scratch("no-timing");
     let state = state(&pool, Some(lake(&dir.join("missing.parquet"))));
+    settled_history(&state, year).await;
 
     let plan = get_plan(&state, Some(year)).await.unwrap();
     let ids = ids(&plan);
@@ -132,8 +132,9 @@ async fn without_timing_windows_every_10cm_activity_stays(pool: PgPool) {
 async fn activities_come_back_in_start_order_ties_kept_in_place(pool: PgPool) {
     create_profile(&pool, "Front").await;
     let year = this_year() + 1;
-    settled_history(&pool, STATION, year).await;
-    let plan = get_plan(&state(&pool, None), Some(year)).await.unwrap();
+    let state = state(&pool, None);
+    settled_history(&state, year).await;
+    let plan = get_plan(&state, Some(year)).await.unwrap();
 
     let starts: Vec<NaiveDate> = plan
         .activities
@@ -190,9 +191,9 @@ async fn with_timing(state: &AppState) {
 async fn timing_activities_replace_their_10cm_twins(pool: PgPool) {
     let lawn = create_profile(&pool, "Front").await;
     let year = this_year() - 1;
-    settled_history(&pool, STATION, year).await;
     let dir = scratch("timing");
     let state = state(&pool, Some(lake(&dir.join("missing.parquet"))));
+    settled_history(&state, year).await;
     with_timing(&state).await;
 
     let plan = get_plan(&state, Some(year)).await.unwrap();

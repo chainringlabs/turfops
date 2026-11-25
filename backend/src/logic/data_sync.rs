@@ -327,6 +327,24 @@ impl DataSyncService {
     }
 }
 
+/// What to ask the weather record now, on the lawn's local calendar when it has a
+/// location (the record answers location-not-set when it has none).
+pub(crate) async fn record_asked(pool: &PgPool, clock: &Clock) -> crate::error::Result<Asked> {
+    let now = clock.now();
+    let zone = crate::db::queries::get_default_lawn_profile(pool)
+        .await?
+        .and_then(|p| p.location)
+        .and_then(|l| l.timezone.parse::<Tz>().ok());
+    let today = zone.map_or_else(
+        || clock.today(),
+        |zone| now.with_timezone(&zone).date_naive(),
+    );
+    Ok(Asked {
+        at: Moment { now, today },
+        limits: AGE_LIMITS,
+    })
+}
+
 /// One source in use and how its fetching is going.
 // @spec WX-VIEW-STATUS-001
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]

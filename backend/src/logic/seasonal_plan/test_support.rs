@@ -36,6 +36,7 @@ pub(super) fn history(skip: &[&str]) -> Vec<ThresholdCrossing> {
                 threshold_name: name.to_string(),
                 crossing_date: d(year, month, day) + chrono::Duration::days(2 * i as i64),
                 avg_soil_temp_f: 0.0,
+                estimated: false,
             })
     })
     .collect()

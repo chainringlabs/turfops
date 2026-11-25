@@ -7,6 +7,8 @@ pub struct SeasonalPlan {
     pub year: i32,
     pub activities: Vec<PlannedActivity>,
     pub data_years_used: i32,
+    /// Voting years that contributed a crossing resting on the soil estimate.
+    pub estimated_years: i32,
     pub generated_at: chrono::DateTime<chrono::Utc>,
     /// The lawn's local date the statuses were judged on, so pages count from it.
     pub today: NaiveDate,
@@ -66,17 +68,19 @@ pub struct ActivityDetails {
     pub notes: Option<String>,
 }
 
-/// A threshold crossing record from historical data.
-#[derive(Debug, Clone)]
+/// One year's crossing of a 10 cm threshold.
+#[derive(Debug, Clone, PartialEq)]
 pub struct ThresholdCrossing {
     pub year: i32,
     pub threshold_name: String,
     pub crossing_date: NaiveDate,
     pub avg_soil_temp_f: f64,
+    /// One of its five held days rests on the soil estimate.
+    pub estimated: bool,
 }
 
-/// Daily soil temperature average from NOAA (server-side aggregated).
-#[derive(Debug, Clone)]
+/// One day's 10 cm soil temperature.
+#[derive(Debug, Clone, PartialEq)]
 pub struct DailySoilTempAvg {
     pub date: NaiveDate,
     pub avg_temp_f: f64,

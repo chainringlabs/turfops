@@ -517,6 +517,8 @@ export interface SeasonalPlan {
 	year: number;
 	activities: PlannedActivity[];
 	data_years_used: number;
+	/** Voting years that contributed a crossing resting on the soil estimate. */
+	estimated_years?: number;
 	generated_at: string;
 	/** The lawn's local date the statuses were judged on (YYYY-MM-DD). */
 	today: string;

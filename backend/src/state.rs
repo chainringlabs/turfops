@@ -13,6 +13,18 @@ use tokio::sync::RwLock;
 /// the other lake reads this one spans 15 years of hourly data, so it is memoized briefly.
 pub type ClimateCache = Arc<RwLock<Option<(chrono::DateTime<chrono::Utc>, Arc<ClimateRecord>)>>>;
 
+/// The seasonal plan's 10 cm crossings from the weather record, kept for an hour unless
+/// the basis plan or the lawn's date changes (`key`; `None` holds a test's crossings).
+pub type CrossingMemo = Arc<
+    RwLock<
+        Option<(
+            Option<String>,
+            chrono::DateTime<chrono::Utc>,
+            Arc<crate::logic::seasonal_plan::RecordCrossings>,
+        )>,
+    >,
+>;
+
 #[derive(Clone)]
 pub struct AppState {
     pub pool: sqlx::PgPool,
@@ -21,6 +33,7 @@ pub struct AppState {
     pub sync_service: Arc<RwLock<DataSyncService>>,
     pub openrouter: Option<Arc<OpenRouterClient>>,
     pub climate_cache: ClimateCache,
+    pub crossing_memo: CrossingMemo,
     /// Whether `/mcp` is mounted (reported by the health check).
     pub mcp_enabled: bool,
     /// The lawn's clock: every "today" and date gate.
@@ -78,6 +91,7 @@ impl AppState {
             sync_service: Arc::new(RwLock::new(sync_service)),
             openrouter: openrouter.map(Arc::new),
             climate_cache: Arc::new(RwLock::new(None)),
+            crossing_memo: Arc::new(RwLock::new(None)),
             mcp_enabled,
             clock,
             weather_waker: None,

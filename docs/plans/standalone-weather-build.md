@@ -69,7 +69,9 @@ The first slice that changes what the owner sees. Five PRs:
 2. **The summary from the record**, with basis labels on the dashboard and the Environmental
    page, refresh through the schedule, and source status in place of the connection flags
    (in review).
-3. The daily series: GDD, the seasonal plan, the 10 cm outlook, plant watering.
+3. The daily series, in two parts: (a) `/gdd` and the seasonal plan's 10 cm crossings from
+   the record, with the crossing cache tables dropped; (b) the 10 cm outlook from the record,
+   with its estimated method. Plant watering already reads the summary (PR 2).
 4. Timing windows, disease risk and `/historical`, with basis-aware charts and the
    Environmental page's source credits.
 5. The clock follows the location, the no-location notice, MCP results without coordinates,

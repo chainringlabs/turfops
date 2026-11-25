@@ -46,18 +46,21 @@ fn aggregate_gives_median() {
             threshold_name: "soil_50f_rising".into(),
             crossing_date: NaiveDate::from_ymd_opt(2022, 3, 10).unwrap(),
             avg_soil_temp_f: 50.5,
+            estimated: false,
         },
         ThresholdCrossing {
             year: 2023,
             threshold_name: "soil_50f_rising".into(),
             crossing_date: NaiveDate::from_ymd_opt(2023, 3, 15).unwrap(),
             avg_soil_temp_f: 50.2,
+            estimated: false,
         },
         ThresholdCrossing {
             year: 2024,
             threshold_name: "soil_50f_rising".into(),
             crossing_date: NaiveDate::from_ymd_opt(2024, 3, 20).unwrap(),
             avg_soil_temp_f: 51.0,
+            estimated: false,
         },
     ];
     let agg = aggregate_crossings(&crossings, "soil_50f_rising", 2025).unwrap();
@@ -120,6 +123,7 @@ fn warm_season_lawns_get_no_cool_season_program() {
             threshold_name: name.to_string(),
             crossing_date: NaiveDate::from_ymd_opt(year, *month, *day).unwrap(),
             avg_soil_temp_f: 0.0,
+            estimated: false,
         })
     })
     .collect();

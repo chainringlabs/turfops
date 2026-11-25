@@ -50,7 +50,7 @@ warm-season profile is unsupported.
 
 | Type | Fields | Notes |
 |---|---|---|
-| `SeasonalPlan` | `year`, `activities`, `data_years_used`, `generated_at`, `today` | `data_years_used` = the complete prior years that voted (PLAN-CROSS-010); `today` = the lawn's local date the statuses were judged on |
+| `SeasonalPlan` | `year`, `activities`, `data_years_used`, `estimated_years`, `generated_at`, `today` | `data_years_used` = the complete prior years that voted (PLAN-CROSS-010); `today` = the lawn's local date the statuses were judged on |
 | `PlannedActivity` | `id`, `name`, `category`, `description`, `date_window`, `status`, `status_estimated`, `details` | `id` is the merge key; `category` is free text; `status_estimated` marks a typical-date status given because the covering rule could not judge the season |
 | `DateWindow` | `predicted_start`, `predicted_end`, `earliest_historical?`, `latest_historical?`, `confidence` | dates are `NaiveDate` |
 | `WindowConfidence` | `High` · `Medium` · `Low` | from the sample count of the opening threshold |
