@@ -10,7 +10,7 @@ mod memo_slot_tests;
 pub(crate) mod record_db_tests;
 #[cfg(test)]
 mod refresh_callers_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "db-tests"))]
 mod test_double;
 #[cfg(test)]
 pub(crate) mod test_env;
