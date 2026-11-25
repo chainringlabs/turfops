@@ -1,6 +1,8 @@
 use super::forecast::WeatherForecast;
+use super::weather_basis::Basis;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DataSource {
@@ -123,6 +125,43 @@ pub struct EnvironmentalSummary {
     /// The station's newest soil observation is too old to describe today (SYNC-MERGE-006).
     #[serde(default)]
     pub soil_stale: bool,
+    /// What each current value rests on, one entry per input a live reading can fill.
+    #[serde(default)]
+    pub current_bases: Vec<CurrentBasis>,
+    /// What each 7-day figure that has a value rests on, keyed by the figure's field name.
+    #[serde(default)]
+    pub week_bases: BTreeMap<String, WeekBasis>,
+}
+
+/// Where an input of the summary stands.
+// @spec WX-VIEW-API-007
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BasisStanding {
+    /// A current value from a source in the plan.
+    InUse,
+    /// The plan has a source; none has a current value.
+    NoCurrentValue,
+    /// The plan has no source for the input.
+    NoSource,
+}
+
+/// One input's current basis.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CurrentBasis {
+    /// The input's request name, such as `soil_temp_10`.
+    pub input: String,
+    pub standing: BasisStanding,
+    pub basis: Option<Basis>,
+    /// When the value was observed; for a daily source, the start of its day.
+    pub observed_at: Option<DateTime<Utc>>,
+}
+
+/// A 7-day figure's basis.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WeekBasis {
+    pub basis: Basis,
+    /// The week drew on more than one basis.
+    pub mixed: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]

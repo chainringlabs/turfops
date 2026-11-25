@@ -85,7 +85,9 @@ After each backfill fetch the task returns to the top of the list, so backfill n
 
 **Catch-up.** After downtime the record's held spans are simply behind; `due(now)` reports the gap and the loop fills it in the order above. No separate catch-up mode exists.
 
-**Waking.** A change to the location, a pinned station, a sensor mapping or the forecast provider wakes the task so the new plan starts filling at once. `POST /environmental/refresh` wakes it too, asking for every current product regardless of rhythm, at most once a minute.
+**Waking.** A change to the location, a pinned station, a sensor mapping, the Home Assistant connection or the forecast provider wakes the task so the new plan starts filling at once.
+
+**Refresh.** `POST /environmental/refresh` asks the task for a refresh pass: it reads the owner's sensors and fetches the forecast whatever their rhythm, and runs every current fetch the record reports due without waiting for the installation's minute. A refresh asked within a minute of the last one asks for nothing. The request waits up to 20 seconds for that pass to finish, then returns the summary assembled afresh. The record decides what is due: a station hour already held is not fetched again, since asking a public host for a file it has not changed would cost it a request and change nothing. What the owner usually wants from the button, their just-fixed sensor and a new forecast, is always fetched.
 
 **Stopping.** On shutdown the task starts no other fetch. The process waits five seconds for the fetch in progress and then exits; what that fetch would have written is fetched again at next start. An interrupted backfill resumes from the record's held spans at next start.
 
@@ -109,7 +111,7 @@ The first start adds the backfill: about 15 hourly files per basis station, 15 d
 
 ## The Summary
 
-`summary()` returns the `EnvironmentalSummary`. It is assembled from the record and memoized for one minute; within that minute callers receive the stored copy with no database read. A change of basis plan and a completed current fetch both discard the memo.
+`summary()` returns the `EnvironmentalSummary`. It is assembled from the record and memoized for one minute; within that minute callers receive the stored copy with no database read. A change of basis plan and a completed current fetch both discard the memo: the schedule counts its passes that fetched current data or rebuilt the plan, and a memo assembled before the latest such pass is not reused. Data sync makes no outside request of its own: the owner's sensors, the stations and the forecast all reach it through the record and the schedule.
 
 Assembly, in order:
 
@@ -125,11 +127,12 @@ Assembly, in order:
    | Station | 72 hours |
    | Daily estimate (soil estimate, grid) | 72 hours after the end of the day it is for |
 
-   An input whose best source is past its limit takes the next source in the plan that is within its own limit. With none, the input is withheld: its current value is `None`, and the 7-day figures built on it are `None` (the soil trend `Unknown`).
-3. **Soil stamp and flag.** `soil_observed_at` is the stamp of the 10 cm soil value in use. `soil_stale` is true when soil temperature is withheld for age; every stale-soil banner reads it.
-4. **GDD.** `fetch_gdd_ytd(clock.today())` → `gdd_base50_ytd`.
-5. **Forecast.** The newest forecast the schedule fetched, attached only while it is less than 6 hours old.
-6. **Stamp.** `last_updated` is the time of assembly.
+   An input whose best source is past its limit takes the next source in the plan that is within its own limit. With none, the input is withheld: its current value is `None`, and the 7-day figures built on it are `None` (the soil trend `Unknown`). The record applies the limits; data sync hands it the table above.
+3. **Bases.** Each current value's basis and observation time, and each 7-day figure's basis, are carried into the summary beside the numbers (the shape is the environmental views': `current_bases`, `week_bases`). An input with no source in the plan is marked as such, so a page can tell "no source here" from "no value now".
+4. **Soil stamp and flag.** `soil_observed_at` is the stamp of the 10 cm soil value in use. While 10 cm soil is withheld for age it is the stamp of the newest 10 cm value any source in the plan holds, so the stale-soil notice can say since when. `soil_stale` is true exactly then: the plan has a 10 cm source and none is within its limit. Every stale-soil banner reads it.
+5. **GDD.** `fetch_gdd_ytd(clock.today())` → `gdd_base50_ytd`.
+6. **Forecast.** The newest forecast the schedule fetched, attached only while it is less than 6 hours old.
+7. **Stamp.** `last_updated` is the time of assembly.
 
 A read of the record that fails leaves the previous summary in place for up to 5 minutes, after which the summary is returned with the weather fields empty.
 
@@ -140,7 +143,7 @@ A read of the record that fails leaves the previous summary in place for up to 5
 | `current.soil_temp_*_f`, `current.soil_moisture_*` | The record's live reading | Per input: sensor, then station within 50 miles, then (5 and 10 cm temperature only) the estimate. Withheld past the age limit |
 | `current.ambient_temp_f`, `current.humidity_percent` | The record's live reading | Sensor, then station within 10 miles, then the hourly analysis, marked approximate |
 | `current.precipitation_mm` | The record's live reading | The newest hour from a rain sensor or the hourly analysis |
-| Basis of each `current` field | The record | Carried through unchanged |
+| `current_bases`, `week_bases` | The record | Each basis carried through unchanged |
 | `soil_observed_at`, `soil_stale` | Step 3 | |
 | `soil_temp_7day_avg_f` (10 cm), `ambient_temp_7day_avg_f`, `humidity_7day_avg`, `precipitation_7day_total_mm`, `soil_temp_trend` | The record, the 7 local days ending now | Each with its basis; `None` when its input is withheld |
 | `gdd_base50_ytd` | The record's resolved daily air, Jan 1 to today on the lawn's calendar | |
@@ -206,6 +209,9 @@ Status is one entry per source in use, in the shape the environmental views defi
 | Forecast held across a change of provider | Discarded | Kept until the new provider answers | Kept, the advice would rest for up to 6 hours on a provider the owner has just turned away from, while the status names the new one (WX-SRC-FC-004: no provider answers in place of the chosen one). |
 | Manual refresh | Wakes the schedule, at most once a minute | Fetch directly in the request; remove the button | The owner who has just fixed a sensor wants to see it. Routing it through the schedule keeps one-at-a-time per host; the floor keeps a held-down button from becoming traffic. |
 | More than one instance | Not supported; harmless if it happens | A database lock electing one scheduler | A self-hosted single-owner app runs one process. The lock is machinery for a case the product does not have. |
+| How the summary carries bases | Beside the numbers (`current_bases`, `week_bases`), the numbers where they were | Each number becomes a value-with-basis object | The rules, the disease and timing models and every page read the numbers; changing their type would touch all of them for no gain in what they decide. Only the pages show a basis. |
+| Refresh | Sensors and forecast whatever their rhythm; record fetches when the record says they are due, not waiting for the minute | Re-fetch every current product | A station file or grid day already held does not change when asked for again; re-asking costs a public host a request for nothing. The sensors and the forecast are what change between hours. |
+| Stale-soil stamp | The newest 10 cm value any source holds, while 10 cm is withheld | Empty while withheld | The notice says since when the station has been silent; an empty stamp would leave it unable to. |
 | Climate-record memo | One in-memory slot, 1 h TTL, emptied when the plan changes | No memo; a stored copy | The 15-year resolve is the most expensive read and is requested by several pages; the current season must stay live. |
 | Climate record when a re-read fails | Serve the last memoized record for up to 24 h, with a data note | Fail the caller once the memo expires | Fifteen years of history changes little in a day, while failing would blank the Timing page during a brief database problem. |
 | Stale-soil threshold for display | Backend sends `soil_stale`; banners apply no limit of their own | Each banner compares the stamp with its own limit | One limit in one place: the banner and the withholding cannot drift apart. |

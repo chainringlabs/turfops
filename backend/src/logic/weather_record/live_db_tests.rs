@@ -43,7 +43,7 @@ async fn each_input_takes_its_newest_value_from_the_source_that_still_reports_it
     );
 }
 
-// @spec WX-REC-RES-003, WX-REC-RES-004
+// @spec WX-REC-RES-003, WX-REC-RES-004, SYNC-AGE-002, SYNC-AGE-004
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn past_a_stations_age_limit_the_estimate_speaks_with_its_newest_day(pool: PgPool) {
     let lab = Lab::new(pool).await;
@@ -74,7 +74,7 @@ async fn an_input_whose_every_source_is_too_old_has_no_current_value(pool: PgPoo
     assert_eq!(reading.values.len(), 2, "5 and 10 cm soil: {reading:?}");
 }
 
-// @spec WX-REC-RES-003, WX-REC-RES-004
+// @spec WX-REC-RES-003, WX-REC-RES-004, SYNC-AGE-001
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_owners_sensor_speaks_with_its_last_reading_until_it_goes_quiet(pool: PgPool) {
     let lab = Lab::new(pool).await;

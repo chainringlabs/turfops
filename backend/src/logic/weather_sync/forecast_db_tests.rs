@@ -182,3 +182,53 @@ async fn the_status_names_the_provider_chosen_now(pool: PgPool) {
         }
     );
 }
+
+// @spec SYNC-SCHED-009, SYNC-MERGE-008
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn a_refresh_pass_fetches_the_forecast_again_and_the_passes_are_counted(pool: PgPool) {
+    located(&pool).await;
+    store_owm_key(&pool, "stored-owm-key").await;
+    setup_queries::set_forecast_provider(&pool, ForecastProvider::OpenWeatherMap)
+        .await
+        .unwrap();
+    let (base, mut requests) =
+        crate::test_support::stub_http_sequence(vec![(200, OWM), (200, OWM)]).await;
+    let (mut schedule, waker, _) = Schedule::new(pool.clone(), with_owm_at(&base));
+    assert_eq!((waker.passes(), waker.changes()), (0, 0));
+
+    schedule.pass(at(0)).await.unwrap();
+    assert_eq!(waker.passes(), 1);
+    assert_eq!(waker.changes(), 1, "the plan was built and a forecast kept");
+    assert!(
+        requests.try_recv().is_ok(),
+        "the first pass fetched the forecast"
+    );
+
+    schedule.pass(at(2)).await.unwrap();
+    assert!(requests.try_recv().is_err(), "not again within the hour");
+    assert_eq!(waker.passes(), 2);
+
+    waker.refresh();
+    schedule.pass(at(3)).await.unwrap();
+    assert!(requests.try_recv().is_ok(), "a refresh fetches it again");
+    assert_eq!(waker.passes(), 3);
+    assert!(
+        waker.changes() >= 2,
+        "the forecast kept changed current data"
+    );
+}
+
+// @spec SYNC-SCHED-009
+#[tokio::test]
+async fn waiting_for_a_pass_ends_when_one_finishes_or_the_wait_runs_out() {
+    let pool = crate::logic::data_sync::test_env::unreachable_pool();
+    let (_schedule, waker, _) = Schedule::new(pool, unreachable());
+    let started = std::time::Instant::now();
+    assert!(
+        !waker
+            .pass_after(0, std::time::Duration::from_millis(200))
+            .await,
+        "no pass ran"
+    );
+    assert!(started.elapsed() >= std::time::Duration::from_millis(200));
+}

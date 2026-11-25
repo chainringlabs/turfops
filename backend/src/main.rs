@@ -112,7 +112,9 @@ async fn main() -> anyhow::Result<()> {
     );
     // The summary serves the forecast the schedule fetches and holds.
     // @spec SYNC-SCHED-020
-    let sync_service = sync_service.with_forecast(schedule.forecast_slot());
+    let sync_service = sync_service
+        .with_forecast(schedule.forecast_slot())
+        .with_waker(weather_waker.clone());
     let weather_schedule = tokio::spawn(schedule.run());
     let pool_for_setup = pool.clone();
 

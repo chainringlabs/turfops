@@ -115,14 +115,6 @@ fn outage_message(source: Source, outage: &Outage) -> String {
             "The weather forecast is unavailable right now, so forecast-based advice is \
              limited. Try again later."
         }
-        (PatioSensor, NotConfigured | Disabled) => {
-            "The patio sensor (Home Assistant) isn't configured, so live air temperature and \
-             humidity are unavailable."
-        }
-        (PatioSensor, _) => {
-            "The patio sensor (Home Assistant) can't be reached right now, so live air \
-             temperature and humidity are unavailable."
-        }
         (PlanAssistant, NotConfigured) => {
             "The plan assistant isn't configured, so care plans and product profiles can't \
              be generated. Set OPENROUTER_API_KEY and restart TurfOps."
@@ -191,8 +183,6 @@ pub enum Source {
     WeatherLake,
     /// The weather forecast, from whichever provider is in use.
     Forecast,
-    /// The Home Assistant patio sensor.
-    PatioSensor,
     /// OpenRouter, which writes plant care plans and product profiles.
     PlanAssistant,
     /// OpenRouter answering for a shelf product being added (product profiles).

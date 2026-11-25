@@ -1,8 +1,6 @@
-//! Connection status on the dashboard and in the MCP snapshot (`--features db-tests`).
+//! Source status on the dashboard and in the MCP snapshot (`--features db-tests`).
 
 use super::test_env::*;
-use crate::db::queries;
-use crate::models::{GrassType, LawnProfile};
 use axum::body::Body;
 use axum::extract::State;
 use axum::http::{header, Request};
@@ -11,48 +9,45 @@ use tower::ServiceExt;
 
 const MCP_TOKEN: &str = "0123456789abcdef0123456789abcdef";
 
-/// A lawn profile, and a state whose Home Assistant is the returned stub.
-async fn lawn_with_patio_sensor(pool: PgPool) -> (Stub, crate::state::AppState) {
-    let profile = LawnProfile::new("Front".into(), GrassType::TallFescue, "7a".into());
-    queries::create_lawn_profile(&pool, &profile).await.unwrap();
+/// A located lawn, and a state whose environment still names a Home Assistant: the
+/// returned stub, which data sync must never ask.
+async fn located_with_patio_stub(pool: PgPool) -> (Stub, crate::state::AppState) {
+    super::record_db_tests::located(&pool).await;
     let ha = stub(200, HA_STATE).await;
     let service = service(&config_of(&with_home_assistant(&ha.url)), pool.clone()).await;
     (ha, app_state(pool, service, true))
 }
 
-/// Whether every Home Assistant entity read (the refresh) came before its probe.
-fn probed_after_refresh(ha: &Stub) -> bool {
-    let requests = ha.requests();
-    let probe = requests.iter().position(|r| r.starts_with("GET /api/ "));
-    let last_read = requests
+fn names(sources: &serde_json::Value) -> Vec<&str> {
+    sources
+        .as_array()
+        .unwrap_or_else(|| panic!("not a list: {sources}"))
         .iter()
-        .rposition(|r| r.starts_with("GET /api/states/"));
-    matches!((last_read, probe), (Some(read), Some(probe)) if read < probe)
+        .map(|s| s["name"].as_str().unwrap())
+        .collect()
 }
 
-// @spec SYNC-CONN-005, SYNC-CONN-008
+// @spec SYNC-CONN-005, SYNC-CONN-008, SYNC-MERGE-011
 #[sqlx::test(migrations = "src/db/migrations")]
-async fn the_dashboard_carries_connections_checked_after_its_refresh(pool: PgPool) {
-    let (ha, state) = lawn_with_patio_sensor(pool).await;
+async fn the_dashboard_carries_the_source_status_and_the_forecast_status(pool: PgPool) {
+    let (ha, state) = located_with_patio_stub(pool).await;
     let axum::Json(dashboard) = crate::api::dashboard::get_dashboard(State(state))
         .await
         .unwrap();
-    let connections = serde_json::to_value(&dashboard.connections).unwrap();
-    assert_eq!(connections["homeassistant"], true);
-    assert_eq!(connections["soildata"], false);
-    assert!(connections.get("openweathermap").is_none(), "{connections}");
+    let json = serde_json::to_value(&dashboard).unwrap();
+    assert!(json.get("connections").is_none(), "{json}");
+    assert!(names(&json["sources"]).contains(&"Open-Meteo hourly analysis"));
     assert_eq!(
-        connections["forecast"],
-        serde_json::json!({"provider": "OpenMeteo", "fetched_at": null, "last_error": null}),
-        "the default provider, not fetched yet"
+        json["forecast_status"],
+        serde_json::json!({"provider": "OpenMeteo", "fetched_at": null, "last_error": null})
     );
-    assert!(probed_after_refresh(&ha), "{:?}", ha.requests());
+    assert_eq!(ha.count(), 0, "data sync asks no outside source");
 }
 
 // @spec SYNC-CONN-005, SYNC-CONN-008, MCP-SNAP-009
 #[sqlx::test(migrations = "src/db/migrations")]
-async fn the_mcp_snapshot_carries_data_sources_checked_after_its_refresh(pool: PgPool) {
-    let (ha, state) = lawn_with_patio_sensor(pool).await;
+async fn the_mcp_snapshot_carries_the_source_status_and_the_forecast_status(pool: PgPool) {
+    let (ha, state) = located_with_patio_stub(pool).await;
     let call = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,
@@ -80,10 +75,12 @@ async fn the_mcp_snapshot_carries_data_sources_checked_after_its_refresh(pool: P
         .as_str()
         .unwrap_or_else(|| panic!("{reply}"));
     let snapshot: serde_json::Value = serde_json::from_str(text).unwrap();
-    let sources = &snapshot["data_sources"];
-    assert_eq!(sources["homeassistant"], true, "{snapshot}");
-    assert_eq!(sources["soildata"], false);
-    assert!(sources.get("openweathermap").is_none(), "{snapshot}");
-    assert_eq!(sources["forecast"]["provider"], "OpenMeteo");
-    assert!(probed_after_refresh(&ha), "{:?}", ha.requests());
+    let data_sources = &snapshot["data_sources"];
+    assert!(
+        names(&data_sources["sources"]).contains(&"PA Avondale 2 N, PA (USCRN)"),
+        "{snapshot}"
+    );
+    assert_eq!(data_sources["forecast"]["provider"], "OpenMeteo");
+    assert!(data_sources.get("homeassistant").is_none(), "{snapshot}");
+    assert_eq!(ha.count(), 0, "data sync asks no outside source");
 }

@@ -46,7 +46,9 @@ pub fn unreachable_pool() -> PgPool {
 /// App state over `pool`, with the lake at `lake` (paths that need not exist).
 pub async fn state(pool: PgPool, lake: &Lake) -> AppState {
     let config = config(&lake.silver, &lake.gold);
-    let sync = DataSyncService::initialize(&config, pool.clone()).await;
+    let sync = DataSyncService::initialize(&config, pool.clone())
+        .await
+        .summary_from_lake();
     AppState::new(pool, sync, None, true, Clock::System)
 }
 

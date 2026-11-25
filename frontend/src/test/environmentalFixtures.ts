@@ -1,11 +1,41 @@
 // Response fixtures for the Environmental page and soil-outlook component tests.
 
 import type {
+	CurrentBasis,
 	EnvironmentalSummary,
 	HistoricalData,
 	SoilTempForecast,
 	TimeSeriesPoint,
 } from "../types";
+import type { Basis } from "../types/sources";
+
+export const STATION: Basis = {
+	kind: "Station",
+	source: "PA Avondale 2 N",
+	distance_miles: 2.1,
+	approximate: false,
+};
+export const SENSOR: Basis = {
+	kind: "Sensor",
+	source: "Patio temperature",
+	distance_miles: null,
+	approximate: false,
+};
+export const ANALYSIS: Basis = {
+	kind: "Estimate",
+	source: "Hourly analysis",
+	distance_miles: null,
+	approximate: true,
+};
+
+export function inUse(input: string, basis: Basis): CurrentBasis {
+	return {
+		input,
+		standing: "InUse",
+		basis,
+		observed_at: "2026-10-11T11:00:00Z",
+	};
+}
 
 export function summary(
 	overrides: Partial<EnvironmentalSummary> = {},
@@ -66,6 +96,23 @@ export function summary(
 			],
 		},
 		gdd_base50_ytd: 3100,
+		current_bases: [
+			inUse("air_temp", SENSOR),
+			inUse("humidity", SENSOR),
+			inUse("rain", ANALYSIS),
+			...[5, 10, 20, 50, 100].map((cm) => inUse(`soil_temp_${cm}`, STATION)),
+			inUse("soil_moisture_5", STATION),
+			inUse("soil_moisture_10", STATION),
+			inUse("soil_moisture_20", STATION),
+			inUse("soil_moisture_50", STATION),
+			inUse("soil_moisture_100", STATION),
+		],
+		week_bases: {
+			soil_temp_7day_avg_f: { basis: STATION, mixed: false },
+			ambient_temp_7day_avg_f: { basis: SENSOR, mixed: true },
+			humidity_7day_avg: { basis: SENSOR, mixed: false },
+			precipitation_7day_total_mm: { basis: ANALYSIS, mixed: false },
+		},
 		...overrides,
 	};
 }

@@ -22,7 +22,9 @@ pub(crate) async fn state_without_lake(pool: PgPool, clock: Clock) -> AppState {
         _ => None,
     })
     .expect("test configuration");
-    let sync = DataSyncService::initialize(&config, pool.clone()).await;
+    let sync = DataSyncService::initialize(&config, pool.clone())
+        .await
+        .summary_from_lake();
     AppState::new(pool, sync, None, false, clock)
 }
 

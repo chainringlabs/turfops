@@ -55,9 +55,25 @@ and on every other.
 
 | Method | Path | Behavior | Errors |
 |---|---|---|---|
-| GET | `/api/v1/environmental` | Data sync's `get_or_refresh()`: the cached `EnvironmentalSummary`, refreshed when stale (`backend/src/api/environmental.rs`) | Propagates refresh errors (in practice none: source failures degrade inside the refresh) |
-| POST | `/api/v1/environmental/refresh` | `force_refresh()`: refetches every source | same |
+| GET | `/api/v1/environmental` | Data sync's summary (`backend/src/api/environmental.rs`) | None: a source that fails leaves its values empty or on the next basis |
+| POST | `/api/v1/environmental/refresh` | Data sync's refresh: wakes the fetch schedule for the current data and returns the summary that results | same |
 | GET | `/api/v1/historical?range=7d\|30d\|90d` | See below (`backend/src/api/historical.rs`) | 400 for a bad range; the weather record's outages (location not set, history still loading) as 503 with their own sentences |
+
+### What the summary says about each value's basis
+
+The summary keeps its numbers where the rules and pages already read them
+(`current.soil_temp_10_f`, `soil_temp_7day_avg_f`, …) and says what each rests on beside them:
+
+- **`current_bases`**: one entry per input a live reading can fill, in the order the record
+  lists them: the input's request name (`soil_temp_10`), its **standing**, and, when it has
+  a current value, its basis and the time it was observed (for a daily source, the day it is
+  for). The standing is `InUse` (a current value from a source in the plan),
+  `NoCurrentValue` (the plan has a source, none is current) or `NoSource` (the plan has none).
+- **`week_bases`**: for each 7-day figure that has a value, keyed by the figure's field name,
+  its basis and whether the week was `mixed`.
+
+A page finds a gauge's label by the input it shows; `NoSource` is the "No source for this
+location" case and `NoCurrentValue` the `--` case.
 
 ### `/historical`
 
@@ -79,19 +95,20 @@ and on every other.
 
 ## Source Status
 
-Connection status is one entry per source in use, not a fixed set of keys:
+Source status is one entry per source in use, not a fixed set of keys:
 
 | Field | Meaning |
 |---|---|
-| `id`, `name`, `kind` | The source as the record names it (station, grid, analysis, sensor, forecast) |
-| `ok` | The source's most recent scheduled fetch succeeded |
-| `last_success`, `last_failure` | From the record's `status()` |
-| `inputs` | The inputs the source is currently the basis for |
+| `id`, `name`, `kind` | The source as the record names it (sensor, station, grid, analysis, estimate) |
+| `ok` | The source's most recent scheduled fetch succeeded; `null` while it has never been fetched |
+| `last_success`, `last_failure`, `last_error` | From the record's `status()`; `last_error` is the owner sentence for a failure newer than the last success |
+| `inputs` | The inputs the plan ranks the source for, as named in requests |
+| `held_from`, `held_through`, `wanted_from` | The history held against the history wanted, for a fetched source |
 
-The entries come from the record's `status()` and, for the forecast, the outcome of its last
-scheduled fetch. Data sync assembles them for `/health`, the dashboard connection dots and MCP
-`lawn_snapshot`. A source that is reachable but is the basis for nothing is listed with empty
-`inputs`.
+The entries come from the record's `status()`. The forecast has no source in the record; its
+status (data sync's forecast status) is reported beside the entries, not as one of them. Data
+sync assembles both for `/health`, the dashboard's source-status line and MCP `lawn_snapshot`.
+A source that is in the plan but the basis for nothing is listed with empty `inputs`.
 
 ## Environmental Page
 

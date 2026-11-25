@@ -15,7 +15,7 @@ import {
 	staleSoilMessage,
 	TREND_REFERENCES,
 } from "../components/environmental/display";
-import Gauge from "../components/Gauge";
+import GaugeCard from "../components/environmental/GaugeCard";
 import {
 	AMBIENT_TEMP_GAUGE,
 	HUMIDITY_GAUGE,
@@ -23,14 +23,19 @@ import {
 	SOIL_TEMP_GAUGE,
 } from "../components/gaugeConfigs";
 import PredictionChart from "../components/PredictionChart";
+import BasisLabel from "../components/sources/BasisLabel";
+import { currentBasisOf } from "../components/sources/display";
 import TrendChart from "../components/TrendChart";
 import { sharedStyles } from "../styles/shared";
 import type {
+	CurrentBasis,
 	EnvironmentalSummary,
 	HistoricalData,
 	SoilTempForecast,
+	WeekBasis,
 } from "../types";
 import { PREDICTION_CONFIDENCE_COLORS } from "../types";
+import { FORECAST_PROVIDER_NAMES } from "../types/sources";
 import { mmToInches } from "../utils/units";
 
 const POLL_INTERVAL = 30_000;
@@ -45,6 +50,7 @@ export default function Environmental() {
 		null,
 	);
 	const [histRange, setHistRange] = useState<HistRange>("7d");
+	const [showAllDays, setShowAllDays] = useState(false);
 	const [histLoading, setHistLoading] = useState(false);
 	const [histError, setHistError] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -160,34 +166,34 @@ export default function Environmental() {
 
 	const current = data?.current;
 
-	// Soil depth table
-	const depthRows = [
-		{
-			depth: "5 cm",
-			temp: current?.soil_temp_5_f,
-			moisture: current?.soil_moisture_5,
-		},
-		{
-			depth: "10 cm",
-			temp: current?.soil_temp_10_f,
-			moisture: current?.soil_moisture_10,
-		},
-		{
-			depth: "20 cm",
-			temp: current?.soil_temp_20_f,
-			moisture: current?.soil_moisture_20,
-		},
-		{
-			depth: "50 cm",
-			temp: current?.soil_temp_50_f,
-			moisture: current?.soil_moisture_50,
-		},
-		{
-			depth: "100 cm",
-			temp: current?.soil_temp_100_f,
-			moisture: current?.soil_moisture_100,
-		},
-	];
+	const bases = data?.current_bases;
+	const week = data?.week_bases ?? {};
+	// Soil depth table: one row per depth whose temperature or moisture has a source.
+	const depthRows = (
+		[
+			[5, current?.soil_temp_5_f, current?.soil_moisture_5],
+			[10, current?.soil_temp_10_f, current?.soil_moisture_10],
+			[20, current?.soil_temp_20_f, current?.soil_moisture_20],
+			[50, current?.soil_temp_50_f, current?.soil_moisture_50],
+			[100, current?.soil_temp_100_f, current?.soil_moisture_100],
+		] as const
+	)
+		.map(([cm, temp, moisture]) => ({
+			depth: `${cm} cm`,
+			temp,
+			moisture,
+			tempBasis: currentBasisOf(bases, `soil_temp_${cm}`),
+			moistureBasis: currentBasisOf(bases, `soil_moisture_${cm}`),
+		}))
+		// Without bases (an older answer) every depth is shown, as before.
+		.filter(
+			(row) =>
+				!bases ||
+				row.tempBasis?.standing !== "NoSource" ||
+				row.moistureBasis?.standing !== "NoSource",
+		);
+	const forecastDays = data?.forecast?.daily_summary ?? [];
+	const shownDays = showAllDays ? forecastDays : forecastDays.slice(0, 7);
 
 	return (
 		<div>
@@ -221,54 +227,61 @@ export default function Environmental() {
 				</div>
 			)}
 
-			{/* Gauges */}
+			{/* Gauges, each with its basis — @spec WX-VIEW-PAGE-003 */}
 			<div style={sharedStyles.gaugeGrid}>
-				<div style={sharedStyles.card}>
-					<Gauge {...SOIL_TEMP_GAUGE} value={current?.soil_temp_10_f ?? null} />
-				</div>
-				<div style={sharedStyles.card}>
-					<Gauge
-						{...AMBIENT_TEMP_GAUGE}
-						value={current?.ambient_temp_f ?? null}
-					/>
-				</div>
-				<div style={sharedStyles.card}>
-					<Gauge
-						{...HUMIDITY_GAUGE}
-						value={current?.humidity_percent ?? null}
-					/>
-				</div>
-				<div style={sharedStyles.card}>
-					<Gauge
-						{...SOIL_MOISTURE_GAUGE}
-						value={
-							current?.soil_moisture_10 != null
-								? current.soil_moisture_10 * 100
-								: null
-						}
-					/>
-				</div>
+				<GaugeCard
+					style={sharedStyles.card}
+					config={SOIL_TEMP_GAUGE}
+					value={current?.soil_temp_10_f ?? null}
+					entry={currentBasisOf(bases, "soil_temp_10")}
+				/>
+				<GaugeCard
+					style={sharedStyles.card}
+					config={AMBIENT_TEMP_GAUGE}
+					value={current?.ambient_temp_f ?? null}
+					entry={currentBasisOf(bases, "air_temp")}
+				/>
+				<GaugeCard
+					style={sharedStyles.card}
+					config={HUMIDITY_GAUGE}
+					value={current?.humidity_percent ?? null}
+					entry={currentBasisOf(bases, "humidity")}
+				/>
+				<GaugeCard
+					style={sharedStyles.card}
+					config={SOIL_MOISTURE_GAUGE}
+					value={
+						current?.soil_moisture_10 != null
+							? current.soil_moisture_10 * 100
+							: null
+					}
+					entry={currentBasisOf(bases, "soil_moisture_10")}
+				/>
 			</div>
 
 			{/* 7-day summary — @spec WX-VIEW-PAGE-004: mm become inches only here */}
 			<div style={styles.summaryGrid}>
 				<SummaryCard
 					label="7-Day Soil Temp Avg"
+					basis={week.soil_temp_7day_avg_f}
 					value={data?.soil_temp_7day_avg_f}
 					unit={"\u00B0F"}
 				/>
 				<SummaryCard
 					label="7-Day Ambient Avg"
+					basis={week.ambient_temp_7day_avg_f}
 					value={data?.ambient_temp_7day_avg_f}
 					unit={"\u00B0F"}
 				/>
 				<SummaryCard
 					label="7-Day Humidity Avg"
+					basis={week.humidity_7day_avg}
 					value={data?.humidity_7day_avg}
 					unit="%"
 				/>
 				<SummaryCard
 					label="7-Day Precipitation"
+					basis={week.precipitation_7day_total_mm}
 					value={
 						data?.precipitation_7day_total_mm != null
 							? mmToInches(data.precipitation_7day_total_mm)
@@ -294,12 +307,22 @@ export default function Environmental() {
 						<tr key={row.depth}>
 							<td style={sharedStyles.td}>{row.depth}</td>
 							<td style={sharedStyles.td}>
-								{row.temp != null ? `${row.temp.toFixed(1)} \u00B0F` : "--"}
+								<DepthValue
+									text={
+										row.temp != null ? `${row.temp.toFixed(1)} \u00B0F` : "--"
+									}
+									entry={row.tempBasis}
+								/>
 							</td>
 							<td style={sharedStyles.td}>
-								{row.moisture != null
-									? `${(row.moisture * 100).toFixed(1)}%`
-									: "--"}
+								<DepthValue
+									text={
+										row.moisture != null
+											? `${(row.moisture * 100).toFixed(1)}%`
+											: "--"
+									}
+									entry={row.moistureBasis}
+								/>
 							</td>
 						</tr>
 					))}
@@ -307,11 +330,14 @@ export default function Environmental() {
 			</table>
 
 			{/* Forecast */}
-			{data?.forecast && data.forecast.daily_summary.length > 0 && (
+			{/* @spec WX-VIEW-PAGE-003: headed by its provider; 7 days until asked for more */}
+			{data?.forecast && forecastDays.length > 0 && (
 				<>
-					<h2 style={sharedStyles.sectionTitle}>5-Day Forecast</h2>
+					<h2 style={sharedStyles.sectionTitle}>
+						Forecast from {FORECAST_PROVIDER_NAMES[data.forecast.provider]}
+					</h2>
 					<div style={styles.forecastGrid}>
-						{data.forecast.daily_summary.map((day) => (
+						{shownDays.map((day) => (
 							<div key={day.date} style={styles.forecastCard}>
 								<div style={styles.forecastDate}>
 									{day.date}
@@ -334,6 +360,15 @@ export default function Environmental() {
 							</div>
 						))}
 					</div>
+					{forecastDays.length > shownDays.length && (
+						<button
+							type="button"
+							style={styles.moreDays}
+							onClick={() => setShowAllDays(true)}
+						>
+							Show {forecastDays.length - shownDays.length} more days
+						</button>
+					)}
 				</>
 			)}
 
@@ -461,16 +496,19 @@ export default function Environmental() {
 	);
 }
 
+// @spec WX-VIEW-PAGE-003, WX-VIEW-BASIS-001
 function SummaryCard({
 	label,
 	value,
 	unit,
 	decimals = 1,
+	basis,
 }: {
 	label: string;
 	value: number | null | undefined;
 	unit: string;
 	decimals?: number;
+	basis?: WeekBasis;
 }) {
 	return (
 		<div style={styles.summaryCard}>
@@ -478,11 +516,47 @@ function SummaryCard({
 			<div style={styles.summaryValue}>
 				{value != null ? `${value.toFixed(decimals)} ${unit}` : "--"}
 			</div>
+			{value != null && basis && (
+				<BasisLabel basis={basis.basis} mixed={basis.mixed} />
+			)}
 		</div>
 	);
 }
 
+/** A soil value with its basis, or "No source for this location". */
+// @spec WX-VIEW-BASIS-001, WX-VIEW-BASIS-004
+function DepthValue({
+	text,
+	entry,
+}: {
+	text: string;
+	entry: CurrentBasis | undefined;
+}) {
+	if (entry?.standing === "NoSource") {
+		return <span style={styles.noSource}>No source for this location</span>;
+	}
+	return (
+		<>
+			<div>{text}</div>
+			{entry?.standing === "InUse" && entry.basis && (
+				<BasisLabel basis={entry.basis} />
+			)}
+		</>
+	);
+}
+
 const styles: Record<string, React.CSSProperties> = {
+	moreDays: {
+		background: "none",
+		border: "1px solid #3182ce",
+		borderRadius: 4,
+		color: "#3182ce",
+		padding: "0.25rem 0.75rem",
+		fontSize: "0.8rem",
+		cursor: "pointer",
+		marginBottom: "1.5rem",
+	},
+	noSource: { fontSize: "0.8rem", color: "#718096" },
 	refreshBtn: {
 		padding: "0.5rem 1rem",
 		backgroundColor: "#3182ce",

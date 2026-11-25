@@ -1,5 +1,6 @@
 // What the Sources page says about inputs and sources: grouping, values in the app's units,
 // times in the lawn's timezone, history, source order and the estimate's accuracy.
+import type { CurrentBasis, SourceStatus } from "../../types";
 import type {
 	Basis,
 	EstimateAccuracy,
@@ -8,7 +9,10 @@ import type {
 	SourceKind,
 	SourceView,
 } from "../../types/sources";
-import { BASIS_KIND_LABELS } from "../../types/sources";
+import {
+	BASIS_KIND_LABELS,
+	FORECAST_PROVIDER_NAMES,
+} from "../../types/sources";
 import { formatInches } from "../../utils/units";
 
 export type InputGroup = "air" | "soil_temp" | "soil_moisture";
@@ -230,8 +234,47 @@ export function forecastStatusText(
 	return "Not fetched yet";
 }
 
-/** Whether the forecast is up: one is held and its latest fetch succeeded. */
-// @spec SYNC-CONN-008
-export function forecastUp(status: ForecastStatus): boolean {
-	return status.fetched_at !== null && status.last_error === null;
+/** The entry saying what a summary input rests on, when the summary has one. */
+// @spec WX-VIEW-BASIS-004
+export function currentBasisOf(
+	bases: CurrentBasis[] | undefined,
+	input: string,
+): CurrentBasis | undefined {
+	return bases?.find((entry) => entry.input === input);
+}
+
+/** The dashboard's source-status line: what it says, and history progress while loading. */
+export interface StatusLine {
+	text: string;
+	/** "Loading history: 2 of 5 sources", while any source holds less than it wants. */
+	history: string | null;
+}
+
+/** The line for `sources` and the forecast; null while there is nothing to report on. */
+// @spec FEED-UI-014
+export function statusLine(
+	sources: SourceStatus[],
+	forecast: ForecastStatus,
+): StatusLine | null {
+	if (sources.length === 0) return null;
+	const failing = sources.filter((s) => s.ok === false).map((s) => s.name);
+	if (forecast.last_error)
+		failing.push(FORECAST_PROVIDER_NAMES[forecast.provider]);
+	const fetched = sources.filter((s) => s.wanted_from !== null);
+	const complete = fetched.filter(
+		(s) =>
+			s.held_from !== null &&
+			s.wanted_from !== null &&
+			s.held_from <= s.wanted_from,
+	);
+	return {
+		text:
+			failing.length === 0
+				? "All sources current"
+				: `Not current: ${failing.join(", ")}`,
+		history:
+			complete.length < fetched.length
+				? `Loading history: ${complete.length} of ${fetched.length} sources complete`
+				: null,
+	};
 }

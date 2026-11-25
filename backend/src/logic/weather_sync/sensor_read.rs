@@ -39,6 +39,8 @@ pub struct SensorReader {
     failing: Failing,
     announced: bool,
     pruned_on: Option<NaiveDate>,
+    /// A refresh asked for the next read.
+    forced: bool,
 }
 
 impl SensorReader {
@@ -46,22 +48,38 @@ impl SensorReader {
         Self::default()
     }
 
+    /// The next read does not wait for the 5 minutes or a failure's retry (a refresh).
+    // @spec SYNC-SCHED-009
+    pub fn force(&mut self) {
+        self.forced = true;
+    }
+
     /// One pass's work on the owner's sensors: read them when due and drop readings older
     /// than a week once a day. Logged, never returned: it must not stop the pass.
     // @spec SYNC-SCHED-017, SYNC-SCHED-018
-    pub async fn run(&mut self, pool: &PgPool, today: NaiveDate, now: DateTime<Utc>) {
-        match self.read(pool, today, now).await {
+    /// Returns whether a reading was stored.
+    pub async fn run(&mut self, pool: &PgPool, today: NaiveDate, now: DateTime<Utc>) -> bool {
+        let stored_any = match self.read(pool, today, now).await {
             Ok(Read::Done {
                 sensors,
                 stored,
                 announce: true,
-            }) => tracing::info!(sensors, stored, "Home Assistant sensors read"),
+            }) => {
+                tracing::info!(sensors, stored, "Home Assistant sensors read");
+                stored > 0
+            }
             Ok(Read::Done {
                 sensors, stored, ..
-            }) => tracing::debug!(sensors, stored, "Home Assistant sensors read"),
-            Ok(_) => {}
-            Err(error) => tracing::error!(?error, "reading the owner's sensors failed"),
-        }
+            }) => {
+                tracing::debug!(sensors, stored, "Home Assistant sensors read");
+                stored > 0
+            }
+            Ok(_) => false,
+            Err(error) => {
+                tracing::error!(?error, "reading the owner's sensors failed");
+                false
+            }
+        };
         match self.prune(pool, today, now).await {
             Ok(Some(dropped)) if dropped > 0 => {
                 tracing::debug!(dropped, "Sensor readings older than a week deleted")
@@ -69,6 +87,7 @@ impl SensorReader {
             Ok(_) => {}
             Err(error) => tracing::error!(?error, "deleting old sensor readings failed"),
         }
+        stored_any
     }
 
     /// Reads the mapped Home Assistant sensors when they are due and stores what they
@@ -81,7 +100,8 @@ impl SensorReader {
         now: DateTime<Utc>,
     ) -> Result<Read> {
         let waited = self.last_attempt.is_none_or(|at| now - at >= READ_EVERY);
-        if !waited || !self.failing.may_try(now) {
+        let forced = std::mem::take(&mut self.forced);
+        if !forced && (!waited || !self.failing.may_try(now)) {
             return Ok(Read::NotDue);
         }
         let Some(held) = setup_queries::credential(pool, Service::HomeAssistant).await? else {

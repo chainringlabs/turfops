@@ -1,6 +1,6 @@
 // @spec UI-TYPE-001, UI-TYPE-002
 import type { InventoryStatus, ProductNeed } from "./inventory";
-import type { ForecastStatus } from "./sources";
+import type { Basis, ForecastStatus, SourceKind } from "./sources";
 // Matches Rust models exactly
 
 export interface LawnProfile {
@@ -223,6 +223,42 @@ export interface EnvironmentalSummary {
 	soil_stale?: boolean;
 	forecast: WeatherForecast | null;
 	gdd_base50_ytd: number | null;
+	/** What each current value rests on, one entry per input (WX-VIEW-API-007). */
+	current_bases?: CurrentBasis[];
+	/** What each 7-day figure with a value rests on, keyed by its field name. */
+	week_bases?: Record<string, WeekBasis>;
+}
+
+/** Where an input stands: a current value, a source with no current value, or no source. */
+export type BasisStanding = "InUse" | "NoCurrentValue" | "NoSource";
+
+export interface CurrentBasis {
+	/** The input's request name, such as `soil_temp_10`. */
+	input: string;
+	standing: BasisStanding;
+	basis: Basis | null;
+	observed_at: string | null;
+}
+
+export interface WeekBasis {
+	basis: Basis;
+	mixed: boolean;
+}
+
+/** One source in use and how its fetching is going (WX-VIEW-STATUS-001). */
+export interface SourceStatus {
+	id: number;
+	name: string;
+	kind: SourceKind;
+	/** Null until the source has been fetched. */
+	ok: boolean | null;
+	last_success: string | null;
+	last_failure: string | null;
+	last_error: string | null;
+	inputs: string[];
+	held_from: string | null;
+	held_through: string | null;
+	wanted_from: string | null;
 }
 
 export interface EnvironmentalReading {
@@ -314,21 +350,11 @@ export interface DataPoint {
 	source: string;
 }
 
-export interface SourceFlags {
-	soildata: boolean;
-	homeassistant: boolean;
-}
-
-/** The dashboard's connections: the source flags and the forecast's status. */
-export interface ConnectionStatus extends SourceFlags {
-	forecast: ForecastStatus;
-}
-
 export interface HealthResponse {
 	status: string;
 	version: string;
 	database: boolean;
-	datasources: SourceFlags;
+	sources: SourceStatus[];
 	/** Null while the database does not answer. */
 	forecast: ForecastStatus | null;
 }
@@ -338,7 +364,8 @@ export interface DashboardResponse {
 	environmental: EnvironmentalSummary;
 	recommendations: Recommendation[];
 	recent_applications: Application[];
-	connections: ConnectionStatus;
+	sources: SourceStatus[];
+	forecast_status: ForecastStatus;
 }
 
 export interface CalendarResponse {

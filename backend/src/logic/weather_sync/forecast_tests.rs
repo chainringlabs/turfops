@@ -289,3 +289,27 @@ fn a_choice_never_prints_its_key() {
     let printed = format!("{:?}", owm("sk-secret-123"));
     assert!(!printed.contains("sk-secret-123"), "{printed}");
 }
+
+// @spec SYNC-SCHED-009
+#[test]
+fn a_forced_turn_is_due_whatever_the_hour_or_a_failure() {
+    let mut keeper = kept_at_ten();
+    let open_meteo = choice(ForecastProvider::OpenMeteo);
+    assert!(!keeper.due(&open_meteo, at(10, 20), MINUTE));
+    keeper.force();
+    assert!(keeper.due(&open_meteo, at(10, 20), MINUTE));
+    keeper.keep(
+        &open_meteo,
+        fetched(ForecastProvider::OpenMeteo, at(10, 20)),
+        at(10, 20),
+    );
+    assert!(!keeper.due(&open_meteo, at(10, 21), MINUTE), "once");
+
+    keeper.keep(&open_meteo, failed(), at(10, 30));
+    assert!(!keeper.due(&open_meteo, at(10, 31), MINUTE));
+    keeper.force();
+    assert!(
+        keeper.due(&open_meteo, at(10, 31), MINUTE),
+        "the retry wait too"
+    );
+}

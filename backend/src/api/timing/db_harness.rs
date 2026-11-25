@@ -148,7 +148,9 @@ impl Drop for Lake {
 pub(crate) async fn app_state_on(pool: &PgPool, lake: &Lake, clock: Clock) -> AppState {
     let mut config = config_for(lake);
     config.clock = clock;
-    let sync = DataSyncService::initialize(&config, pool.clone()).await;
+    let sync = DataSyncService::initialize(&config, pool.clone())
+        .await
+        .summary_from_lake();
     AppState::new(pool.clone(), sync, None, false, clock)
 }
 
@@ -175,7 +177,9 @@ fn config_for(lake: &Lake) -> Config {
 pub(super) async fn app_state(pool: &PgPool, lake: &Lake, forecast_base: Option<&str>) -> AppState {
     let mut config = config_for(lake);
     config.clock = ZONE;
-    let mut sync = DataSyncService::initialize(&config, pool.clone()).await;
+    let mut sync = DataSyncService::initialize(&config, pool.clone())
+        .await
+        .summary_from_lake();
     if let Some(base) = forecast_base {
         // The forecast as the schedule would hold it after fetching from `base`: none
         // when that fetch fails.

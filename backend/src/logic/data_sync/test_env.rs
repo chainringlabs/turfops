@@ -8,19 +8,23 @@ use crate::state::AppState;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::collections::HashMap;
+#[cfg(feature = "db-tests")]
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+#[cfg(feature = "db-tests")]
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+#[cfg(feature = "db-tests")]
 use tokio::net::TcpListener;
 
 /// A lake mount that does not exist: every lake read fails, as when the lake is unmounted.
 pub(crate) const NO_LAKE: &str = "/nonexistent/turfops-test-lake";
 /// A Home Assistant entity state that parses as a number.
+#[cfg(feature = "db-tests")]
 pub(crate) const HA_STATE: &str = r#"{"state":"72.0","entity_id":"sensor.patio"}"#;
-/// Nothing listens here: a connection is refused at once.
-pub(crate) const UNREACHABLE: &str = "http://127.0.0.1:1";
+#[cfg(feature = "db-tests")]
 pub(crate) const HA_TOKEN: &str = "ha-test-token";
 
+#[cfg(feature = "db-tests")]
 /// A local HTTP server that answers every request alike and records each one as
 /// `"<request line> | <authorization header>"`.
 pub(crate) struct Stub {
@@ -28,16 +32,14 @@ pub(crate) struct Stub {
     requests: Arc<Mutex<Vec<String>>>,
 }
 
+#[cfg(feature = "db-tests")]
 impl Stub {
-    pub fn requests(&self) -> Vec<String> {
-        self.requests.lock().unwrap().clone()
-    }
-
     pub fn count(&self) -> usize {
         self.requests.lock().unwrap().len()
     }
 }
 
+#[cfg(feature = "db-tests")]
 /// Start a [`Stub`] answering `status` with the JSON `body`.
 pub(crate) async fn stub(status: u16, body: &'static str) -> Stub {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -63,6 +65,7 @@ pub(crate) async fn stub(status: u16, body: &'static str) -> Stub {
     Stub { url, requests }
 }
 
+#[cfg(feature = "db-tests")]
 async fn read_head(socket: &mut tokio::net::TcpStream) -> String {
     let mut head = Vec::new();
     let mut buf = [0u8; 4096];
@@ -75,6 +78,7 @@ async fn read_head(socket: &mut tokio::net::TcpStream) -> String {
     String::from_utf8_lossy(&head).into_owned()
 }
 
+#[cfg(feature = "db-tests")]
 fn summarize(head: &str) -> String {
     let mut lines = head.lines();
     let request_line = lines.next().unwrap_or_default().to_string();
@@ -100,6 +104,7 @@ pub(crate) fn config(vars: &[(&str, &str)]) -> Config {
         .0
 }
 
+#[cfg(feature = "db-tests")]
 /// Home Assistant at `url` with a token.
 pub(crate) fn with_home_assistant(url: &str) -> Vec<(&'static str, String)> {
     vec![
@@ -109,6 +114,7 @@ pub(crate) fn with_home_assistant(url: &str) -> Vec<(&'static str, String)> {
 }
 
 /// The configuration from owned variable pairs.
+#[cfg(feature = "db-tests")]
 pub(crate) fn config_of(vars: &[(&'static str, String)]) -> Config {
     let borrowed: Vec<(&str, &str)> = vars.iter().map(|(k, v)| (*k, v.as_str())).collect();
     config(&borrowed)

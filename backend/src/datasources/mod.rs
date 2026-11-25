@@ -22,7 +22,6 @@ pub mod sensor_units;
 pub mod uscrn;
 pub mod weather;
 
-pub use homeassistant::HomeAssistantClient;
 pub use openrouter::OpenRouterClient;
 pub use openweathermap::OpenWeatherMapClient;
 pub use weather::WeatherLakeClient;
