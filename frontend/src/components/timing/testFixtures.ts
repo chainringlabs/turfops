@@ -121,6 +121,7 @@ export function response(
 				approximate: false,
 			},
 			spans: [],
+			soil_changes: [],
 		},
 		soil: { avg_5day_f: 66.24, as_of: "2026-09-19", depth_cm: 5 },
 		freeze: {

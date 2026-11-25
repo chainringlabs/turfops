@@ -176,7 +176,7 @@ soon → …); the soil chart; the secondary/optional seeding windows; and a col
   source) and guidance.
 - A boundary with no date (overdue) reads "Later than usual — not yet seen".
 - **Chart:** this year solid blue, forecast the same blue dashed, last year orange, the
-  typical year a neutral dotted reference; the blue/orange pair was checked for
+  typical year a thin neutral line; estimated stretches dotted in their own hue, with a marker where the soil's source changed for good; the blue/orange pair was checked for
   color-vision-deficiency separation. Thresholds shown are the fall set from July and
   the spring set before. Defaults to −75/+60 days around today with a full-year toggle,
   and has a table view.

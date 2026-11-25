@@ -28,8 +28,12 @@ vi.mock("recharts", () => ({
 	YAxis: (p: { ticks: number[] }) => (
 		<div data-testid="yaxis" data-ticks={JSON.stringify(p.ticks)} />
 	),
-	ReferenceLine: (p: { y?: number; x?: string }) =>
-		p.y !== undefined ? <div data-testid="threshold" data-y={p.y} /> : null,
+	ReferenceLine: (p: { y?: number; x?: string; label?: { value: string } }) =>
+		p.y !== undefined ? (
+			<div data-testid="threshold" data-y={p.y} />
+		) : (
+			<div data-testid="xline" data-x={p.x} data-label={p.label?.value} />
+		),
 	XAxis: () => null,
 	CartesianGrid: () => null,
 	Tooltip: () => null,
@@ -62,14 +66,55 @@ function fallSeries(): SoilSeriesDay[] {
 
 // @spec TIME-UI-006
 describe("SoilSeasonChart", () => {
-	it("draws this year solid blue, the forecast dashed in the same hue, last year orange, the typical year neutral dotted", () => {
+	it("draws this year solid blue, the forecast dashed in the same hue, last year orange, the typical year a thin neutral line", () => {
 		render(<SoilSeasonChart series={fallSeries()} today="2026-09-20" />);
-		expect(line("this_year")).toMatchObject({ stroke: "#2a78d6", dash: "" });
+		expect(line("this_measured")).toMatchObject({
+			stroke: "#2a78d6",
+			dash: "",
+		});
 		expect(line("forecast").stroke).toBe("#2a78d6");
 		expect(line("forecast").dash).not.toBe("");
-		expect(line("last_year")).toMatchObject({ stroke: "#eb6834", dash: "" });
-		expect(line("typical").stroke).toBe("#718096");
-		expect(line("typical").dash).not.toBe("");
+		expect(line("last_measured")).toMatchObject({
+			stroke: "#eb6834",
+			dash: "",
+		});
+		expect(line("typical")).toMatchObject({ stroke: "#718096", dash: "" });
+	});
+
+	it("dots estimated stretches in their own hue, joined to the measured days, and marks only lasting changes", () => {
+		const series = fallSeries().map((d) => ({
+			...d,
+			this_year_estimated: d.date >= "2026-09-10" && d.date <= "2026-09-12",
+			last_year_estimated: d.date === "2026-09-01",
+		}));
+		render(
+			<SoilSeasonChart
+				series={series}
+				today="2026-09-20"
+				changes={["2026-09-10", "2026-01-15"]}
+			/>,
+		);
+		expect(line("this_estimated")).toMatchObject({ stroke: "#2a78d6" });
+		expect(line("this_estimated").dash).not.toBe("");
+		expect(line("last_estimated")).toMatchObject({ stroke: "#eb6834" });
+		expect(line("last_estimated").dash).not.toBe("");
+		const byDate = new Map(rows().map((r) => [r.date, r]));
+		const at = (date: string) =>
+			byDate.get(date) as unknown as Record<string, number | null>;
+		expect(at("2026-09-11").this_measured).toBeNull();
+		expect(at("2026-09-11").this_estimated).toBe(66);
+		// The measured days on either side carry the dotted segment's ends.
+		expect(at("2026-09-09").this_estimated).toBe(66);
+		expect(at("2026-09-13").this_estimated).toBe(66);
+		expect(at("2026-09-14").this_estimated).toBeNull();
+		const markers = screen
+			.getAllByTestId("xline")
+			.filter((x) => x.dataset.label === "Source changed");
+		// Only the change inside the plotted range is drawn.
+		expect(markers.map((m) => m.dataset.x)).toEqual(["Sep 10"]);
+		expect(
+			screen.getByText("Dotted = estimated for your location"),
+		).toBeInTheDocument();
 	});
 
 	// @spec UI-CONV-004

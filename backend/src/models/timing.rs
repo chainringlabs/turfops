@@ -9,6 +9,9 @@ pub struct TimingBasis {
     pub soil: Option<crate::models::weather_basis::Basis>,
     pub air: Option<crate::models::weather_basis::Basis>,
     pub spans: Vec<crate::models::weather_basis::BasisSpan>,
+    /// The lasting changes of 5 cm soil basis this year (gaps the estimate filled set
+    /// aside).
+    pub soil_changes: Vec<NaiveDate>,
 }
 
 /// Response of `GET /api/v1/timing-windows`: seeding and pre-emergent windows derived

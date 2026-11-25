@@ -11,7 +11,8 @@ interface WindowCardProps {
 
 function TypicalCell({ boundary }: { boundary: BoundaryView }) {
 	if (!boundary.typical) return <>—</>;
-	const { median, earliest, latest, sample_count } = boundary.typical;
+	const { median, earliest, latest, sample_count, estimated_years } =
+		boundary.typical;
 	const range =
 		earliest === latest
 			? ""
@@ -22,6 +23,7 @@ function TypicalCell({ boundary }: { boundary: BoundaryView }) {
 			<div style={styles.sub}>
 				{range}
 				{sample_count} yr
+				{estimated_years > 0 && `, ${estimated_years} estimated`}
 			</div>
 		</>
 	);
@@ -34,7 +36,13 @@ function seasonText(b: BoundaryView): string {
 		b.source === "Tentative" && b.days_held !== null
 			? `, held ${b.days_held} of 5 days`
 			: "";
-	return `${formatMonthDay(b.date)} (${DATE_SOURCE_LABELS[b.source]}${held})`;
+	// @spec TIME-UI-003
+	const estimated = !b.estimated
+		? ""
+		: b.typical_error_days !== null
+			? ` · estimated, usually within ${Math.round(b.typical_error_days)} day${Math.round(b.typical_error_days) === 1 ? "" : "s"}`
+			: " · estimated";
+	return `${formatMonthDay(b.date)} (${DATE_SOURCE_LABELS[b.source]}${held})${estimated}`;
 }
 
 // @spec TIME-UI-003

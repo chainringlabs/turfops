@@ -73,6 +73,15 @@ describe("Timing page layout", () => {
 		expect(screen.getByText("as early as Oct 22 · 12 yr")).toBeInTheDocument();
 	});
 
+	it("labels each tile with what it rests on: soil for the soil, daily air for the freezes", async () => {
+		mocked.mockResolvedValue(response());
+		show();
+		await screen.findByText("66.2°F");
+		const soil = screen.getByText("Measured · Avondale 2 N, 20 mi");
+		expect(soil.closest("a")).toHaveAttribute("href", "/sources");
+		expect(screen.getAllByText("Estimated for your location")).toHaveLength(2);
+	});
+
 	it("shows this year's fall freeze once it has been seen", async () => {
 		const base = response();
 		mocked.mockResolvedValue(
@@ -99,13 +108,21 @@ describe("Timing page errors", () => {
 		expect(msg.textContent).not.toMatch(/404/);
 	});
 
-	it("says the weather lake is unavailable, in the server's sentence, without a status code or JSON", async () => {
+	it("says the weather history is still loading, in the server's sentence, without a status code or JSON", async () => {
 		const sentence =
-			"The weather data lake can't be read right now, so soil, disease, timing and history data are unavailable. Try again in a few minutes; if it persists, check that the lake is mounted at DATALAKE_ROOT.";
+			"TurfOps is still downloading your weather history (4 of 15 years so far), so timing windows are unavailable for now. Nothing to do; it finishes on its own.";
 		rejectWith(new ApiError(503, sentence));
 		show();
 		const msg = await screen.findByText(sentence);
 		expect(msg.textContent).not.toMatch(/503|\{/);
+	});
+
+	it("says the location is not set, in the server's sentence", async () => {
+		const sentence =
+			"TurfOps doesn't know where your lawn is yet, so weather, timing and disease information are unavailable. Set the location in Setup.";
+		rejectWith(new ApiError(503, sentence));
+		show();
+		expect(await screen.findByText(sentence)).toBeInTheDocument();
 	});
 
 	it("never shows internal detail for a server failure", async () => {

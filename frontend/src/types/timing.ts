@@ -112,6 +112,8 @@ export interface TimingBasis {
 	soil: Basis | null;
 	air: Basis | null;
 	spans: TimingBasisSpan[];
+	/** Dates of the lasting changes of 5 cm soil basis this year. */
+	soil_changes: string[];
 }
 
 export interface TimingResponse {

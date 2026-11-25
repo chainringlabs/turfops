@@ -16,7 +16,7 @@ use crate::logic::weather_record::record::WeatherRecord;
 use crate::models::climate::ClimateRecord;
 use crate::models::seasonal_plan::PlannedActivity;
 use crate::models::timing::{TimingBasis, TimingResponse};
-use crate::models::weather_basis::{BasisKind, BasisSpan};
+use crate::models::weather_basis::{Basis, BasisKind, BasisSpan};
 use crate::models::weather_record::Input;
 use crate::models::{Application, DailyForecast, LawnProfile, Recommendation};
 use crate::state::AppState;
@@ -173,8 +173,88 @@ fn timing_basis(spans: &[BasisSpan], today: NaiveDate) -> TimingBasis {
     TimingBasis {
         soil: newest(Input::SoilTemp5),
         air: newest(Input::DailyAir),
+        soil_changes: soil_story(&this_year)
+            .changes
+            .iter()
+            .map(|change| change.on)
+            .collect(),
         spans: this_year,
     }
+}
+
+/// The days the estimate filled between days one source measured.
+#[derive(Debug, Clone, PartialEq)]
+struct GapFills {
+    measured_by: Basis,
+    days: i64,
+    first: NaiveDate,
+    last: NaiveDate,
+}
+
+/// A lasting change of 5 cm soil basis.
+#[derive(Debug, Clone, PartialEq)]
+struct SoilChange {
+    on: NaiveDate,
+    from: Basis,
+    to: Basis,
+}
+
+/// How 5 cm soil's basis went this year: the gaps the estimate filled, and the changes
+/// that remain once those are set aside.
+struct SoilStory {
+    gap_fills: Vec<GapFills>,
+    changes: Vec<SoilChange>,
+}
+
+// @spec TIME-ENG-052
+/// An estimated stretch between stretches the same source measured is a gap fill; the
+/// other changes of basis are lasting.
+fn soil_story(spans: &[BasisSpan]) -> SoilStory {
+    let mut soil: Vec<&BasisSpan> = spans
+        .iter()
+        .filter(|span| span.input == Input::SoilTemp5)
+        .collect();
+    soil.sort_by_key(|span| span.from);
+    let is_fill = |i: usize| {
+        i > 0
+            && i + 1 < soil.len()
+            && soil[i].basis.kind == BasisKind::Estimate
+            && soil[i - 1].basis.kind != BasisKind::Estimate
+            && soil[i - 1].basis == soil[i + 1].basis
+    };
+    let mut gap_fills: Vec<GapFills> = Vec::new();
+    let mut lasting: Vec<&BasisSpan> = Vec::new();
+    for (i, span) in soil.iter().enumerate() {
+        if !is_fill(i) {
+            lasting.push(span);
+            continue;
+        }
+        let days = (span.to - span.from).num_days() + 1;
+        let measured_by = &soil[i - 1].basis;
+        match gap_fills.iter_mut().find(|g| g.measured_by == *measured_by) {
+            Some(fills) => {
+                fills.days += days;
+                fills.first = fills.first.min(span.from);
+                fills.last = fills.last.max(span.to);
+            }
+            None => gap_fills.push(GapFills {
+                measured_by: measured_by.clone(),
+                days,
+                first: span.from,
+                last: span.to,
+            }),
+        }
+    }
+    let changes = lasting
+        .windows(2)
+        .filter(|pair| pair[0].basis != pair[1].basis)
+        .map(|pair| SoilChange {
+            on: pair[1].from,
+            from: pair[0].basis.clone(),
+            to: pair[1].basis.clone(),
+        })
+        .collect();
+    SoilStory { gap_fills, changes }
 }
 
 // @spec TIME-ENG-045
@@ -218,7 +298,6 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
         has_forecast: forecast.is_some(),
         days,
         spans: &basis.spans,
-        today,
         daily_error_f: estimate.as_ref().map(|(_, error)| *error),
     });
     // @spec TIME-ENG-046
@@ -343,7 +422,6 @@ struct NoteInputs<'a> {
     days: &'a [crate::models::climate::ClimateDay],
     /// The current year's basis spans.
     spans: &'a [BasisSpan],
-    today: NaiveDate,
     /// The stored 5 cm estimate's daily error (°F), when there is one.
     daily_error_f: Option<f64>,
 }
@@ -366,12 +444,25 @@ fn data_notes(inputs: &NoteInputs) -> Vec<String> {
             None => "No soil data is available; windows follow their typical dates.".into(),
         });
     }
-    let jan1 = NaiveDate::from_ymd_opt(inputs.today.year(), 1, 1).unwrap_or(inputs.today);
-    let estimated_this_year = inputs
+    // The soil in use now, or a date this season, rests on the estimate.
+    let estimated_now = inputs
         .days
         .iter()
-        .any(|d| d.date >= jan1 && d.soil_estimated && d.soil_temp_5_f.is_some());
-    if estimated_this_year {
+        .rev()
+        .find(|d| d.soil_temp_5_f.is_some())
+        .is_some_and(|d| d.soil_estimated);
+    let estimated_date = assessment.windows.iter().any(|w| {
+        [
+            Some(&w.opens),
+            w.ideal_from.as_ref(),
+            w.ideal_until.as_ref(),
+            Some(&w.closes),
+        ]
+        .into_iter()
+        .flatten()
+        .any(|b| b.estimated)
+    });
+    if estimated_now || estimated_date {
         notes.push(match inputs.daily_error_f {
             Some(error) => format!(
                 "5 cm soil temperature this season is estimated for your location from air \
@@ -383,20 +474,32 @@ fn data_notes(inputs: &NoteInputs) -> Vec<String> {
                 .into(),
         });
     }
-    let soil_spans: Vec<&BasisSpan> = inputs
-        .spans
-        .iter()
-        .filter(|span| span.input == Input::SoilTemp5)
-        .collect();
-    for pair in soil_spans.windows(2) {
-        if pair[0].basis != pair[1].basis {
-            notes.push(format!(
-                "From {}, 5 cm soil comes from {} instead of {}.",
-                pair[1].from.format("%b %-d"),
-                soil_words(&pair[1].basis),
-                soil_words(&pair[0].basis)
-            ));
-        }
+    let story = soil_story(inputs.spans);
+    for fills in &story.gap_fills {
+        let when = if fills.first == fills.last {
+            format!("on {}", fills.first.format("%b %-d"))
+        } else {
+            format!(
+                "on {} day{} this year ({} – {})",
+                fills.days,
+                if fills.days == 1 { "" } else { "s" },
+                fills.first.format("%b %-d"),
+                fills.last.format("%b %-d")
+            )
+        };
+        notes.push(format!(
+            "The 5 cm soil from {} had gaps {when}; the soil estimate for your location filled \
+             them.",
+            fills.measured_by.source
+        ));
+    }
+    for change in &story.changes {
+        notes.push(format!(
+            "From {}, 5 cm soil comes from {} instead of {}.",
+            change.on.format("%b %-d"),
+            soil_words(&change.to),
+            soil_words(&change.from)
+        ));
     }
     for name in &assessment.withheld {
         notes.push(format!(
@@ -420,7 +523,7 @@ fn data_notes(inputs: &NoteInputs) -> Vec<String> {
 }
 
 /// A soil basis in a sentence: the estimate is the soil estimate, not the hourly one.
-fn soil_words(basis: &crate::models::weather_basis::Basis) -> String {
+fn soil_words(basis: &Basis) -> String {
     match basis.kind {
         BasisKind::Estimate => "the soil estimate for your location".into(),
         _ => basis.in_words(),
@@ -431,8 +534,10 @@ fn soil_words(basis: &crate::models::weather_basis::Basis) -> String {
 mod tests {
     use super::*;
     use crate::models::climate::ClimateDay;
-    use crate::models::timing::{FreezeDates, SoilNow};
-    use crate::models::weather_basis::Basis;
+    use crate::models::timing::{
+        BoundaryView, DateSource, FreezeDates, SoilNow, TimingWindow, WindowId, WindowPriority,
+        WindowState,
+    };
 
     // @spec TIME-ENG-039
     #[test]
@@ -521,7 +626,6 @@ mod tests {
             has_forecast,
             days,
             spans,
-            today: date(9, 20),
             daily_error_f: Some(2.14),
         })
     }
@@ -578,40 +682,64 @@ mod tests {
 
     // @spec TIME-ENG-052
     #[test]
-    fn estimated_soil_this_season_is_noted_with_the_estimates_error() {
-        let last_year = [soil_day(date(9, 1) - Duration::days(365), true)];
-        assert!(notes_for(
-            &assessment(true, 10),
-            &LawnProfile::default(),
-            true,
-            &last_year,
-            &[]
-        )
-        .is_empty());
-        let this_year = [soil_day(date(9, 1), false), soil_day(date(9, 2), true)];
+    fn estimated_soil_is_noted_only_when_in_use_now_or_dating_this_season() {
+        let healthy = |days: &[ClimateDay], assessment: &Assessment| {
+            notes_for(assessment, &LawnProfile::default(), true, days, &[])
+        };
+        // A day this spring the estimate filled, the soil in use now measured: no note.
+        let filled_in_spring = [soil_day(date(4, 20), true), soil_day(date(9, 19), false)];
+        assert!(healthy(&filled_in_spring, &assessment(true, 10)).is_empty());
+
+        let estimated_note = "5 cm soil temperature this season is estimated for your \
+                              location from air temperature, typically within 2.1°F of a \
+                              measured day; dates from it are marked estimated.";
+        let in_use_now = [soil_day(date(9, 18), false), soil_day(date(9, 19), true)];
         assert_eq!(
-            notes_for(
-                &assessment(true, 10),
-                &LawnProfile::default(),
-                true,
-                &this_year,
-                &[]
-            ),
-            vec![
-                "5 cm soil temperature this season is estimated for your location from air \
-                 temperature, typically within 2.1°F of a measured day; dates from it are \
-                 marked estimated."
-            ]
+            healthy(&in_use_now, &assessment(true, 10)),
+            vec![estimated_note]
         );
+
+        let mut dated = assessment(true, 10);
+        let boundary = |estimated: bool| BoundaryView {
+            label: "5 cm soil cools to 70°F".into(),
+            typical: None,
+            date: Some(date(9, 14)),
+            source: DateSource::Observed,
+            passed: true,
+            days_held: None,
+            estimated,
+            typical_error_days: estimated.then_some(2.0),
+        };
+        dated.windows = vec![TimingWindow {
+            id: WindowId::FallPreEmergent,
+            name: "Fall Pre-Emergent".into(),
+            priority: WindowPriority::Primary,
+            season_year: 2026,
+            state: WindowState::Ideal,
+            headline: String::new(),
+            detail: String::new(),
+            opens: boundary(true),
+            ideal_from: None,
+            ideal_until: None,
+            closes: boundary(false),
+            done_on: None,
+            conflict: None,
+            guidance: Vec::new(),
+        }];
+        assert_eq!(healthy(&filled_in_spring, &dated), vec![estimated_note]);
     }
 
     // @spec TIME-ENG-052
     #[test]
-    fn a_change_of_soil_basis_this_year_is_dated() {
+    fn gaps_the_estimate_filled_are_one_note_and_only_lasting_changes_are_dated() {
         let spans = [
-            span(Input::SoilTemp5, date(1, 1), date(6, 3), station()),
+            span(Input::SoilTemp5, date(1, 1), date(2, 21), station()),
+            span(Input::SoilTemp5, date(2, 22), date(2, 22), estimate()),
             span(Input::DailyAir, date(1, 1), date(9, 19), estimate()),
-            span(Input::SoilTemp5, date(6, 4), date(9, 19), estimate()),
+            span(Input::SoilTemp5, date(2, 23), date(5, 11), station()),
+            span(Input::SoilTemp5, date(5, 12), date(5, 15), estimate()),
+            span(Input::SoilTemp5, date(5, 16), date(8, 31), station()),
+            span(Input::SoilTemp5, date(9, 1), date(9, 19), estimate()),
         ];
         assert_eq!(
             notes_for(
@@ -622,10 +750,34 @@ mod tests {
                 &spans
             ),
             vec![
-                "From Jun 4, 5 cm soil comes from the soil estimate for your location instead \
-                 of Avondale 2 N (20 mi)."
+                "The 5 cm soil from Avondale 2 N had gaps on 5 days this year (Feb 22 – \
+                 May 15); the soil estimate for your location filled them.",
+                "From Sep 1, 5 cm soil comes from the soil estimate for your location \
+                 instead of Avondale 2 N (20 mi).",
             ]
         );
+        let basis = timing_basis(&spans, date(9, 20));
+        assert_eq!(basis.soil_changes, vec![date(9, 1)]);
+
+        let one_day = [
+            span(Input::SoilTemp5, date(1, 1), date(4, 19), station()),
+            span(Input::SoilTemp5, date(4, 20), date(4, 20), estimate()),
+            span(Input::SoilTemp5, date(4, 21), date(9, 19), station()),
+        ];
+        assert_eq!(
+            notes_for(
+                &assessment(true, 10),
+                &LawnProfile::default(),
+                true,
+                &[],
+                &one_day
+            ),
+            vec![
+                "The 5 cm soil from Avondale 2 N had gaps on Apr 20; the soil estimate for \
+                 your location filled them."
+            ]
+        );
+        assert!(timing_basis(&one_day, date(9, 20)).soil_changes.is_empty());
     }
 
     // @spec TIME-ENG-050

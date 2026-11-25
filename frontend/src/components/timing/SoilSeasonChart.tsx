@@ -16,6 +16,8 @@ import SoilSeasonTable, { type SoilRow } from "./SoilSeasonTable";
 interface SoilSeasonChartProps {
 	series: SoilSeriesDay[];
 	today: string;
+	/** Dates of the lasting changes of 5 cm soil basis this year. */
+	changes?: string[];
 }
 
 // Categorical pair validated for CVD separation; the typical year is a neutral
@@ -38,7 +40,28 @@ const FALL_THRESHOLDS = [
 const SEASON_DAYS_BEFORE = 75;
 const SEASON_DAYS_AFTER = 60;
 
-type Row = SoilRow;
+type Row = SoilRow & {
+	this_measured: number | null;
+	this_estimated: number | null;
+	last_measured: number | null;
+	last_estimated: number | null;
+};
+
+/**
+ * One year's values as a measured line and an estimated line. An estimated stretch takes
+ * the measured day on each side too, so the dotted segment joins the solid one.
+ */
+function splitByEstimate(
+	values: (number | null)[],
+	estimated: boolean[],
+): { measured: (number | null)[]; estimated: (number | null)[] } {
+	return {
+		measured: values.map((v, i) => (estimated[i] ? null : v)),
+		estimated: values.map((v, i) =>
+			estimated[i] || estimated[i - 1] || estimated[i + 1] ? v : null,
+		),
+	};
+}
 
 function SoilTooltip({
 	active,
@@ -58,9 +81,15 @@ function SoilTooltip({
 	return (
 		<div style={styles.tooltip}>
 			<div style={styles.tooltipTitle}>{row.label}</div>
-			{line("This year", row.this_year)}
+			{line(
+				row.this_year_estimated ? "This year (estimated)" : "This year",
+				row.this_year,
+			)}
 			{row.this_year === null && line("Forecast", row.forecast)}
-			{line("Last year", row.last_year)}
+			{line(
+				row.last_year_estimated ? "Last year (estimated)" : "Last year",
+				row.last_year,
+			)}
 			{line("Typical", row.typical)}
 		</div>
 	);
@@ -71,6 +100,7 @@ function SoilTooltip({
 export default function SoilSeasonChart({
 	series,
 	today,
+	changes = [],
 }: SoilSeasonChartProps) {
 	const [fullYear, setFullYear] = useState(false);
 	const todayN = dayNumber(today);
@@ -79,18 +109,35 @@ export default function SoilSeasonChart({
 
 	// Bridge the forecast onto the last observed day so the two segments join.
 	const lastObserved = series.findLast((d) => d.this_year !== null);
-	const rows: Row[] = series
-		.filter(
-			(d) =>
-				fullYear ||
-				(dayNumber(d.date) >= todayN - SEASON_DAYS_BEFORE &&
-					dayNumber(d.date) <= todayN + SEASON_DAYS_AFTER),
-		)
-		.map((d) => ({
-			...d,
-			forecast: d === lastObserved ? d.this_year : d.forecast,
-			label: formatMonthDay(d.date),
-		}));
+	const shown = series.filter(
+		(d) =>
+			fullYear ||
+			(dayNumber(d.date) >= todayN - SEASON_DAYS_BEFORE &&
+				dayNumber(d.date) <= todayN + SEASON_DAYS_AFTER),
+	);
+	const thisYear = splitByEstimate(
+		shown.map((d) => d.this_year),
+		shown.map((d) => d.this_year_estimated),
+	);
+	const lastYear = splitByEstimate(
+		shown.map((d) => d.last_year),
+		shown.map((d) => d.last_year_estimated),
+	);
+	const rows: Row[] = shown.map((d, i) => ({
+		...d,
+		forecast: d === lastObserved ? d.this_year : d.forecast,
+		label: formatMonthDay(d.date),
+		this_measured: thisYear.measured[i],
+		this_estimated: thisYear.estimated[i],
+		last_measured: lastYear.measured[i],
+		last_estimated: lastYear.estimated[i],
+	}));
+	const anyEstimated = rows.some(
+		(d) => d.this_year_estimated || d.last_year_estimated,
+	);
+	const changeLabels = rows
+		.filter((d) => changes.includes(d.date))
+		.map((d) => d.label);
 	const monthStarts = rows
 		.filter((d) => d.date.endsWith("-01"))
 		.map((d) => d.label);
@@ -175,19 +222,40 @@ export default function SoilSeasonChart({
 							}}
 						/>
 					)}
+					{changeLabels.map((label) => (
+						<ReferenceLine
+							key={`change-${label}`}
+							x={label}
+							stroke="#a0aec0"
+							strokeDasharray="4 3"
+							label={{
+								value: "Source changed",
+								position: "insideTopLeft",
+								fontSize: 10,
+								fill: "#718096",
+							}}
+						/>
+					))}
 					<Tooltip content={<SoilTooltip />} />
 					<Line
 						dataKey="typical"
 						stroke={COLORS.typical}
-						strokeWidth={1.5}
-						strokeDasharray="2 3"
+						strokeWidth={1}
 						dot={false}
 						isAnimationActive={false}
 					/>
 					<Line
-						dataKey="last_year"
+						dataKey="last_measured"
 						stroke={COLORS.lastYear}
 						strokeWidth={1.5}
+						dot={false}
+						isAnimationActive={false}
+					/>
+					<Line
+						dataKey="last_estimated"
+						stroke={COLORS.lastYear}
+						strokeWidth={1.5}
+						strokeDasharray="1 3"
 						dot={false}
 						isAnimationActive={false}
 					/>
@@ -200,9 +268,17 @@ export default function SoilSeasonChart({
 						isAnimationActive={false}
 					/>
 					<Line
-						dataKey="this_year"
+						dataKey="this_measured"
 						stroke={COLORS.thisYear}
 						strokeWidth={2}
+						dot={false}
+						isAnimationActive={false}
+					/>
+					<Line
+						dataKey="this_estimated"
+						stroke={COLORS.thisYear}
+						strokeWidth={2}
+						strokeDasharray="1 3"
 						dot={false}
 						isAnimationActive={false}
 					/>
@@ -233,11 +309,23 @@ export default function SoilSeasonChart({
 						style={{
 							...styles.key,
 							borderTopColor: COLORS.typical,
-							borderTopStyle: "dotted",
+							borderTopWidth: 1,
 						}}
 					/>
 					Typical year
 				</span>
+				{anyEstimated && (
+					<span style={styles.legendItem}>
+						<span
+							style={{
+								...styles.key,
+								borderTopColor: "#4a5568",
+								borderTopStyle: "dotted",
+							}}
+						/>
+						Dotted = estimated for your location
+					</span>
+				)}
 				{todayLabel && (
 					<span style={styles.legendItem}>
 						<span style={styles.todayKey} />

@@ -173,7 +173,7 @@ As a result, a spring pre-emergent never blocks fall seeding, a fall overseeding
 | GET | `/api/v1/timing-windows` | `TimingResponse` (`models/timing.rs`, mirrored in `frontend/src/types/timing.ts`) | 404 with no lawn profile. 503 with the weather record's own sentence when the location is not set or the history is still loading. Record read errors propagate. |
 
 `TimingResponse` fields:
-- `generated_at`, `today` (the lawn's local date; see **Today**), `basis` (the record's spans for 5 cm soil and daily air over the current year, and each input's basis today)
+- `generated_at`, `today` (the lawn's local date; see **Today**), `basis` (the record's spans for 5 cm soil and daily air over the current year, each input's basis today, and `soil_changes`, the dates of the lasting changes of 5 cm soil basis this year)
 - `soil: SoilNow {avg_5day_f, as_of, depth_cm}`: the latest observed smoothed value
 - `freeze: FreezeDates {last_spring, first_fall: DateStat?, last_spring_this_year (only from June), first_fall_this_year}`
 - `windows: [TimingWindow]`. Each has `id`, `name`, `priority`, `season_year`, `state`, `headline`, `detail`, `opens`, `ideal_from?`, `ideal_until?`, `closes` (each a `BoundaryView {label, typical: DateStat?, date?, source, passed, days_held?, estimated, typical_error_days?}`; `DateStat` gains `estimated_years`), `done_on?`, `conflict?` and `guidance[]`.
@@ -193,7 +193,9 @@ As a result, a spring pre-emergent never blocks fall seeding, a fall overseeding
 **Data notes** (`api/timing.rs::data_notes`) cover:
 - a climate record served from the last good read, with its local read time (first, TIME-ENG-046)
 - stale or absent soil data (the windows follow typical dates)
-- soil temperature estimated for the location, with the estimate's typical error, or a change of basis during the season with its date
+- soil temperature estimated for the location, with the estimate's typical error: only when the soil in use now (the newest soil day) rests on the estimate, or an estimated run dates a boundary this season
+- gaps the estimate filled: an estimated stretch this year between days the same source measured is a gap fill, and the fills are summarized in one note per source (the count of days, and the first and last)
+- each lasting change of soil basis this year, with its date: a change that remains once gap fills are set aside
 - a window not offered because the lawn's basis cannot date it
 - fewer than 5 history years (typical dates are rough)
 - no forecast
@@ -260,7 +262,7 @@ A failed fetch shows `describeError(e)` (Web UI's human-readable errors): with n
   - A Today marker, and an `aria-label` that gives the typical dates.
   - Hidden when the opens or closes typical date is missing.
 - **`SoilSeasonChart`:**
-  - This year `#2a78d6` solid, the forecast the same hue dashed and bridged onto the last observed day, last year `#eb6834`, and the typical year a neutral thin line. Estimated stretches of this year and last year are dotted in their own hue, with a marker at each change of basis (the shared convention).
+  - This year `#2a78d6` solid, the forecast the same hue dashed and bridged onto the last observed day, last year `#eb6834`, and the typical year a neutral thin line. Estimated stretches of this year and last year are dotted in their own hue (the shared convention), with a marker at each lasting change of soil basis (`basis.soil_changes`), not at a gap the estimate filled.
   - The blue/orange pair was checked for color-vision-deficiency separation.
   - 10 °F ticks.
   - A vertical "Today" line, with a matching legend entry.

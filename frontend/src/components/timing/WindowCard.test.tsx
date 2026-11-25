@@ -101,4 +101,29 @@ describe("WindowCard overdue boundary", () => {
 		// The only dates in the row are the typical statistics, never a "this season" one.
 		expect(opens).not.toHaveTextContent("(typical)");
 	});
+
+	it("says when a date rests on the estimate and how many typical years did", () => {
+		const w = timingWindow("fall_pre_emergent", "Ideal", {
+			opens: boundary({
+				label: "5 cm soil cools to 70°F",
+				date: "2026-09-14",
+				source: "Observed",
+				passed: true,
+				estimated: true,
+				typical_error_days: 2,
+				typical: stat("2026-09-15", {
+					earliest: "2026-08-24",
+					latest: "2026-09-26",
+					sample_count: 14,
+					estimated_years: 3,
+				}),
+			}),
+		});
+		render(<WindowCard window={w} today="2026-09-20" />);
+		const opens = rowOf("Opens");
+		expect(opens).toHaveTextContent(
+			"Sep 14 (observed) · estimated, usually within 2 days",
+		);
+		expect(opens).toHaveTextContent("Aug 24 – Sep 26 · 14 yr, 3 estimated");
+	});
 });
