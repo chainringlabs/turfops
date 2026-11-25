@@ -21,6 +21,7 @@ import {
 	SOIL_TEMP_GAUGE,
 } from "../components/gaugeConfigs";
 import {
+	ANALYSIS,
 	historical,
 	inUse,
 	SENSOR,
@@ -386,5 +387,35 @@ describe("Environmental page content", () => {
 		expect(screen.getByText(/^Model:/)).toHaveTextContent(
 			"Model: R²=0.82, lag=2d, quality=Good",
 		);
+		// The soil the outlook starts from carries its basis label.
+		const section = screen.getByText("Soil Temperature Forecast")
+			.parentElement as HTMLElement;
+		expect(section).toHaveTextContent(
+			"Starts from: ● Measured · PA Avondale 2 N, 2 mi",
+		);
+	});
+
+	// @spec WX-OUTLOOK-UI-001
+	it("says an estimated outlook is estimated for the location, with no fit", async () => {
+		vi.mocked(getSoilTempForecast).mockResolvedValue(
+			soilForecast({
+				method: "Estimated",
+				basis: ANALYSIS,
+				model_info: null,
+				estimate_info: {
+					stations: ["Station A", "Station B"],
+					training_days: 4200,
+					daily_error_f: 1.8,
+				},
+			}),
+		);
+		render(<Environmental />);
+		await screen.findByText("Active Growth Peak");
+		expect(screen.queryByText(/^Model:/)).toBeNull();
+		expect(
+			screen.getByText(
+				"Estimated for your location (soil estimate, typically within 1.8 °F a day)",
+			),
+		).toBeInTheDocument();
 	});
 });

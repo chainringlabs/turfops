@@ -169,8 +169,8 @@ fn outage_message(source: Source, outage: &Outage) -> String {
         // @spec WX-SRC-ERR-001, SETUP-FAIL-001
         (PlaceSearch, _) => "Place search is unavailable; enter coordinates instead.",
         (SoilOutlook, _) => {
-            "Not enough recent station data to project soil temperature. Try again once the \
-             station has reported a few more days."
+            "Not enough recent soil data to project soil temperature. Try again once a few \
+             more days have been recorded."
         }
     }
     .to_string()
@@ -409,7 +409,7 @@ mod tests {
     async fn too_little_data_for_the_outlook_is_a_plain_503() {
         let (status, msg) = body_of(TurfOpsError::not_enough_data(Source::SoilOutlook)).await;
         assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
-        assert!(msg.starts_with("Not enough recent station data"), "{msg}");
+        assert!(msg.starts_with("Not enough recent soil data"), "{msg}");
     }
 
     // @spec INV-API-012

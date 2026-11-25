@@ -2,9 +2,13 @@
 //! over test parquet, and an optional forecast held as the schedule would hold it. The database pool is lazy and never connects.
 
 use super::*;
-use crate::models::{DailyForecast, ForecastProvider, WeatherCondition, WeatherForecast};
+use crate::models::WeatherForecast;
+#[cfg(feature = "db-tests")]
+use crate::models::{DailyForecast, ForecastProvider, WeatherCondition};
 use crate::state::AppState;
+#[cfg(feature = "db-tests")]
 use chrono::NaiveDate;
+#[cfg(feature = "db-tests")]
 use chrono::Utc;
 
 impl DataSyncService {
@@ -52,6 +56,7 @@ pub(crate) fn eastern() -> Clock {
     Clock::Zone(chrono_tz::America::New_York)
 }
 
+#[cfg(feature = "db-tests")]
 /// A forecast fetched now with the given daily summaries and no hourly points.
 pub(crate) fn forecast(daily_summary: Vec<DailyForecast>) -> WeatherForecast {
     WeatherForecast {
@@ -62,6 +67,7 @@ pub(crate) fn forecast(daily_summary: Vec<DailyForecast>) -> WeatherForecast {
     }
 }
 
+#[cfg(feature = "db-tests")]
 /// A forecast day with the given coverage and high / low.
 pub(crate) fn forecast_day(
     date: NaiveDate,

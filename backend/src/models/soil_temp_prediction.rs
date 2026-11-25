@@ -1,3 +1,4 @@
+use crate::models::weather_basis::Basis;
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -77,13 +78,40 @@ pub struct ThresholdPrediction {
     pub direction: CrossingDirection,
 }
 
+/// How the 10 cm outlook was made.
+// @spec WX-OUTLOOK-METHOD-001, WX-OUTLOOK-METHOD-002
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OutlookMethod {
+    /// The lagged regression fitted to the lawn's measured 10 cm soil.
+    Fitted,
+    /// The soil estimate carried into the forecast.
+    Estimated,
+}
+
 /// Full API response for soil temperature forecast
+// @spec WX-OUTLOOK-API-001
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SoilTempForecast {
     pub predictions: Vec<SoilTempPrediction>,
     pub threshold_crossings: Vec<ThresholdPrediction>,
-    pub model_info: SoilTempModelInfo,
+    pub method: OutlookMethod,
+    /// What the soil the outlook starts from rests on.
+    pub basis: Option<Basis>,
+    /// The fit, on the fitted method.
+    pub model_info: Option<SoilTempModelInfo>,
+    /// The soil estimate behind it, on the estimated method.
+    pub estimate_info: Option<EstimateInfo>,
     pub generated_at: DateTime<Utc>,
+}
+
+/// The soil estimate an estimated outlook rests on; no coefficients.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EstimateInfo {
+    /// The stations the estimate was fitted on.
+    pub stations: Vec<String>,
+    pub training_days: i32,
+    /// Its root-mean-square daily error, °F.
+    pub daily_error_f: f64,
 }
 
 /// Model metadata for display (excludes internal coefficients)
