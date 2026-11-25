@@ -172,7 +172,9 @@ impl View<'_> {
     async fn history_held(&self) -> Result<()> {
         let states = fetch_state::all(&self.record.pool).await?;
         let this_year = self.asked.at.today.year();
-        let (mut held, mut wanted) = (u32::MAX, 0u32);
+        // A source is behind only against its own wanted span; the outage then reports the
+        // fewest years any source holds against the most any wants.
+        let (mut held, mut wanted, mut behind) = (u32::MAX, 0u32, false);
         for input in LONG_HISTORY {
             // A sensor has no past to download.
             // The fallback grid only fills days PRISM lacks; it holds no history.
@@ -182,7 +184,7 @@ impl View<'_> {
             for source in self.sources(input).filter(loads) {
                 let products: Vec<_> = states.iter().filter(|s| s.source_id == source.id).collect();
                 if products.is_empty() {
-                    (held, wanted) = (0, wanted.max(1));
+                    (held, wanted, behind) = (0, wanted.max(1), true);
                 }
                 for state in products {
                     let years_from = |day: NaiveDate| (this_year - day.year() + 1).max(0) as u32;
@@ -194,12 +196,14 @@ impl View<'_> {
                         Some((from, _)) => years_from(from) - u32::from(from.ordinal() > 1),
                         None => 0,
                     };
+                    let own = years_from(state.wanted_from);
+                    behind |= in_hand < own;
                     held = held.min(in_hand);
-                    wanted = wanted.max(years_from(state.wanted_from));
+                    wanted = wanted.max(own);
                 }
             }
         }
-        if wanted == 0 || held >= wanted {
+        if !behind {
             return Ok(());
         }
         Err(TurfOpsError::history_loading(held, wanted))
