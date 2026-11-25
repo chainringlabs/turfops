@@ -6,6 +6,7 @@ import SoilSeasonChart from "../components/timing/SoilSeasonChart";
 import TimingMethod from "../components/timing/TimingMethod";
 import WindowCard from "../components/timing/WindowCard";
 import { sharedStyles } from "../styles/shared";
+import type { Basis } from "../types/sources";
 import type { DateStat, TimingResponse } from "../types/timing";
 import { byUrgency, formatMonthDay } from "../types/timing";
 
@@ -49,7 +50,6 @@ export default function Timing() {
 		<div>
 			<div style={sharedStyles.headerRow}>
 				<h1 style={sharedStyles.pageTitle}>Seeding & Pre-Emergent Timing</h1>
-				{data.basis.soil && <BasisLabel basis={data.basis.soil} />}
 			</div>
 
 			{data.data_notes.length > 0 && (
@@ -71,6 +71,7 @@ export default function Timing() {
 					<div style={styles.tileNote}>
 						{soil.as_of ? `as of ${formatMonthDay(soil.as_of)}` : "No data"}
 					</div>
+					<TileBasis basis={data.basis.soil} />
 				</div>
 				<div style={styles.tile}>
 					<div style={styles.tileLabel}>Last spring freeze</div>
@@ -82,6 +83,7 @@ export default function Timing() {
 					<div style={styles.tileNote}>
 						{freezeText(freeze.last_spring, "p90")}
 					</div>
+					<TileBasis basis={data.basis.air} />
 				</div>
 				<div style={styles.tile}>
 					<div style={styles.tileLabel}>First fall freeze</div>
@@ -93,6 +95,7 @@ export default function Timing() {
 							? `this year: ${formatMonthDay(freeze.first_fall_this_year)}`
 							: freezeText(freeze.first_fall, "p10")}
 					</div>
+					<TileBasis basis={data.basis.air} />
 				</div>
 			</div>
 
@@ -123,7 +126,11 @@ export default function Timing() {
 					{data.history_years.length} prior years, with this season's
 					thresholds.
 				</p>
-				<SoilSeasonChart series={data.series} today={data.today} />
+				<SoilSeasonChart
+					series={data.series}
+					today={data.today}
+					changes={data.basis.soil_changes}
+				/>
 			</section>
 
 			{secondary.length > 0 && (
@@ -138,6 +145,16 @@ export default function Timing() {
 			)}
 
 			<TimingMethod historyYears={data.history_years} depthCm={soil.depth_cm} />
+		</div>
+	);
+}
+
+/** A tile's basis label, under its figures. */
+function TileBasis({ basis }: { basis: Basis | null }) {
+	if (!basis) return null;
+	return (
+		<div style={styles.tileBasis}>
+			<BasisLabel basis={basis} />
 		</div>
 	);
 }
@@ -173,6 +190,7 @@ const styles: Record<string, React.CSSProperties> = {
 		lineHeight: 1.3,
 	},
 	tileNote: { fontSize: "0.75rem", color: "#4a5568" },
+	tileBasis: { marginTop: 6 },
 	context: {
 		fontSize: "0.85rem",
 		color: "#2d3748",

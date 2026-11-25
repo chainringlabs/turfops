@@ -9,6 +9,11 @@ interface SoilSeasonTableProps {
 const temp = (value: number | null) =>
 	value !== null ? `${value.toFixed(1)}°F` : "—";
 
+/** A value, saying so when it rests on the soil estimate. */
+const marked = (value: number | null, estimated: boolean) =>
+	value !== null && estimated ? `${temp(value)} (estimated)` : temp(value);
+
+// @spec TIME-UI-006
 /** Table view of the soil chart, for readers who cannot use the plot. */
 export default function SoilSeasonTable({ rows }: SoilSeasonTableProps) {
 	return (
@@ -31,9 +36,11 @@ export default function SoilSeasonTable({ rows }: SoilSeasonTableProps) {
 								<td style={styles.td}>
 									{row.this_year === null && row.forecast !== null
 										? `${temp(row.forecast)} (forecast)`
-										: temp(row.this_year)}
+										: marked(row.this_year, row.this_year_estimated)}
 								</td>
-								<td style={styles.td}>{temp(row.last_year)}</td>
+								<td style={styles.td}>
+									{marked(row.last_year, row.last_year_estimated)}
+								</td>
 								<td style={styles.td}>{temp(row.typical)}</td>
 							</tr>
 						))}
