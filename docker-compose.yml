@@ -83,12 +83,10 @@ services:
       HA_HUMIDITY_ENTITY: ${HA_HUMIDITY_ENTITY:-sensor.temp_humidity_sensor_humidity}
       HA_TEMPERATURE_UNIT: ${HA_TEMPERATURE_UNIT:-fahrenheit}
 
-      # OpenWeatherMap (optional)
+      # OpenWeatherMap key (optional): imported once into the app; the provider is chosen
+      # in setup and the forecast is fetched for the lawn's location.
       # @spec DEPLOY-COMPOSE-010
       OWM_API_KEY: ${OWM_API_KEY:-}
-      OWM_LATITUDE: ${OWM_LATITUDE:-}
-      OWM_LONGITUDE: ${OWM_LONGITUDE:-}
-      OWM_ENABLED: ${OWM_ENABLED:-true}
 
       # OpenRouter (optional) — generates landscape-plant care plans. Without a key the
       # plant add / refresh-plan endpoints answer 503.

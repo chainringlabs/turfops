@@ -25,7 +25,8 @@ use self::probes::{Probe, ProbeCache};
 use self::sync_state::{SensorReads, SyncState};
 use crate::clock::Clock;
 use crate::config::Config;
-use crate::datasources::{HomeAssistantClient, OpenWeatherMapClient, WeatherLakeClient};
+use crate::datasources::{HomeAssistantClient, WeatherLakeClient};
+use crate::logic::weather_sync::forecast::{self, ForecastSlot, ForecastStatus};
 use crate::models::EnvironmentalSummary;
 use sqlx::PgPool;
 use std::sync::Mutex;
@@ -35,7 +36,8 @@ pub struct DataSyncService {
     pool: PgPool,
     weather_client: Option<WeatherLakeClient>,
     homeassistant_client: Option<HomeAssistantClient>,
-    openweathermap_client: Option<OpenWeatherMapClient>,
+    /// The forecast the fetch schedule keeps.
+    forecast: ForecastSlot,
     state: SyncState,
     probes: Mutex<ProbeCache>,
     clock: Clock,
@@ -61,21 +63,6 @@ impl DataSyncService {
             None
         };
 
-        let openweathermap_client = config
-            .openweathermap
-            .as_ref()
-            .filter(|c| c.enabled && !c.api_key.is_empty())
-            .map(|c| {
-                tracing::info!("OpenWeatherMap client configured for forecast data");
-                OpenWeatherMapClient::new(c.clone(), config.clock)
-            });
-
-        if openweathermap_client.is_none() {
-            tracing::info!(
-                "OpenWeatherMap not configured - forecast-based recommendations will be limited"
-            );
-        }
-
         let weather_client = Some(WeatherLakeClient::new(
             &config.datalake,
             config.noaa.station_wbanno,
@@ -86,33 +73,60 @@ impl DataSyncService {
             pool,
             weather_client,
             homeassistant_client,
-            openweathermap_client,
+            forecast: ForecastSlot::new(),
             state: SyncState::default(),
             probes: Mutex::new(ProbeCache::default()),
             clock: config.clock,
         }
     }
 
-    /// Return the cached summary, refreshing first whichever part is stale.
-    /// Sensor data refreshes after 5 minutes, the forecast after 30 (a failed fetch is
-    /// retried after 5).
-    // @spec SYNC-REFRESH-003, SYNC-REFRESH-004, SYNC-REFRESH-005, SYNC-REFRESH-006, SYNC-REFRESH-009
-    pub async fn get_or_refresh(&mut self) -> crate::error::Result<EnvironmentalSummary> {
-        let due = self.state.due(self.clock.now());
-        self.refresh(due.sensors, due.forecast).await;
-        Ok(self.state.summary(self.clock.now()))
+    /// The same service reading the forecast the fetch schedule keeps in `slot`.
+    pub fn with_forecast(mut self, slot: ForecastSlot) -> Self {
+        self.forecast = slot;
+        self
     }
 
-    /// Always fetch fresh data from all datasources, ignoring cache age.
+    /// Return the cached summary, refreshing the sensor part first when it is over 5
+    /// minutes old. The forecast is the one the schedule holds.
+    // @spec SYNC-REFRESH-003, SYNC-REFRESH-004, SYNC-REFRESH-005, SYNC-REFRESH-006, SYNC-REFRESH-009
+    pub async fn get_or_refresh(&mut self) -> crate::error::Result<EnvironmentalSummary> {
+        if self.state.due(self.clock.now()) {
+            self.refresh().await;
+        }
+        Ok(self.summary())
+    }
+
+    /// Always read the sensors again, ignoring their age.
     /// Used by the explicit refresh button in the frontend.
     pub async fn force_refresh(&mut self) -> crate::error::Result<EnvironmentalSummary> {
-        self.refresh(true, true).await;
-        Ok(self.state.summary(self.clock.now()))
+        self.refresh().await;
+        Ok(self.summary())
+    }
+
+    // @spec SYNC-FAIL-006, SYNC-FAIL-007, SYNC-SCHED-020
+    fn summary(&self) -> EnvironmentalSummary {
+        self.state
+            .summary(self.clock.now(), self.forecast.forecast())
+    }
+
+    /// The forecast's status: the chosen provider and what the schedule holds for it.
+    // @spec SYNC-CONN-007
+    pub async fn forecast_status(&self) -> crate::error::Result<ForecastStatus> {
+        forecast::status(&self.pool, &self.forecast).await
+    }
+
+    /// The connection status with the forecast's status beside it.
+    // @spec SYNC-CONN-008
+    pub async fn connections(&self) -> crate::error::Result<Connections> {
+        Ok(Connections {
+            sources: self.check_connections().await,
+            forecast: self.forecast_status().await?,
+        })
     }
 
     /// Connection status, probing only the configured sources whose last result is over
     /// 5 minutes old; the summary and its timers are untouched.
-    // @spec SYNC-CONN-001, SYNC-CONN-002, SYNC-CONN-006
+    // @spec SYNC-CONN-001, SYNC-CONN-002
     pub async fn check_connections(&self) -> ConnectionStatus {
         let recent = |probe| self.probes.lock().ok()?.recent(probe, self.clock.now());
         let mut status = ConnectionStatus::default();
@@ -132,15 +146,6 @@ impl DataSyncService {
                 ),
             };
         }
-        if let Some(ref client) = self.openweathermap_client {
-            status.openweathermap = match recent(Probe::Forecast) {
-                Some(up) => up,
-                None => self.record(
-                    Probe::Forecast,
-                    client.test_connection().await.unwrap_or(false),
-                ),
-            };
-        }
         status
     }
 
@@ -149,19 +154,6 @@ impl DataSyncService {
             probes.record(probe, up, self.clock.now());
         }
         up
-    }
-
-    /// Test-only: fetch the forecast with `client` (e.g. one pointed at a local stub).
-    #[cfg(all(test, feature = "db-tests"))]
-    pub(crate) fn set_forecast_client(&mut self, client: OpenWeatherMapClient) {
-        self.openweathermap_client = Some(client);
-    }
-
-    /// The same service reading its forecast from `client`.
-    #[cfg(all(test, feature = "db-tests"))]
-    pub(crate) fn with_forecast_client(mut self, client: OpenWeatherMapClient) -> Self {
-        self.set_forecast_client(client);
-        self
     }
 
     /// Provide access to the weather lake client for direct queries (GDD, historical).
@@ -176,30 +168,12 @@ impl DataSyncService {
         self
     }
 
-    /// Read the stale parts' sources, then store everything at once: until every read is
-    /// in hand nothing changes, so a request dropped mid-read leaves the part stale.
+    /// Read the sensors' sources, then store them at once: until every read is in hand
+    /// nothing changes, so a request dropped mid-read leaves the part stale.
     // @spec SYNC-REFRESH-008, SYNC-FAIL-001
-    async fn refresh(&mut self, sensors: bool, forecast: bool) {
-        let sensor_reads = if sensors {
-            Some(self.read_sensors().await)
-        } else {
-            None
-        };
-        let forecast_read = if forecast {
-            Some(match self.openweathermap_client {
-                Some(ref client) => Some(client.fetch_forecast().await),
-                None => None,
-            })
-        } else {
-            None
-        };
-        let now = self.clock.now();
-        if let Some(reads) = sensor_reads {
-            self.state.store_sensors(now, reads);
-        }
-        if let Some(fetched) = forecast_read {
-            self.state.store_forecast(now, fetched);
-        }
+    async fn refresh(&mut self) {
+        let reads = self.read_sensors().await;
+        self.state.store_sensors(self.clock.now(), reads);
     }
 
     async fn read_sensors(&self) -> SensorReads {
@@ -227,5 +201,13 @@ impl DataSyncService {
 pub struct ConnectionStatus {
     pub soildata: bool,
     pub homeassistant: bool,
-    pub openweathermap: bool,
+}
+
+/// The connection status and the forecast's status, as the dashboard and the MCP
+/// snapshot report them.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct Connections {
+    #[serde(flatten)]
+    pub sources: ConnectionStatus,
+    pub forecast: ForecastStatus,
 }

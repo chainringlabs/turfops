@@ -93,7 +93,8 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 - [ ] **WX-SRC-FC-001**: The system shall fetch the forecast from the provider the owner has chosen: Open-Meteo by default, the National Weather Service, or OpenWeatherMap.
 - [x] **WX-SRC-FC-002**: Every forecast point shall carry its slot's length in hours: 1 for Open-Meteo and the National Weather Service, 3 for OpenWeatherMap.
 - [x] **WX-SRC-FC-003**: Where a provider gives no forecast of precipitation amount, precipitation probability, gust, feels-like temperature or cloud cover for a slot, the forecast point shall hold that quantity as empty, not zero; a slot for which the provider gives no temperature, relative humidity or wind speed shall not be returned.
-- [ ] **WX-SRC-FC-004**: If the chosen provider cannot be used because it needs a key and none is set, then the system shall fetch no forecast, shall not fetch one from another provider, and shall report the reason as that provider's status.
+- [x] **WX-SRC-FC-004**: If the chosen provider cannot be used because it needs a key and none is set, then the system shall fetch no forecast, shall not fetch one from another provider, and shall report the reason as that provider's status.
+- [x] **WX-SRC-FC-010**: The OpenWeatherMap forecast shall be fetched for the point and with the key it is given, and shall read no point or key from a setting.
 - [x] **WX-SRC-FC-005**: The Open-Meteo forecast shall return one point for each hour from the hour in progress to the end of the 16-day span, taking temperature, relative humidity, feels-like temperature, wind speed, cloud cover and condition from the values stamped at the hour's start and precipitation amount, precipitation probability and gust from the values stamped at its end.
 - [x] **WX-SRC-FC-006**: The National Weather Service forecast shall return one point for each hour from the hour in progress, giving every hour of a span the value the grid forecast states for that span, except a precipitation amount, which it shall divide evenly across the hours of its span.
 - [x] **WX-SRC-FC-007**: The National Weather Service forecast shall ask the service which forecast grid cell holds the point, sending the coordinates to four decimal places, and shall reuse the answer for later fetches for the same point.
@@ -116,7 +117,7 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 ## Settings
 
 - [ ] **WX-SRC-CFG-002**: The system shall use the Home Assistant address and token stored in the app, and shall treat Home Assistant as not configured when none is stored.
-- [ ] **WX-SRC-CFG-003**: The system shall use the OpenWeatherMap key stored in the app; a stored key shall not by itself choose OpenWeatherMap as the forecast provider.
+- [x] **WX-SRC-CFG-003**: The system shall use the OpenWeatherMap key stored in the app; a stored key shall not by itself choose OpenWeatherMap as the forecast provider.
 - [ ] **WX-SRC-CFG-004**: The station and grid clients shall take the station or point as an argument and shall read no setting.
 
 ## Errors

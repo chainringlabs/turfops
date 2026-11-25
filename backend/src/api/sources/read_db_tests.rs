@@ -98,3 +98,35 @@ async fn a_lawn_with_no_location_has_no_sources_and_every_input_without_one(pool
         .iter()
         .all(|i| i.plan.standing == Standing::NoSource));
 }
+
+// @spec SETUP-API-015, SYNC-CONN-007
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn the_sources_read_gives_the_forecast_status(pool: PgPool) {
+    use crate::logic::weather_sync::forecast::{Choice, ForecastKeeper, ForecastSlot, Outcome};
+    let state = located(&pool).await;
+    let slot = ForecastSlot::new();
+    let mut keeper = ForecastKeeper::new(slot.clone());
+    let open_meteo = Choice {
+        provider: ForecastProvider::OpenMeteo,
+        key: None,
+    };
+    let failed_at = Utc::now();
+    keeper.keep(
+        &open_meteo,
+        Outcome::Failed("No forecast right now.".into()),
+        failed_at,
+    );
+    state.sync_service.write().await.use_forecast(slot);
+
+    let axum::Json(view) = get_sources(State(state)).await.unwrap();
+    let json = serde_json::to_value(&view).unwrap();
+    assert_eq!(
+        json["forecast"],
+        serde_json::json!({
+            "provider": "OpenMeteo",
+            "fetched_at": null,
+            "last_error": "No forecast right now."
+        }),
+        "{json}"
+    );
+}

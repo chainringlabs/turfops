@@ -75,26 +75,16 @@ fn ambient(summary: &EnvironmentalSummary) -> (Option<f64>, Option<f64>) {
 
 // @spec SYNC-REFRESH-002, SYNC-REFRESH-008
 #[test]
-fn a_part_is_fresh_only_once_its_refresh_is_stored() {
+fn the_sensor_part_is_fresh_only_once_its_refresh_is_stored() {
     let mut state = SyncState::default();
-    let due = state.due(noon());
-    assert!(due.sensors && due.forecast, "never refreshed");
+    assert!(state.due(noon()), "never refreshed");
     // Reads gathered but not stored (the request was dropped): still due.
     let _abandoned = reads(Some(Ok(lake(noon()))), None);
-    assert!(state.due(noon() + Duration::seconds(1)).sensors);
+    assert!(state.due(noon() + Duration::seconds(1)));
 
     state.store_sensors(noon(), reads(Some(Ok(lake(noon()))), None));
-    state.store_forecast(noon(), Some(Ok(forecast(noon()))));
-    assert_eq!(
-        state.due(noon() + Duration::minutes(4)),
-        Due {
-            sensors: false,
-            forecast: false
-        }
-    );
-    assert!(state.due(noon() + Duration::minutes(5)).sensors);
-    assert!(!state.due(noon() + Duration::minutes(29)).forecast);
-    assert!(state.due(noon() + Duration::minutes(30)).forecast);
+    assert!(!state.due(noon() + Duration::minutes(4)));
+    assert!(state.due(noon() + Duration::minutes(5)));
 }
 
 // @spec SYNC-MERGE-001, SYNC-MERGE-002, SYNC-MERGE-003, SYNC-MERGE-004
@@ -109,7 +99,7 @@ fn a_sensor_refresh_assembles_lake_soil_patio_air_and_gdd() {
             Some(Ok(patio(Some(71.0), Some(55.0)))),
         ),
     );
-    let s = state.summary(noon());
+    let s = state.summary(noon(), None);
     assert_eq!(soil(&s), Some(58.0));
     assert_eq!(
         ambient(&s),
@@ -131,15 +121,18 @@ fn the_stale_soil_flag_follows_the_72_hour_limit() {
         noon(),
         reads(Some(Ok(lake(noon() - Duration::hours(71)))), None),
     );
-    assert!(!state.summary(noon()).soil_stale);
+    assert!(!state.summary(noon(), None).soil_stale);
     state.store_sensors(
         noon(),
         reads(Some(Ok(lake(noon() - Duration::hours(73)))), None),
     );
-    assert!(state.summary(noon()).soil_stale);
+    assert!(state.summary(noon(), None).soil_stale);
     let mut empty = SyncState::default();
     empty.store_sensors(noon(), reads(None, None));
-    assert!(!empty.summary(noon()).soil_stale, "no observation at all");
+    assert!(
+        !empty.summary(noon(), None).soil_stale,
+        "no observation at all"
+    );
 }
 
 // @spec SYNC-FAIL-002, SYNC-FAIL-003
@@ -157,7 +150,7 @@ fn a_failed_lake_read_keeps_the_last_good_soil_and_gdd() {
             gdd: Some(down()),
         },
     );
-    let s = state.summary(later);
+    let s = state.summary(later, None);
     assert_eq!(soil(&s), Some(58.0));
     assert_eq!(s.soil_observed_at, Some(observed));
     assert_eq!(s.soil_temp_trend, Trend::Falling);
@@ -172,7 +165,7 @@ fn a_failed_lake_read_keeps_the_last_good_soil_and_gdd() {
         },
     );
     assert_eq!(
-        state.summary(later).gdd_base50_ytd,
+        state.summary(later, None).gdd_base50_ytd,
         None,
         "lake read fine: GDD left empty"
     );
@@ -184,7 +177,7 @@ fn soil_older_than_72_hours_drives_nothing() {
     let mut state = SyncState::default();
     let observed = noon() - Duration::hours(80);
     state.store_sensors(noon(), reads(Some(Ok(lake(observed))), None));
-    let s = state.summary(noon());
+    let s = state.summary(noon(), None);
     let c = s.current.as_ref().unwrap();
     assert_eq!(
         (c.soil_temp_10_f, c.soil_moisture_10, c.precipitation_mm),
@@ -208,7 +201,7 @@ fn soil_carried_forward_past_72_hours_also_drives_nothing() {
     );
     let later = noon() + Duration::hours(3);
     state.store_sensors(later, reads(Some(down()), None));
-    let s = state.summary(later);
+    let s = state.summary(later, None);
     assert_eq!(soil(&s), None);
     assert!(s.soil_stale);
 }
@@ -224,56 +217,49 @@ fn a_failed_patio_read_holds_its_last_value_for_an_hour() {
     );
     let t1 = noon() + Duration::minutes(30);
     state.store_sensors(t1, reads(lake_ok(), Some(down())));
-    assert_eq!(ambient(&state.summary(t1)), (Some(71.0), Some(55.0)));
+    assert_eq!(ambient(&state.summary(t1, None)), (Some(71.0), Some(55.0)));
     // A read that answers without humidity holds only the humidity.
     let t2 = noon() + Duration::minutes(40);
     state.store_sensors(t2, reads(lake_ok(), Some(Ok(patio(Some(73.0), None)))));
-    assert_eq!(ambient(&state.summary(t2)), (Some(73.0), Some(55.0)));
+    assert_eq!(ambient(&state.summary(t2, None)), (Some(73.0), Some(55.0)));
     let t3 = noon() + Duration::minutes(61);
     state.store_sensors(t3, reads(lake_ok(), Some(down())));
     assert_eq!(
-        ambient(&state.summary(t3)),
+        ambient(&state.summary(t3, None)),
         (Some(73.0), None),
         "humidity read 61 min ago"
     );
     let mut unconfigured = SyncState::default();
     unconfigured.store_sensors(noon(), reads(lake_ok(), None));
-    assert_eq!(ambient(&unconfigured.summary(noon())), (None, None));
+    assert_eq!(ambient(&unconfigured.summary(noon(), None)), (None, None));
 }
 
-// @spec SYNC-FAIL-006, SYNC-FAIL-007, SYNC-MERGE-005
+// @spec SYNC-FAIL-006, SYNC-FAIL-007
 #[test]
-fn a_forecast_is_never_served_six_hours_after_it_was_fetched() {
+fn a_forecast_is_served_until_it_is_six_hours_old() {
     let mut state = SyncState::default();
     state.store_sensors(noon(), reads(Some(Ok(lake(noon()))), None));
-    state.store_forecast(noon(), Some(Ok(forecast(noon()))));
-    assert!(state.summary(noon()).forecast.is_some());
-    // Later, only the forecast part is refreshed, and the fetch fails.
-    let later = noon() + Duration::hours(5);
-    state.store_forecast(later, Some(down()));
+    let held = || Some(forecast(noon()));
+    assert!(state.summary(noon(), held()).forecast.is_some());
+    // The schedule's later fetches failed and it still holds the noon forecast.
+    let later = noon() + Duration::hours(5) + Duration::minutes(59);
     assert!(
-        state.summary(later).forecast.is_some(),
-        "5 h old: still served"
+        state.summary(later, held()).forecast.is_some(),
+        "under 6 h old: still served"
     );
     let six = noon() + Duration::hours(6);
-    state.store_forecast(six, Some(down()));
     assert!(
-        state.summary(six).forecast.is_none(),
+        state.summary(six, held()).forecast.is_none(),
         "6 h old: never served"
     );
+    assert!(state.summary(noon(), None).forecast.is_none());
 }
 
-// @spec SYNC-FAIL-008
 #[test]
-fn a_failed_forecast_fetch_is_retried_after_five_minutes_not_on_every_request() {
+fn a_failed_sensor_read_is_retried_at_the_next_sensor_refresh() {
     let mut state = SyncState::default();
-    state.store_forecast(noon(), Some(down()));
-    assert!(!state.due(noon() + Duration::minutes(1)).forecast);
-    assert!(!state.due(noon() + Duration::minutes(4)).forecast);
-    assert!(state.due(noon() + Duration::minutes(5)).forecast);
-    // A failed sensor read is retried at the next sensor refresh.
     state.store_sensors(noon(), reads(Some(down()), Some(down())));
-    assert!(state.due(noon() + Duration::minutes(5)).sensors);
+    assert!(state.due(noon() + Duration::minutes(5)));
 }
 
 // @spec SYNC-CONN-006, MCP-SNAP-009
@@ -282,16 +268,15 @@ fn a_probe_result_is_reused_for_five_minutes_up_or_down() {
     let mut cache = ProbeCache::default();
     assert_eq!(cache.recent(Probe::Lake, noon()), None);
     cache.record(Probe::Lake, false, noon());
-    cache.record(Probe::Forecast, true, noon());
+    cache.record(Probe::HomeAssistant, true, noon());
     assert_eq!(
         cache.recent(Probe::Lake, noon() + Duration::minutes(4)),
         Some(false)
     );
     assert_eq!(
-        cache.recent(Probe::Forecast, noon() + Duration::minutes(4)),
+        cache.recent(Probe::HomeAssistant, noon() + Duration::minutes(4)),
         Some(true)
     );
-    assert_eq!(cache.recent(Probe::HomeAssistant, noon()), None);
     assert_eq!(
         cache.recent(Probe::Lake, noon() + Duration::minutes(5)),
         None

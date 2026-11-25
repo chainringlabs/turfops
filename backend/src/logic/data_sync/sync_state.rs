@@ -1,5 +1,5 @@
-//! Data sync's state with no I/O: what is stale, how a refresh's reads become the
-//! summary, and what the summary says at a given moment. The service gathers every
+//! Data sync's state with no I/O: whether the sensor part is stale, how a refresh's
+//! reads become the summary, and what the summary says at a given moment. The service gathers every
 //! read first and then stores them here in one step, so a refresh dropped partway
 //! changes nothing.
 
@@ -9,10 +9,6 @@ use chrono::{DateTime, Duration, Utc};
 
 /// Sensor data (weather lake + Home Assistant) goes stale after this.
 pub(crate) const SENSOR_STALE: Duration = Duration::minutes(5);
-/// The forecast goes stale this long after its last successful fetch.
-pub(crate) const FORECAST_STALE: Duration = Duration::minutes(30);
-/// After a failed forecast fetch, wait this long before trying again.
-pub(crate) const FORECAST_RETRY: Duration = Duration::minutes(5);
 /// The lake trails the station by about a day. Past this, the newest reading no longer
 /// describes today's soil.
 pub(crate) const SOIL_MAX_AGE: Duration = Duration::hours(72);
@@ -20,13 +16,6 @@ pub(crate) const SOIL_MAX_AGE: Duration = Duration::hours(72);
 pub(crate) const FORECAST_MAX_AGE: Duration = Duration::hours(6);
 /// A Home Assistant value is held through failed reads for this long.
 pub(crate) const AMBIENT_HOLD: Duration = Duration::hours(1);
-
-/// Which parts of the summary need a refresh.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Due {
-    pub sensors: bool,
-    pub forecast: bool,
-}
 
 /// One sensor refresh's reads. `None` means the source is not configured.
 pub(crate) struct SensorReads {
@@ -68,23 +57,14 @@ pub(crate) struct SyncState {
     humidity: Option<Held>,
     /// The sensor part as composed by the last sensor refresh.
     sensors: EnvironmentalSummary,
-    forecast: Option<WeatherForecast>,
     sensors_at: Option<DateTime<Utc>>,
-    forecast_ok_at: Option<DateTime<Utc>>,
-    forecast_tried_at: Option<DateTime<Utc>>,
 }
 
 impl SyncState {
-    /// Which parts are stale at `now`. A failed forecast fetch waits `FORECAST_RETRY`
-    /// before the next try, however stale the forecast is.
-    // @spec SYNC-REFRESH-002, SYNC-FAIL-008
-    pub fn due(&self, now: DateTime<Utc>) -> Due {
-        let older = |at: Option<DateTime<Utc>>, limit| at.is_none_or(|t| now - t >= limit);
-        Due {
-            sensors: older(self.sensors_at, SENSOR_STALE),
-            forecast: older(self.forecast_ok_at, FORECAST_STALE)
-                && older(self.forecast_tried_at, FORECAST_RETRY),
-        }
+    /// Whether the sensor part is stale at `now`.
+    // @spec SYNC-REFRESH-002
+    pub fn due(&self, now: DateTime<Utc>) -> bool {
+        self.sensors_at.is_none_or(|t| now - t >= SENSOR_STALE)
     }
 
     /// Store a completed sensor refresh: every read is already in hand, so nothing is
@@ -175,42 +155,22 @@ impl SyncState {
         }
     }
 
-    /// Store a completed forecast fetch (`None`: OpenWeatherMap is not configured).
-    // @spec SYNC-MERGE-005, SYNC-FAIL-008
-    pub fn store_forecast(&mut self, now: DateTime<Utc>, fetched: Option<Result<WeatherForecast>>) {
-        match fetched {
-            Some(Ok(forecast)) => {
-                self.forecast = Some(forecast);
-                self.forecast_ok_at = Some(now);
-            }
-            Some(Err(e)) => tracing::warn!("Failed to fetch the weather forecast: {e}"),
-            None => {}
-        }
-        self.forecast_tried_at = Some(now);
-    }
-
     /// Move the sensor part's last refresh `by` into the past (tests).
     #[cfg(test)]
     pub(crate) fn age_sensors(&mut self, by: Duration) {
         self.sensors_at = self.sensors_at.map(|t| t - by);
     }
 
-    /// Move the forecast part's last fetch and attempt `by` into the past (tests).
-    #[cfg(test)]
-    pub(crate) fn age_forecast(&mut self, by: Duration) {
-        self.forecast_ok_at = self.forecast_ok_at.map(|t| t - by);
-        self.forecast_tried_at = self.forecast_tried_at.map(|t| t - by);
-    }
-
-    /// The summary as of `now`: the stored sensor part plus the last good forecast while
-    /// it is under `FORECAST_MAX_AGE` old.
+    /// The summary as of `now`: the stored sensor part plus `forecast`, the newest the
+    /// schedule holds, while it is under `FORECAST_MAX_AGE` old.
     // @spec SYNC-FAIL-006, SYNC-FAIL-007
-    pub fn summary(&self, now: DateTime<Utc>) -> EnvironmentalSummary {
+    pub fn summary(
+        &self,
+        now: DateTime<Utc>,
+        forecast: Option<WeatherForecast>,
+    ) -> EnvironmentalSummary {
         EnvironmentalSummary {
-            forecast: self
-                .forecast
-                .clone()
-                .filter(|f| now - f.fetched_at < FORECAST_MAX_AGE),
+            forecast: forecast.filter(|f| now - f.fetched_at < FORECAST_MAX_AGE),
             ..self.sensors.clone()
         }
     }

@@ -176,17 +176,17 @@ pub fn names<'a>(items: &'a Value, key: &str) -> Vec<&'a str> {
 /// every request with six days of 3-hourly points from today's UTC midnight.
 pub async fn state_with_forecast(pool: PgPool, lake: &Lake) -> AppState {
     let config = config(&lake.silver, &lake.gold);
-    let owm = crate::config::OpenWeatherMapConfig {
-        api_key: "test-key".into(),
-        latitude: 39.8,
-        longitude: -75.8,
-        enabled: true,
-    };
-    let client = crate::datasources::OpenWeatherMapClient::new(owm, Clock::System)
-        .with_base_url(&forecast_stub().await);
+    // The forecast as the schedule would hold it after fetching it from the stand-in.
+    let fetched = crate::datasources::OpenWeatherMapClient::new()
+        .with_base_url(&forecast_stub().await)
+        .forecast(39.8, -75.8, "test-key", &Clock::System, chrono::Utc::now())
+        .await
+        .unwrap();
     let sync = DataSyncService::initialize(&config, pool.clone())
         .await
-        .with_forecast_client(client);
+        .with_forecast(crate::logic::weather_sync::forecast::ForecastSlot::holding(
+            fetched,
+        ));
     AppState::new(pool, sync, None, true, Clock::System)
 }
 

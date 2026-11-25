@@ -3,11 +3,13 @@
 
 use crate::datasources::cadence::Product;
 use crate::datasources::grid::{Grid, GridClient};
+use crate::datasources::nws::NwsClient;
 use crate::datasources::open_meteo::{OpenMeteoClient, Place};
 use crate::datasources::outside::Outside;
 use crate::datasources::scan::ScanClient;
 use crate::datasources::uscrn::parse::inputs_reported;
 use crate::datasources::uscrn::{StationYear, UscrnClient};
+use crate::datasources::OpenWeatherMapClient;
 use crate::db::weather_queries::{catalog, fetch_state, lawn};
 use crate::error::{Result, TurfOpsError};
 use crate::logic::weather_record::due::{Fetch, Purpose};
@@ -23,6 +25,9 @@ pub struct Clients {
     pub scan: ScanClient,
     pub grid: GridClient,
     pub open_meteo: OpenMeteoClient,
+    /// Forecast providers besides Open-Meteo.
+    pub nws: NwsClient,
+    pub owm: OpenWeatherMapClient,
 }
 
 impl Clients {
@@ -32,7 +37,9 @@ impl Clients {
             uscrn: UscrnClient::new(outside.clone()),
             scan: ScanClient::new(outside.clone()),
             grid: GridClient::new(outside.clone()),
-            open_meteo: OpenMeteoClient::new(outside),
+            open_meteo: OpenMeteoClient::new(outside.clone()),
+            nws: NwsClient::new(outside),
+            owm: OpenWeatherMapClient::new(),
         }
     }
 }
@@ -69,6 +76,11 @@ impl Fetcher {
             fetch_state::failed(&self.pool, fetch.source.id, product, &said, now).await?;
         }
         outcome
+    }
+
+    /// The source clients, for the forecast the schedule fetches beside the record.
+    pub fn clients(&self) -> &Clients {
+        &self.clients
     }
 
     /// Candidate places for what the owner typed in setup.

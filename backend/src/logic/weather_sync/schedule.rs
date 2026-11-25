@@ -3,6 +3,7 @@
 //! past.
 
 use super::fetcher::{Clients, Fetcher};
+use super::forecast::{ForecastKeeper, ForecastSlot};
 use super::order::{ordered, Failing};
 use super::planning;
 use super::sensor_read::SensorReader;
@@ -85,6 +86,8 @@ pub struct Schedule {
     announced: bool,
     /// Reads the owner's Home Assistant sensors.
     sensors: SensorReader,
+    /// Fetches and holds the forecast.
+    forecast: ForecastKeeper,
 }
 
 impl Schedule {
@@ -106,8 +109,14 @@ impl Schedule {
             backfilling: false,
             announced: false,
             sensors: SensorReader::new(),
+            forecast: ForecastKeeper::new(ForecastSlot::new()),
         };
         (schedule, Waker(wake.clone()), Stopper { stopping, wake })
+    }
+
+    /// Where the schedule keeps the forecast it fetches, for the summary and the status.
+    pub fn forecast_slot(&self) -> ForecastSlot {
+        self.forecast.slot()
     }
 
     /// Runs until stopped. A pass that fails is logged and the next one tried.
@@ -129,9 +138,9 @@ impl Schedule {
     }
 
     /// One pass: bring the plan and the estimate in line, then run what is due.
-    // @spec SYNC-SCHED-002, SYNC-SCHED-003, SYNC-SCHED-004, SYNC-SCHED-011, SYNC-SCHED-013
+    // @spec SYNC-SCHED-002, SYNC-SCHED-003, SYNC-SCHED-004, SYNC-SCHED-011, SYNC-SCHED-013, SYNC-SCHED-019
     pub async fn pass(&mut self, now: DateTime<Utc>) -> Result<Pass> {
-        let Some((_, zone)) = self.location().await? else {
+        let Some((location, zone)) = self.location().await? else {
             // No location: no plan, nothing due, no outside request.
             return Ok(Pass::Rest);
         };
@@ -147,8 +156,20 @@ impl Schedule {
             self.registered_on = Some(today);
         }
         self.keep_estimate(today, now, replanned).await?;
-        // The owner's sensors come before every other fetch.
+        // The owner's sensors come before every other fetch, then the forecast.
         self.sensors.run(&self.pool, today, now).await;
+        if !self.stopping.load(Ordering::SeqCst) {
+            self.forecast
+                .run(
+                    &self.pool,
+                    self.fetcher.clients(),
+                    &location,
+                    zone,
+                    now,
+                    minute,
+                )
+                .await;
+        }
 
         let due = self.record.due(now, today, minute).await?;
         let mut refreshed = false;

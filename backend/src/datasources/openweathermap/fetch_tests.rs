@@ -1,7 +1,7 @@
 //! A whole forecast fetch against a stubbed OpenWeatherMap response.
 
 use super::*;
-use chrono::NaiveDate;
+use chrono::{NaiveDate, TimeZone};
 
 /// Three slots on Sep 22 (8 am, 11 am and 2 pm EDT).
 const RESPONSE: &str = r#"{
@@ -22,21 +22,20 @@ const RESPONSE: &str = r#"{
            "timezone": -14400}
 }"#;
 
+const EASTERN: Clock = Clock::Zone(chrono_tz::America::New_York);
+
 fn client(base: &str) -> OpenWeatherMapClient {
-    let config = OpenWeatherMapConfig {
-        api_key: "test_key".into(),
-        latitude: 39.8,
-        longitude: -75.8,
-        enabled: true,
-    };
-    OpenWeatherMapClient::new(config, Clock::Zone(chrono_tz::America::New_York)).with_base_url(base)
+    OpenWeatherMapClient::new().with_base_url(base)
 }
 
 // @spec WX-SRC-OWM-001
 #[tokio::test]
 async fn a_fetch_returns_every_slot_and_a_summary_per_local_day() {
     let base = crate::test_support::stub_http(200, RESPONSE).await;
-    let forecast = client(&base).fetch_forecast().await.unwrap();
+    let forecast = client(&base)
+        .forecast(39.8, -75.8, "test_key", &EASTERN, Utc::now())
+        .await
+        .unwrap();
 
     assert_eq!(forecast.hourly.len(), 3);
     let first = &forecast.hourly[0];
@@ -85,4 +84,28 @@ async fn a_fetch_returns_every_slot_and_a_summary_per_local_day() {
     assert_eq!(day.avg_wind_speed_mph, 7.0);
     assert_eq!(day.max_wind_gust_mph, Some(15.0));
     assert_eq!(day.hours_covered, 9, "3 h per point");
+}
+
+// @spec WX-SRC-FC-010, WX-SRC-CFG-003
+#[tokio::test]
+async fn a_fetch_asks_for_the_point_and_with_the_key_it_is_given() {
+    let (base, seen) = crate::test_support::stub_http_seeing(200, RESPONSE, "").await;
+    let now = Utc.with_ymd_and_hms(2026, 9, 22, 11, 0, 0).unwrap();
+    let forecast = client(&base)
+        .forecast(41.8781, -87.6298, "the-stored-key", &EASTERN, now)
+        .await
+        .unwrap();
+    let request = seen.await.unwrap();
+    let line = request.lines().next().unwrap();
+    assert!(line.starts_with("GET /forecast?"), "{line}");
+    for part in [
+        "lat=41.8781",
+        "lon=-87.6298",
+        "appid=the-stored-key",
+        "units=imperial",
+    ] {
+        assert!(line.contains(part), "{part} missing from {line}");
+    }
+    assert_eq!(forecast.fetched_at, now, "stamped with the schedule's now");
+    assert_eq!(forecast.provider, ForecastProvider::OpenWeatherMap);
 }

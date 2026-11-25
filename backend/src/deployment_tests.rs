@@ -55,17 +55,13 @@ fn the_volume_mounts_where_postgres_18_keeps_its_data() {
 
 /// Advisory ids in an ignore list, each with the crate it names in a comment line
 /// `# <ID> (crate <name>): <justification>`.
-// @spec DEPLOY-COMPOSE-010
+// @spec DEPLOY-COMPOSE-010, DEPLOY-CONFIG-017
 #[test]
 fn compose_supplies_no_stand_in_coordinates() {
-    assert!(
-        COMPOSE.contains("OWM_LATITUDE: ${OWM_LATITUDE:-}\n"),
-        "no 0 default"
-    );
-    assert!(
-        COMPOSE.contains("OWM_LONGITUDE: ${OWM_LONGITUDE:-}\n"),
-        "no 0 default"
-    );
+    // The forecast is fetched for the lawn's location; its old coordinates are retired.
+    for retired in ["OWM_LATITUDE", "OWM_LONGITUDE", "OWM_ENABLED"] {
+        assert!(!COMPOSE.contains(retired), "{retired} is still passed");
+    }
     for key in ["LAWN_LATITUDE", "LAWN_LONGITUDE"] {
         assert!(
             COMPOSE.contains(&format!("{key}: ${{{key}:-}}\n")),

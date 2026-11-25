@@ -76,13 +76,7 @@ impl TurfOpsMcp {
                 Query(NitrogenBudgetQuery { year: None }),
             )),
         );
-        let connections = self
-            .state
-            .sync_service
-            .read()
-            .await
-            .check_connections()
-            .await;
+        let connections = self.state.sync_service.read().await.connections().await;
 
         let mut notes = Vec::new();
         let mut part = |result: Result<_, TurfOpsError>, name, shape: fn(Value) -> Value| {
@@ -110,8 +104,11 @@ impl TurfOpsMcp {
             ),
         ];
         let mut snapshot = trim::object(parts);
-        snapshot["data_sources"] =
-            trim::data_sources(serde_json::to_value(connections), &mut notes);
+        // @spec SYNC-CONN-008
+        snapshot["data_sources"] = match connections {
+            Ok(connections) => trim::data_sources(serde_json::to_value(connections), &mut notes),
+            Err(error) => trim::part(Err(error_message(error)), "data_sources", &mut notes),
+        };
         snapshot["notes"] = notes.into();
         json_result(&snapshot)
     }

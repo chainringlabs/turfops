@@ -65,49 +65,21 @@ fn cors_origin(raw: Option<String>) -> Result<Option<String>> {
     }
 }
 
-/// The forecast settings, when `OWM_API_KEY` is set. Without both coordinates there is
-/// no lawn to forecast for: the forecast stays off with a warning naming the missing one,
-/// rather than forecasting for 0, 0.
-// @spec WX-SRC-CFG-003
+/// The OpenWeatherMap key, when `OWM_API_KEY` is set: imported once into the app's stored
+/// settings. The forecast's other old settings are named as having no effect.
+// @spec SETUP-CRED-002, DEPLOY-CONFIG-017
 fn forecast_config(get: Lookup, w: &mut Vec<String>) -> Option<OpenWeatherMapConfig> {
-    let api_key = var(get, "OWM_API_KEY").filter(|key| !key.trim().is_empty())?;
-    let missing: Vec<&str> = ["OWM_LATITUDE", "OWM_LONGITUDE"]
-        .into_iter()
-        .filter(|key| get(key).is_none_or(|v| v.trim().is_empty()))
-        .collect();
-    if !missing.is_empty() {
-        w.push(format!(
-            "OWM_API_KEY is set but {} isn't; the forecast is off until both coordinates are set.",
-            missing.join(" and ")
-        ));
-        return None;
+    for retired in ["OWM_ENABLED", "OWM_LATITUDE", "OWM_LONGITUDE"] {
+        if get(retired).is_some_and(|value| !value.trim().is_empty()) {
+            w.push(format!(
+                "{retired} no longer has any effect: the forecast is fetched from the provider \
+                 chosen in the app, for the lawn's location. Remove it from your settings."
+            ));
+        }
     }
-    // Both are checked so each bad value gets its own warning.
-    let latitude = coordinate(get, "OWM_LATITUDE", "a latitude", 90.0, w);
-    let longitude = coordinate(get, "OWM_LONGITUDE", "a longitude", 180.0, w);
-    Some(OpenWeatherMapConfig {
-        api_key,
-        latitude: latitude?,
-        longitude: longitude?,
-        enabled: flag(get, "OWM_ENABLED"),
-    })
-}
-
-/// A set coordinate within ±`limit` degrees, or `None` with a warning: a forecast for a
-/// substitute place would be worse than none.
-fn coordinate(get: Lookup, key: &str, what: &str, limit: f64, w: &mut Vec<String>) -> Option<f64> {
-    let raw = get(key).unwrap_or_default();
-    let value = raw
-        .trim()
-        .parse::<f64>()
-        .ok()
-        .filter(|v| (-limit..=limit).contains(v));
-    if value.is_none() {
-        w.push(format!(
-            "{key}={raw:?} isn't {what} (-{limit} to {limit}); the forecast is off until it is."
-        ));
-    }
-    value
+    var(get, "OWM_API_KEY")
+        .filter(|key| !key.trim().is_empty())
+        .map(|api_key| OpenWeatherMapConfig { api_key })
 }
 
 /// A feature flag: `true`, `1` or `yes` in any case is on, anything else off, unset on.

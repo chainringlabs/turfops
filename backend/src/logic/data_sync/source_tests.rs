@@ -18,36 +18,17 @@ async fn initialized(pairs: &[(&'static str, &str)]) -> DataSyncService {
     DataSyncService::initialize(&config, lazy_pool()).await
 }
 
-const OWM: [(&str, &str); 3] = [
-    ("OWM_API_KEY", "key"),
-    ("OWM_LATITUDE", "39.8"),
-    ("OWM_LONGITUDE", "-75.8"),
-];
-
 // @spec WX-SRC-CFG-002
 #[tokio::test]
-async fn home_assistant_needs_a_token_and_the_forecast_a_key_and_the_flag() {
+async fn home_assistant_needs_a_token() {
     let none = initialized(&[]).await;
     assert!(
         none.weather_client().is_some(),
         "the lake client is always built"
     );
     assert!(!none.has_home_assistant());
-    assert!(!none.has_forecast_client());
-
     assert!(!initialized(&[("HA_TOKEN", "")]).await.has_home_assistant());
     assert!(initialized(&[("HA_TOKEN", "t")]).await.has_home_assistant());
-
-    assert!(
-        initialized(&OWM).await.has_forecast_client(),
-        "enabled by default"
-    );
-    let blank_key = [("OWM_API_KEY", "  "), OWM[1], OWM[2]];
-    assert!(!initialized(&blank_key).await.has_forecast_client());
-    let off = [OWM[0], OWM[1], OWM[2], ("OWM_ENABLED", "false")];
-    assert!(!initialized(&off).await.has_forecast_client());
-    let on = [OWM[0], OWM[1], OWM[2], ("OWM_ENABLED", "true")];
-    assert!(initialized(&on).await.has_forecast_client());
 }
 
 // @spec WX-SRC-MODEL-001

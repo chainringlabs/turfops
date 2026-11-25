@@ -156,6 +156,11 @@ function view(over: Partial<SourcesView> = {}): SourcesView {
 			},
 		],
 		forecast_provider: "OpenMeteo",
+		forecast: {
+			provider: "OpenMeteo",
+			fetched_at: "2026-11-24T19:07:00Z",
+			last_error: null,
+		},
 		connections: {
 			home_assistant: true,
 			openweathermap_key: false,
@@ -271,6 +276,34 @@ it("shows the connections: Home Assistant, the forecast provider and posted read
 	expect(within(connections).getByText("Open-Meteo")).toBeInTheDocument();
 	expect(
 		within(connections).getByText(/Off — set SENSOR_TOKEN/),
+	).toBeInTheDocument();
+});
+
+// @spec SETUP-PAGE-013
+it("shows beside the forecast provider when it was fetched or why it is failing", async () => {
+	mocked.mockResolvedValue(view());
+	const { unmount } = show();
+	let connections = await screen.findByRole("region", { name: "Connections" });
+	expect(
+		within(connections).getByText(/^Fetched Nov 24, 2:07 PM/),
+	).toBeInTheDocument();
+	unmount();
+
+	mocked.mockResolvedValue(
+		view({
+			forecast_provider: "OpenWeatherMap",
+			forecast: {
+				provider: "OpenWeatherMap",
+				fetched_at: null,
+				last_error: "OpenWeatherMap needs its API key.",
+			},
+		}),
+	);
+	show();
+	connections = await screen.findByRole("region", { name: "Connections" });
+	expect(within(connections).getByText("OpenWeatherMap")).toBeInTheDocument();
+	expect(
+		within(connections).getByText("OpenWeatherMap needs its API key."),
 	).toBeInTheDocument();
 });
 

@@ -92,7 +92,15 @@ const dashboard = {
 		product_name: `Entry ${id}`,
 		application_date: `2026-10-0${id}`,
 	})),
-	connections: { soildata: true, homeassistant: false, openweathermap: true },
+	connections: {
+		soildata: true,
+		homeassistant: false,
+		forecast: {
+			provider: "NationalWeatherService",
+			fetched_at: "2026-10-05T14:07:00Z",
+			last_error: null,
+		},
+	},
 } as unknown as DashboardResponse;
 
 const widgetFetchers = [
@@ -161,7 +169,11 @@ describe("Dashboard", () => {
 		expect(banner).toHaveTextContent("nothing you need to do");
 		const connections = screen.getByText("Weather lake");
 		expect(connections.parentElement).toHaveTextContent("Home Assistant");
-		expect(connections.parentElement).toHaveTextContent("OpenWeatherMap");
+		// @spec SYNC-CONN-008: the forecast is named by its provider, not a fixed one.
+		expect(connections.parentElement).toHaveTextContent(
+			"National Weather Service",
+		);
+		expect(connections.parentElement).not.toHaveTextContent("OpenWeatherMap");
 		const gauges = screen.getAllByTestId("gauge");
 		expect(gauges).toHaveLength(4);
 		const widgets = screen.getAllByTestId("widget");

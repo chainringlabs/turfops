@@ -6,6 +6,7 @@ use super::sync_state::SyncState;
 use super::DataSyncService;
 use crate::clock::Clock;
 use crate::datasources::WeatherLakeClient;
+use crate::logic::weather_sync::forecast::ForecastSlot;
 use sqlx::PgPool;
 use std::sync::Mutex;
 
@@ -21,7 +22,7 @@ impl DataSyncService {
             pool,
             weather_client,
             homeassistant_client: None,
-            openweathermap_client: None,
+            forecast: ForecastSlot::new(),
             state: SyncState::default(),
             probes: Mutex::new(ProbeCache::default()),
             clock,

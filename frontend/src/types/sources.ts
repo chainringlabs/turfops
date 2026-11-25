@@ -96,11 +96,22 @@ export interface LocationView {
 	timezone: string;
 }
 
+/** How fetching the forecast is going (SYNC-CONN-007). */
+export interface ForecastStatus {
+	/** The chosen provider. */
+	provider: ForecastProvider;
+	/** When the forecast held was fetched; null when none is held. */
+	fetched_at: string | null;
+	/** Why the latest fetch failed or could not be made; null otherwise. */
+	last_error: string | null;
+}
+
 export interface SourcesView {
 	location: LocationView | null;
 	inputs: InputView[];
 	sources: SourceView[];
 	forecast_provider: ForecastProvider;
+	forecast: ForecastStatus;
 	connections: Connections;
 }
 

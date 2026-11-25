@@ -3,6 +3,7 @@
 import type {
 	Basis,
 	EstimateAccuracy,
+	ForecastStatus,
 	InputView,
 	SourceKind,
 	SourceView,
@@ -211,4 +212,26 @@ export function speaksFor(
 function andList(items: string[]): string {
 	if (items.length < 2) return items.join("");
 	return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+/**
+ * Beside the forecast provider: when its forecast was fetched, why it is failing, or
+ * that it has not been fetched yet.
+ */
+// @spec SETUP-PAGE-013
+export function forecastStatusText(
+	status: ForecastStatus,
+	now: Date,
+	timeZone: string,
+): string {
+	if (status.last_error) return status.last_error;
+	if (status.fetched_at)
+		return `Fetched ${observedText(status.fetched_at, now, timeZone)}`;
+	return "Not fetched yet";
+}
+
+/** Whether the forecast is up: one is held and its latest fetch succeeded. */
+// @spec SYNC-CONN-008
+export function forecastUp(status: ForecastStatus): boolean {
+	return status.fetched_at !== null && status.last_error === null;
 }

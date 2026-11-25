@@ -2,6 +2,7 @@
 //! due and writing what they return.
 
 pub mod fetcher;
+pub mod forecast;
 
 use crate::logic::weather_record::record::AgeLimits;
 use chrono::Duration;
@@ -25,6 +26,8 @@ pub mod sensor_store;
 
 #[cfg(all(test, feature = "db-tests"))]
 mod fetcher_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod forecast_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod schedule_db_tests;
 #[cfg(all(test, feature = "db-tests"))]

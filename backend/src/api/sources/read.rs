@@ -11,6 +11,7 @@ use crate::logic::soil_estimate::fit::StoredFit;
 use crate::logic::soil_estimate::scores::{self, Calibration, CrossingAccuracy};
 use crate::logic::weather_record::live::LiveReading;
 use crate::logic::weather_record::record::{Asked, WeatherRecord};
+use crate::logic::weather_sync::forecast::ForecastStatus;
 use crate::logic::weather_sync::AGE_LIMITS;
 use crate::models::forecast::ForecastProvider;
 use crate::models::weather_basis::Basis;
@@ -94,6 +95,8 @@ pub struct SourcesView {
     pub inputs: Vec<InputView>,
     pub sources: Vec<SourceView>,
     pub forecast_provider: ForecastProvider,
+    /// How fetching the forecast is going.
+    pub forecast: ForecastStatus,
     pub connections: Connections,
 }
 
@@ -233,6 +236,8 @@ pub async fn sources_view(state: &AppState) -> Result<SourcesView, TurfOpsError>
         inputs,
         sources,
         forecast_provider: setup_queries::forecast_provider(pool).await?,
+        // @spec SETUP-API-015
+        forecast: state.sync_service.read().await.forecast_status().await?,
         connections: Connections {
             home_assistant: setup_queries::credential(pool, Service::HomeAssistant)
                 .await?

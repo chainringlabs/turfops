@@ -92,14 +92,14 @@ Both services `restart: unless-stopped`. Host port 5433 exposes Postgres for a l
 | `MCP_TOKEN` | unset | `""` | trimmed; empty = `/mcp` not mounted; set but < 32 chars → `Config` error, process exits (`mcp/config.rs`) |
 | `LAWN_NAME`, `LAWN_GRASS_TYPE`, `LAWN_USDA_ZONE` | `Main Lawn`, `TallFescue`, `7a` | same | unknown grass → warn, TallFescue |
 | `LAWN_SOIL_TYPE`, `LAWN_SIZE_SQFT`, `LAWN_IRRIGATION_TYPE` | none | `""` | unknown / unparseable → warn, none |
-| `LAWN_LATITUDE` / `LAWN_LONGITUDE` | none | `""` / `""` | seed the lawn's location (applications); either missing, unparseable or outside the contiguous United States → warn, no location. `OWM_LATITUDE` / `OWM_LONGITUDE` are read in their place when only they are set |
+| `LAWN_LATITUDE` / `LAWN_LONGITUDE` | none | `""` / `""` | seed the lawn's location (applications); either missing, unparseable or outside the contiguous United States → warn, no location. |
 | `RUST_LOG` | `info` | `info` | invalid filter → warn, `info` |
 
 Every fallback caused by an unusable non-empty value logs a warning naming the setting and the default used, so a typo shows in the startup log instead of quietly changing behavior. An empty value is "not set", not invalid, and takes the default without a warning.
 
 `LAWN_*` values only seed the lawn profile on first start (`ensure_default_profile`); once a profile exists they are ignored and the profile is edited in the app. The one exception is the location, which is also seeded into an existing profile that has none.
 
-**Retired settings.** `DATALAKE_ROOT`, `WEATHER_SILVER_PATH`, `WEATHER_GOLD_PATH`, `NOAA_STATION_WBANNO`, `HA_TEMPERATURE_UNIT` and `OWM_ENABLED` are no longer read. When one is set, startup logs one line naming it and saying it has no effect, so an old Compose file explains itself.
+**Retired settings.** `DATALAKE_ROOT`, `WEATHER_SILVER_PATH`, `WEATHER_GOLD_PATH`, `NOAA_STATION_WBANNO`, `HA_TEMPERATURE_UNIT`, `OWM_ENABLED`, `OWM_LATITUDE` and `OWM_LONGITUDE` are no longer read. When one is set, startup logs one line naming it and saying it has no effect, so an old Compose file explains itself; the forecast's two say it is fetched for the lawn's location.
 
 **Secret redaction.** `HomeAssistantConfig`, `OpenWeatherMapConfig`, `OpenRouterConfig`, `DatabaseConfig` and `McpConfig` implement `Debug` by hand with the credential printed as `[REDACTED]`.
 

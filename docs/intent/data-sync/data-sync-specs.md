@@ -8,7 +8,7 @@ Design: [data-sync-design.md](data-sync-design.md). Prefix `SYNC`. Facets: `SCHE
 
 - [x] **SYNC-SCHED-001**: The system shall run one background schedule, started after the database is reachable and migrated, that once a minute, and at once when woken, asks the weather record what is due and runs those fetches.
 - [x] **SYNC-SCHED-002**: The schedule shall run fetches one at a time, and shall write each fetch's rows and outcome to the weather record before starting the next.
-- [ ] **SYNC-SCHED-003**: The schedule shall run due fetches in this order: the owner's sensors, the forecast, current hourly data, current daily data, then backfill.
+- [x] **SYNC-SCHED-003**: The schedule shall run due fetches in this order: the owner's sensors, the forecast, current hourly data, current daily data, then backfill.
 - [x] **SYNC-SCHED-004**: The schedule shall run backfill newest year first and, within a year, the lawn's own sources before calibration sources, and after each backfill fetch shall run any current data that has become due before the next backfill fetch.
 - [x] **SYNC-SCHED-005**: The schedule shall run hourly and daily fetches at a minute of the hour chosen at random when the installation first gets a location and kept thereafter; a source's first fetch, and a retry after a failure, shall not wait for that minute.
 - [x] **SYNC-SCHED-006**: If a fetch fails, then the schedule shall log the client's detail, record the failure against that source and product, and try that product again after 5 minutes, then after 15 minutes, then once an hour until a fetch of it succeeds.
@@ -24,6 +24,11 @@ Design: [data-sync-design.md](data-sync-design.md). Prefix `SYNC`. Facets: `SCHE
 - [x] **SYNC-SCHED-016**: If Home Assistant does not answer or refuses the token, then the schedule shall try the read again as SYNC-SCHED-006 describes for a failed fetch.
 - [x] **SYNC-SCHED-017**: The schedule shall log at INFO the first Home Assistant read that succeeds after a start or after a failed read, with the number of sensors read and readings stored, and every other successful read at DEBUG.
 - [x] **SYNC-SCHED-018**: Once a day the schedule shall delete sensor readings older than 7 days (WX-REC-STORE-007).
+- [x] **SYNC-SCHED-019**: While the lawn has a location, the schedule shall fetch the forecast from the chosen provider for the lawn's location in the first pass after a start and in the first pass after the chosen provider or OpenWeatherMap's stored key changes, and otherwise hourly at the installation's minute of the hour.
+- [x] **SYNC-SCHED-020**: The schedule shall hold the newest forecast it fetched and the forecast status (SYNC-CONN-007) in memory only, shall discard the forecast held when the chosen provider changes, and no page or rule shall fetch a forecast itself.
+- [x] **SYNC-SCHED-021**: The schedule shall log at INFO the first forecast fetched after a start, after a failed forecast fetch or after a change of provider, naming the provider and the days it covers, and every other forecast fetched at DEBUG.
+- [x] **SYNC-SCHED-022**: If a forecast fetch fails, then the schedule shall log the provider's detail, keep the forecast held, set the forecast status's failure to the owner sentence for the forecast being unavailable, and try the forecast again after 5 minutes, then after 15 minutes, then once an hour until a fetch succeeds.
+- [x] **SYNC-SCHED-023**: If the chosen provider needs a key and none is stored, then the schedule shall make no forecast request and shall set the forecast status's failure to a sentence naming the provider and saying it needs its key.
 
 ## Startup and the clock
 
@@ -48,7 +53,7 @@ Design: [data-sync-design.md](data-sync-design.md). Prefix `SYNC`. Facets: `SCHE
 ## Failures and degradation
 
 - [ ] **SYNC-FAIL-001**: If any source fails, then data sync shall still return a summary, so no caller (including `GET /api/v1/environmental` and `POST /api/v1/environmental/refresh`) receives a data-source error from it.
-- [ ] **SYNC-FAIL-006**: If a forecast fetch fails or the chosen provider cannot be used, then data sync shall serve the last forecast fetched in the summary only while it was fetched less than 6 hours ago, and no forecast otherwise.
+- [x] **SYNC-FAIL-006**: If a forecast fetch fails or the chosen provider cannot be used, then data sync shall serve the last forecast fetched in the summary only while it was fetched less than 6 hours ago, and no forecast otherwise.
 - [x] **SYNC-FAIL-007**: The summary data sync returns shall never carry a forecast fetched 6 or more hours ago.
 - [ ] **SYNC-FAIL-010**: If the weather record cannot be read while assembling the summary, then data sync shall return the previous summary while it was assembled less than 5 minutes ago, and otherwise a summary whose weather fields are empty.
 - [ ] **SYNC-FAIL-011**: While the lawn has no location, the summary's weather fields shall be empty.
@@ -57,9 +62,11 @@ Design: [data-sync-design.md](data-sync-design.md). Prefix `SYNC`. Facets: `SCHE
 
 - [ ] **SYNC-CONN-001**: When data sync reports source status, it shall report one entry per source in use in the shape of WX-VIEW-STATUS-001, taking whether a source is up from the outcome of its most recent scheduled fetch, and reporting a source never yet fetched as pending.
 - [ ] **SYNC-CONN-002**: Reporting source status shall make no outside request and shall leave the summary unchanged.
-- [ ] **SYNC-CONN-003**: When `GET /api/v1/health` is called, the system shall respond with `status`, `version`, `database`, the source status under `sources` with each source's history held against wanted, and `mcp` (`enabled` when `/mcp` is mounted, else `disabled`).
+- [ ] **SYNC-CONN-003**: When `GET /api/v1/health` is called, the system shall respond with `status`, `version`, `database`, the source status under `sources` with each source's history held against wanted, the forecast status under `forecast`, and `mcp` (`enabled` when `/mcp` is mounted, else `disabled`).
 - [x] **SYNC-CONN-004**: `GET /api/v1/health` shall report `status` `ok` and `database` true when the database answers `SELECT 1` within 2 seconds, and `degraded` and false otherwise, and shall not let an external source's outage change `status`.
-- [ ] **SYNC-CONN-005**: `GET /api/v1/dashboard` (as `sources`) and the MCP `lawn_snapshot` tool (as `data_sources`) shall include the source status.
+- [ ] **SYNC-CONN-005**: `GET /api/v1/dashboard` (as `sources`) and the MCP `lawn_snapshot` tool (as `data_sources`) shall include the source status, with the forecast status as `forecast`.
+- [x] **SYNC-CONN-007**: The forecast status shall give the chosen provider, when the forecast held was fetched (empty when none is held), and, while the latest forecast fetch failed or the chosen provider cannot be used, the owner sentence saying why (empty otherwise), and reporting it shall make no outside request.
+- [x] **SYNC-CONN-008**: `GET /api/v1/health` (at the top level), `GET /api/v1/dashboard` (in `connections`) and the MCP `lawn_snapshot` tool (in `data_sources`) shall report the forecast status as `forecast`, and none of them shall carry an OpenWeatherMap flag or probe a forecast provider; while the database does not answer, `GET /api/v1/health` shall report `forecast` as empty.
 
 ## Climate-record slot
 

@@ -72,6 +72,7 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [x] **SETUP-PAGE-010**: The Sources page shall order the sources failing first and then by kind (sensors, stations, grids, the hourly analysis, the estimate), and shall show a source's history as "Complete" when everything wanted is held, as the years held against the years wanted while it is not, and as nothing for a sensor.
 - [x] **SETUP-PAGE-011**: While the lawn has no location, the Sources page shall say so in place of the inputs.
 - [x] **SETUP-PAGE-012**: The Sources page shall list the inputs a source speaks for in the order the page groups them, with a group's soil depths named together ("soil temperature at 5, 10 and 20 cm").
+- [x] **SETUP-PAGE-013**: The Sources page shall show beside the forecast provider when its forecast was last fetched or, while it is failing or cannot be used, the reason.
 
 ## The endpoints
 
@@ -88,6 +89,7 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [x] **SETUP-API-012**: `POST /api/v1/setup/apply` shall save, all or none, whichever of a location, a set of pins and a forecast provider the request carries, the set of pins replacing those held and each pin judged from the location being saved; it shall then have the weather record rebuild its basis plan once and wake the fetch schedule once, before it responds with the sources as they then stand.
 - [x] **SETUP-API-013**: `GET /api/v1/sources` shall report under `connections` whether posted readings are enabled, which is whether `SENSOR_TOKEN` is set, never the token.
 - [x] **SETUP-API-014**: For an input the soil estimate stands behind, `GET /api/v1/sources` shall give the estimate's daily error and, for each crossing scored at that input's depth under the calibration the estimate was fitted on, its threshold, direction, median and one-in-five error in days, and whether the estimate may date it (WX-EST-DATE-001).
+- [x] **SETUP-API-015**: `GET /api/v1/sources` shall report the forecast status (SYNC-CONN-007) as `forecast`.
 
 ## Stored credentials
 

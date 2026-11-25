@@ -111,6 +111,11 @@ function stored(over: Partial<SourcesView> = {}): SourcesView {
 		],
 		sources: [],
 		forecast_provider: "OpenWeatherMap",
+		forecast: {
+			provider: "OpenWeatherMap",
+			fetched_at: null,
+			last_error: null,
+		},
 		connections: {
 			home_assistant: true,
 			openweathermap_key: true,

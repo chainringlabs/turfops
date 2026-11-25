@@ -1,6 +1,6 @@
 use crate::db::queries;
 use crate::error::TurfOpsError;
-use crate::logic::data_sync::ConnectionStatus;
+use crate::logic::data_sync::Connections;
 use crate::models::{Application, EnvironmentalSummary, LawnProfile, Recommendation};
 use crate::state::AppState;
 use axum::extract::State;
@@ -13,7 +13,7 @@ pub struct DashboardResponse {
     pub environmental: EnvironmentalSummary,
     pub recommendations: Vec<Recommendation>,
     pub recent_applications: Vec<Application>,
-    pub connections: ConnectionStatus,
+    pub connections: Connections,
 }
 
 // @spec FEED-PIPE-017, FEED-UI-009, SYNC-CONN-005
@@ -41,7 +41,7 @@ pub async fn get_dashboard(
     // Check connections with read lock (doesn't block other readers)
     let connections = {
         let service = state.sync_service.read().await;
-        service.check_connections().await
+        service.connections().await?
     };
 
     // The same feed as the Recommendations page, so the two can never disagree.

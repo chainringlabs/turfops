@@ -56,7 +56,7 @@ At startup `ensure_default_profile` (`backend/src/main.rs`) creates one row from
 | `LAWN_IRRIGATION_TYPE` | unset | warns, left unset |
 | `LAWN_LATITUDE`, `LAWN_LONGITUDE` | unset | Either missing, unparseable or outside the contiguous United States: warns naming it, location left unset. Never defaults to 0, 0 |
 
-The location alone is also seeded into an existing profile that has none, so an installation that predates it comes up located. `OWM_LATITUDE` / `OWM_LONGITUDE` are read in place of the `LAWN_` pair when only they are set. Once the profile holds a location the variables are ignored.
+The location alone is also seeded into an existing profile that has none, so an installation that predates it comes up located. Once the profile holds a location the variables are ignored.
 
 Every warning names the variable and the value it could not parse, so a typo in the compose file is visible in the log rather than a silently missing field. A bad value never stops the profile from being created.
 

@@ -141,8 +141,6 @@ async fn startup_logs_paths_integrations_cors_and_the_server_lines() {
             ("HA_URL", "http://ha.example:8123"),
             ("HA_TOKEN", "ha-token"),
             ("OWM_API_KEY", "owm-key"),
-            ("OWM_LATITUDE", "39.85"),
-            ("OWM_LONGITUDE", "-75.78"),
             ("CORS_ALLOWED_ORIGIN", "https://lawn.example.com"),
         ]);
         let _sync = DataSyncService::initialize(&config, idle_pool()).await;
@@ -158,7 +156,6 @@ async fn startup_logs_paths_integrations_cors_and_the_server_lines() {
         "/lake/silver/weather/silver_weather.parquet",
         "/lake/gold/weather/daily_weather.parquet",
         "Home Assistant client configured",
-        "OpenWeatherMap client configured",
         "Weather data lake client configured",
         "https://lawn.example.com",
     ] {
@@ -188,8 +185,6 @@ async fn constructing_the_clients_touches_no_integration() {
         ("HA_URL", &url),
         ("HA_TOKEN", "ha-token"),
         ("OWM_API_KEY", "owm-key"),
-        ("OWM_LATITUDE", "39.85"),
-        ("OWM_LONGITUDE", "-75.78"),
         ("OPENROUTER_API_KEY", "sk-or-test"),
         ("OPENROUTER_BASE_URL", &url),
     ]);

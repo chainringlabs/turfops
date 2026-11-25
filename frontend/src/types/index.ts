@@ -1,5 +1,6 @@
 // @spec UI-TYPE-001, UI-TYPE-002
 import type { InventoryStatus, ProductNeed } from "./inventory";
+import type { ForecastStatus } from "./sources";
 // Matches Rust models exactly
 
 export interface LawnProfile {
@@ -313,17 +314,23 @@ export interface DataPoint {
 	source: string;
 }
 
-export interface ConnectionStatus {
+export interface SourceFlags {
 	soildata: boolean;
 	homeassistant: boolean;
-	openweathermap: boolean;
+}
+
+/** The dashboard's connections: the source flags and the forecast's status. */
+export interface ConnectionStatus extends SourceFlags {
+	forecast: ForecastStatus;
 }
 
 export interface HealthResponse {
 	status: string;
 	version: string;
 	database: boolean;
-	datasources: ConnectionStatus;
+	datasources: SourceFlags;
+	/** Null while the database does not answer. */
+	forecast: ForecastStatus | null;
 }
 
 export interface DashboardResponse {
