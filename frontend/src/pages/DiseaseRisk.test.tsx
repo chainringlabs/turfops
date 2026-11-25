@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getDiseaseRisk } from "../api/client";
 import { ApiError } from "../api/errors";
-import { response } from "../components/disease/testFixtures";
+import { ANALYSIS, response, risk } from "../components/disease/testFixtures";
 import DiseaseRisk from "./DiseaseRisk";
 
 vi.mock("../api/client", () => ({ getDiseaseRisk: vi.fn() }));
@@ -46,19 +46,22 @@ beforeEach(() => {
 
 describe("Disease Risk page", () => {
 	// @spec DIS-UI-PAGE-001
-	it("lists station, notes, the explainer and one linked row per disease", async () => {
+	it("lists the basis, notes, the explainer and one linked row per disease", async () => {
 		fetchRisk.mockResolvedValue(
 			response({ data_notes: ["Note one.", "Note two."] }),
 		);
 		show("/disease-risk");
-		const station = await screen.findByText("NOAA USCRN station 3761");
+		const station = await screen.findByText("Measured · Avondale 2 N, 6 mi");
+		expect(station.closest("a")).toHaveAttribute("href", "/sources");
 		const notes = [
 			screen.getByText("Note one."),
 			screen.getByText("Note two."),
 		];
 		const explainer = screen.getByText(/there is no blended score/);
 		expect(explainer).toHaveTextContent(/native scores\s+are not comparable/);
-		const rows = screen.getAllByRole("link");
+		const rows = screen
+			.getAllByRole("link")
+			.filter((r) => r.getAttribute("href")?.startsWith("/disease-risk/"));
 		expect(rows.map((r) => r.getAttribute("href"))).toEqual([
 			"/disease-risk/brown-patch",
 			"/disease-risk/dollar-spot",
@@ -109,7 +112,7 @@ describe("Disease Risk page", () => {
 		fetchRisk.mockResolvedValue(response());
 		const { unmount } = show("/disease-risk/brown-patch");
 		expect(
-			await screen.findByText("NOAA USCRN station 3761"),
+			await screen.findByText("Measured · Avondale 2 N, 6 mi"),
 		).toBeInTheDocument();
 		expect(
 			screen.getByText("Forecast unavailable — no outlook days are shown."),
@@ -132,6 +135,25 @@ describe("Disease Risk page", () => {
 		).toHaveAttribute("href", "/disease-risk");
 	});
 
+	// @spec DIS-UI-PAGE-001, DIS-UI-CHART-005
+	it("labels an estimate's basis and marks approximate tiers in words", async () => {
+		fetchRisk.mockResolvedValue(
+			response({
+				basis: { headline: ANALYSIS, spans: [] },
+				approximate: true,
+				diseases: [risk({ approximate: true })],
+			}),
+		);
+		show("/disease-risk");
+		expect(
+			await screen.findByText("Estimated for your location · approximate"),
+		).toBeInTheDocument();
+		const [row] = screen
+			.getAllByRole("link")
+			.filter((r) => r.getAttribute("href")?.startsWith("/disease-risk/"));
+		expect(row).toHaveTextContent("⚠ High · approx.");
+	});
+
 	// @spec DIS-UI-PAGE-004
 	it("says it is loading until the response arrives", () => {
 		fetchRisk.mockReturnValue(new Promise(() => {}));
@@ -148,9 +170,9 @@ describe("Disease Risk page", () => {
 		[
 			new ApiError(
 				503,
-				"The weather data lake isn't configured, so disease risk can't be scored.",
+				"TurfOps doesn't know where your lawn is yet, so weather, timing and disease information are unavailable. Set the location in Setup.",
 			),
-			"The weather data lake isn't configured, so disease risk can't be scored.",
+			"TurfOps doesn't know where your lawn is yet, so weather, timing and disease information are unavailable. Set the location in Setup.",
 		],
 		[
 			new ApiError(500, '{"error":"duckdb: IO Error"}'),

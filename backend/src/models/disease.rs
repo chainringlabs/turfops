@@ -108,6 +108,15 @@ pub struct DailyWeather {
     pub covers_dawn: bool,
     /// The data includes the afternoon, where the day's high lives.
     pub covers_afternoon: bool,
+    /// What the day's observed hours rest on; `None` for a forecast-only day.
+    pub basis: Option<crate::models::weather_basis::Basis>,
+}
+
+impl DailyWeather {
+    /// Whether the day's observed hours come from the hourly analysis.
+    pub fn is_approximate(&self) -> bool {
+        self.basis.as_ref().is_some_and(|basis| basis.approximate)
+    }
 }
 
 /// Local hours that must be represented for a day's minimum / maximum to be real. Both
@@ -142,6 +151,8 @@ pub struct DailyRisk {
     pub is_forecast: bool,
     /// Day has under 12 hours of data behind it.
     pub partial: bool,
+    /// The day's observed hours come from the hourly analysis.
+    pub approximate: bool,
 }
 
 /// How a contributing factor currently bears on disease development.
@@ -211,6 +222,8 @@ pub struct DiseaseRisk {
     pub score_label: String,
     /// The day the headline tier/score describes.
     pub as_of: NaiveDate,
+    /// The headline day's observed hours come from the hourly analysis.
+    pub approximate: bool,
     pub scale: RiskScale,
     pub daily: Vec<DailyRisk>,
     pub factors: Vec<RiskFactor>,
@@ -219,12 +232,23 @@ pub struct DiseaseRisk {
     pub management: DiseaseManagement,
 }
 
+/// The basis of hourly air and humidity: on the headline day, and its spans over the
+/// display window.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct RiskBasis {
+    pub headline: Option<crate::models::weather_basis::Basis>,
+    pub spans: Vec<crate::models::weather_basis::BasisSpan>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct DiseaseRiskResponse {
     pub generated_at: DateTime<Utc>,
-    /// Today's date at the station (the headline `as_of` can trail it).
+    /// The lawn's date (the headline `as_of` can trail it).
     pub today: NaiveDate,
-    pub station: String,
+    /// What hourly air and humidity rest on.
+    pub basis: RiskBasis,
+    /// The headline day's hours come from the hourly analysis.
+    pub approximate: bool,
     pub diseases: Vec<DiseaseRisk>,
     /// Caveats about the inputs (lake lag, missing forecast, ...).
     pub data_notes: Vec<String>,

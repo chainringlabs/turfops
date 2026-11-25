@@ -146,3 +146,39 @@ fn a_fungicide_need_lists_every_eligible_preventative_class() {
         ]
     );
 }
+
+// @spec DIS-MGMT-REC-007
+#[test]
+fn an_approximate_headline_adds_a_weather_basis_point_and_changes_nothing_else() {
+    let today = date(7, 20);
+    let ctx = DiseaseContext::default();
+    let risks = assess_all(&hot_humid(today, 90.0), today, &ctx);
+    let measured = to_recommendations(&risks, &ctx);
+    let approximate: Vec<DiseaseRisk> = risks
+        .into_iter()
+        .map(|risk| DiseaseRisk {
+            approximate: true,
+            ..risk
+        })
+        .collect();
+    let marked = to_recommendations(&approximate, &ctx);
+    assert!(!measured.is_empty());
+    assert_eq!(measured.len(), marked.len());
+    for (m, a) in measured.iter().zip(&marked) {
+        assert_eq!(
+            (m.id.as_str(), m.severity, &m.suggested_action),
+            (a.id.as_str(), a.severity, &a.suggested_action)
+        );
+        assert_eq!(
+            serde_json::to_value(&m.needs).unwrap(),
+            serde_json::to_value(&a.needs).unwrap()
+        );
+        assert!(!m.data_points.iter().any(|p| p.label == "Weather basis"));
+        let point = a
+            .data_points
+            .iter()
+            .find(|p| p.label == "Weather basis")
+            .expect("a weather basis point");
+        assert!(point.value.contains("estimate for your location"));
+    }
+}

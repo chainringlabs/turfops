@@ -38,4 +38,12 @@ describe("TierBadge", () => {
 			});
 		},
 	);
+
+	// @spec DIS-UI-CHART-005
+	it("marks an approximate tier in words and keeps its color", () => {
+		render(<TierBadge tier="High" approximate />);
+		const badge = screen.getByText("High", { exact: false });
+		expect(badge).toHaveTextContent("⚠ High · approx.");
+		expect(badge).toHaveStyle({ borderColor: RISK_TIER_COLORS.High });
+	});
 });

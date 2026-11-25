@@ -15,7 +15,7 @@ async fn inputs(lab: &Lab, start: u32, today: u32) -> super::disease::DiseaseInp
         .unwrap()
 }
 
-// @spec WX-REC-API-010
+// @spec WX-REC-API-010, DIS-MODEL-DAY-002
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn a_day_is_its_usable_hours_in_celsius_with_humid_and_wet_hours(pool: PgPool) {
     let lab = Lab::new(pool).await;
@@ -53,6 +53,11 @@ async fn a_day_is_its_usable_hours_in_celsius_with_humid_and_wet_hours(pool: PgP
     assert_eq!(got.latest_observed, Some(start + Duration::hours(22)));
     assert_eq!(got.basis.len(), 1);
     assert!(got.basis[0].basis.approximate);
+    assert_eq!(
+        day.basis.as_ref(),
+        Some(&got.basis[0].basis),
+        "the day's own basis"
+    );
 }
 
 // @spec WX-REC-API-010

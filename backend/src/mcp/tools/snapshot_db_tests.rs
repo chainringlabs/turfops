@@ -15,6 +15,7 @@ use sqlx::PgPool;
 /// today, so the feed is longer than the dashboard's three) and its snapshot.
 async fn snapshot(pool: PgPool, name: &str) -> (crate::state::AppState, Lake, Value) {
     let lawn = lawn(&pool).await;
+    locate(&pool).await;
     let lake = Lake::with_days(name, 40, &[]);
     let state = state_with_forecast(pool.clone(), &lake).await;
     let today = state.clock.today();
@@ -199,7 +200,12 @@ async fn a_lake_outage_nulls_its_parts_with_notes_and_keeps_the_rest(pool: PgPoo
         snap["notes"],
         json!([
             format!("timing_windows unavailable: {lake}"),
-            format!("disease_risk unavailable: {lake}"),
+            // Disease risk reads the weather record, which has no location for this lawn.
+            "disease_risk unavailable: Data source unavailable: TurfOps doesn't know where \
+             your lawn is yet, so weather, timing and disease information are unavailable. \
+             Set the location in Setup. Tell the user this data is missing rather than \
+             estimating it."
+                .to_string(),
         ])
     );
     for kept in [

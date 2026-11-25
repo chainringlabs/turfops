@@ -38,6 +38,7 @@ fn forecast(m: u32, d: u32, tier: RiskTier) -> DailyRisk {
         tier,
         is_forecast: true,
         partial: false,
+        approximate: false,
     }
 }
 

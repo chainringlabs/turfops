@@ -1,8 +1,10 @@
 //! The fungicide shelf the disease planner sees, against PostgreSQL.
 
-use super::db_tests::{eastern, lawn, silver_fixture, state_with};
+use super::db_tests::{clock, humid_analysis, profile, state_on};
 use super::*;
+use crate::logic::weather_record::lab::Lab;
 use crate::models::{FracClass, Product, ProductFacts, ProductForm};
+use chrono::Utc;
 use sqlx::PgPool;
 
 fn fungicide(profile_id: i64, name: &str, stock: StockStatus, classes: &[FracClass]) -> Product {
@@ -38,10 +40,10 @@ fn product(
 // @spec DIS-MGMT-PICK-005
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_shelf_is_usable_fungicides_by_their_recorded_classes(pool: PgPool) {
-    let clock = eastern();
-    let silver = silver_fixture("shelf", "03761", clock.today());
-    let state = state_with(&pool, &silver, clock).await;
-    let id = lawn(&pool).await.id.unwrap();
+    let lab = Lab::new(pool.clone()).await;
+    humid_analysis(&lab).await;
+    let state = state_on(&pool, clock()).await;
+    let id = profile(&pool).await.id.unwrap();
     let add = |p: Product| {
         let pool = pool.clone();
         async move { product_queries::create_product(&pool, &p).await.unwrap() }
@@ -89,7 +91,6 @@ async fn the_shelf_is_usable_fungicides_by_their_recorded_classes(pool: PgPool) 
     add(not_fungicide).await;
 
     let Json(response) = get_disease_risk(State(state)).await.unwrap();
-    std::fs::remove_file(&silver).ok();
     let bp = response
         .diseases
         .iter()

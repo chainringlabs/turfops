@@ -30,7 +30,10 @@ pub(crate) async fn state_without_lake(pool: PgPool, clock: Clock) -> AppState {
 
 /// A pool that never connects, for state whose test touches no table.
 pub(crate) fn unconnected_pool() -> PgPool {
-    PgPool::connect_lazy("postgres://nobody@127.0.0.1:1/none").expect("lazy pool")
+    sqlx::postgres::PgPoolOptions::new()
+        .acquire_timeout(std::time::Duration::from_millis(300))
+        .connect_lazy("postgres://nobody@127.0.0.1:1/none")
+        .expect("lazy pool")
 }
 
 pub(crate) fn profile() -> LawnProfile {

@@ -27,7 +27,11 @@ export default function DiseaseDetail({ risk, today }: DiseaseDetailProps) {
 			<div style={styles.topRow}>
 				<div style={{ ...sharedStyles.card, ...styles.scoreCard }}>
 					<div style={styles.scoreLabel}>{risk.score_label}</div>
-					<TierBadge tier={risk.tier} size="lg" />
+					<TierBadge
+						tier={risk.tier}
+						size="lg"
+						approximate={risk.approximate}
+					/>
 					{risk.tier_note && (
 						<div style={styles.tierNote}>{risk.tier_note}</div>
 					)}

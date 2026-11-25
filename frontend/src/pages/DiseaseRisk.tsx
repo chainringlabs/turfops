@@ -5,10 +5,11 @@ import { describeError } from "../api/errors";
 import DiseaseDetail from "../components/disease/DiseaseDetail";
 import RiskMeter from "../components/disease/RiskMeter";
 import TierBadge from "../components/disease/TierBadge";
+import BasisLabel from "../components/sources/BasisLabel";
 import { sharedStyles } from "../styles/shared";
 import type { DiseaseRiskResponse } from "../types/disease";
 
-// @spec DIS-UI-PAGE-001, DIS-UI-PAGE-002, DIS-UI-PAGE-003, DIS-UI-PAGE-004
+// @spec DIS-UI-PAGE-001, DIS-UI-PAGE-002, DIS-UI-PAGE-003, DIS-UI-PAGE-004, DIS-UI-PAGE-005
 export default function DiseaseRisk() {
 	const { slug } = useParams();
 	const [data, setData] = useState<DiseaseRiskResponse | null>(null);
@@ -50,8 +51,14 @@ export default function DiseaseRisk() {
 						{selected ? `${selected.name} Risk` : "Disease Risk"}
 					</h1>
 				</div>
-				<span style={styles.station}>{data.station}</span>
 			</div>
+
+			{data.basis.headline && (
+				<div style={styles.basis}>
+					<span style={styles.basisTitle}>Air temperature and humidity:</span>{" "}
+					<BasisLabel basis={data.basis.headline} />
+				</div>
+			)}
 
 			{data.data_notes.length > 0 && (
 				<div style={styles.notes}>
@@ -107,7 +114,7 @@ export default function DiseaseRisk() {
 									/>
 								</div>
 								<div style={styles.rowTier}>
-									<TierBadge tier={risk.tier} />
+									<TierBadge tier={risk.tier} approximate={risk.approximate} />
 								</div>
 								<span style={styles.chevron} aria-hidden="true">
 									›
@@ -123,7 +130,8 @@ export default function DiseaseRisk() {
 
 const styles: Record<string, React.CSSProperties> = {
 	back: { fontSize: "0.8rem", color: "#3182ce", textDecoration: "none" },
-	station: { fontSize: "0.75rem", color: "#718096" },
+	basis: { marginBottom: "0.75rem" },
+	basisTitle: { fontSize: "0.8rem", color: "#4a5568" },
 	notes: {
 		padding: "0.5rem 0.75rem",
 		backgroundColor: "#ebf8ff",
@@ -153,6 +161,6 @@ const styles: Record<string, React.CSSProperties> = {
 	rowName: { fontSize: "1rem", fontWeight: 600, color: "#1a202c" },
 	rowModel: { fontSize: "0.78rem", color: "#718096", marginTop: 2 },
 	rowMeter: { flex: "1 1 160px", maxWidth: 260 },
-	rowTier: { width: 110, textAlign: "right" },
+	rowTier: { minWidth: 110, flexShrink: 0, textAlign: "right" },
 	chevron: { fontSize: "1.4rem", color: "#a0aec0" },
 };

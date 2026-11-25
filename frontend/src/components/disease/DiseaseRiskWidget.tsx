@@ -30,7 +30,7 @@ export default function DiseaseRiskWidget({ data }: DiseaseRiskWidgetProps) {
 				>
 					<span style={styles.name}>{risk.name}</span>
 					<span style={styles.score}>{risk.score_label}</span>
-					<TierBadge tier={risk.tier} />
+					<TierBadge tier={risk.tier} approximate={risk.approximate} />
 				</Link>
 			))}
 		</div>

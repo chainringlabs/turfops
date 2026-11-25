@@ -159,7 +159,8 @@ fn every_disease_keeps_its_own_native_score_and_scale() {
     let json = serde_json::to_value(crate::models::DiseaseRiskResponse {
         generated_at: chrono::Utc::now(),
         today,
-        station: "s".into(),
+        basis: Default::default(),
+        approximate: false,
         diseases: risks,
         data_notes: vec![],
     })
@@ -168,7 +169,14 @@ fn every_disease_keeps_its_own_native_score_and_scale() {
     keys.sort();
     assert_eq!(
         keys,
-        vec!["data_notes", "diseases", "generated_at", "station", "today"]
+        vec![
+            "approximate",
+            "basis",
+            "data_notes",
+            "diseases",
+            "generated_at",
+            "today"
+        ]
     );
 }
 
@@ -215,4 +223,35 @@ fn pythium_shows_peak_dew_point_without_scoring_it() {
         .expect("dew point factor");
     assert_eq!(dew.value, "75°F");
     assert!(dew.note.contains("not scored"), "{}", dew.note);
+}
+
+// @spec DIS-MODEL-API-006
+#[test]
+fn an_approximate_day_scores_as_a_measured_one_and_is_marked() {
+    let today = date(7, 20);
+    let measured = run_of(today, 8, |d| wet(day(d, 26.0, 21.0, 32.0, 92.0), 14.0));
+    let mut approximate = measured.clone();
+    let analysis = crate::models::weather_basis::Basis {
+        kind: crate::models::weather_basis::BasisKind::Estimate,
+        source: "Hourly analysis".into(),
+        distance_miles: None,
+        approximate: true,
+    };
+    // The last three days, the headline among them, rest on the hourly analysis.
+    for day in approximate.iter_mut().skip(5) {
+        day.basis = Some(analysis.clone());
+    }
+    let ctx = DiseaseContext::default();
+    let plain = assess_all(&measured, today, &ctx);
+    let marked = assess_all(&approximate, today, &ctx);
+    assert_eq!(plain.len(), marked.len());
+    for (p, m) in plain.iter().zip(&marked) {
+        assert_eq!((p.score, p.tier), (m.score, m.tier), "{}", p.name);
+        assert!(!p.approximate && m.approximate, "{}", p.name);
+        let flags: Vec<(NaiveDate, bool)> =
+            m.daily.iter().map(|d| (d.date, d.approximate)).collect();
+        for (date, approximate) in flags {
+            assert_eq!(approximate, date >= today - Duration::days(2), "{date}");
+        }
+    }
 }

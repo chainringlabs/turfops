@@ -61,6 +61,7 @@ pub(super) fn assess(
         score: e,
         score_label: format!("E-index {e:.1}"),
         as_of: day.date,
+        approximate: false,
         scale,
         daily: scored.daily,
         factors: factors(day, e, week_avg),

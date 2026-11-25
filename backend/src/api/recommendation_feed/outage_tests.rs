@@ -1,4 +1,4 @@
-//! A weather-lake outage costs the feed its lake-backed sources, never the feed.
+//! A weather outage costs the feed its weather-backed sources, never the feed.
 
 use super::fixtures::{profile, state_without_lake, unconnected_pool};
 use crate::clock::Clock;
@@ -6,7 +6,7 @@ use crate::models::{Recommendation, RecommendationCategory, Severity};
 
 // @spec FEED-PIPE-015
 #[tokio::test]
-async fn a_lake_outage_leaves_the_feed_without_disease_advice() {
+async fn a_weather_record_outage_leaves_the_feed_without_disease_advice() {
     let state = state_without_lake(unconnected_pool(), Clock::System).await;
     let recs = crate::api::disease_risk::recommendations(&state, &profile()).await;
     assert!(

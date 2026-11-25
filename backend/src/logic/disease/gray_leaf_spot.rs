@@ -87,6 +87,7 @@ pub(super) fn assess(
         score: index,
         score_label: format!("{index:.0} / 100"),
         as_of: day.date,
+        approximate: false,
         scale,
         daily: scored.daily,
         factors: factors(day, seedlings, tier != weather_tier),

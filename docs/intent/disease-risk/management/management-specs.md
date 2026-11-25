@@ -55,7 +55,7 @@ Design: [management-design.md](management-design.md). Parent: [disease-risk](../
 - [x] **DIS-MGMT-REC-004**: While red thread is nitrogen-hungry and its recommendation tells the owner to feed, the system shall mark it as a feeding for the nitrogen guard and declare a nitrogen-fertilizer need (a Fertilizer whose nitrogen is above 0 or unrecorded); once fed, red thread's recommendation shall carry neither the mark nor a need.
 - [x] **DIS-MGMT-REC-005**: If the disease-risk computation fails while building the feed, then the system shall log a warning and contribute no disease recommendations.
 - [x] **DIS-MGMT-REC-006**: When a disease recommendation's action is Protected, the system shall declare no product need.
-- [ ] **DIS-MGMT-REC-007**: When the headline day is approximate, a disease recommendation shall carry a "Weather basis" data point saying its hours are an estimate for the location, and its severity, action and product need shall be the same as for a measured day.
+- [x] **DIS-MGMT-REC-007**: When the headline day is approximate, a disease recommendation shall carry a "Weather basis" data point saying its hours are an estimate for the location, and its severity, action and product need shall be the same as for a measured day.
 
 ## FRAC classes endpoint
 

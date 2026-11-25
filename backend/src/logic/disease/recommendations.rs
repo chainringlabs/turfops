@@ -63,6 +63,15 @@ fn to_recommendation(risk: &DiseaseRisk, ctx: &DiseaseContext) -> Recommendation
             DataSource::Calculated.as_str(),
         );
     }
+    // @spec DIS-MGMT-REC-007
+    // Disclosed, never down-weighted: the severity, action and need stay as measured.
+    if risk.approximate {
+        rec = rec.with_data_point(
+            "Weather basis",
+            "Hourly estimate for your location, not a measurement at the lawn",
+            DataSource::Calculated.as_str(),
+        );
+    }
     rec = rec.with_action(action);
     // @spec DIS-MGMT-REC-004
     // Red thread's "feed the lawn" is a feeding, so the nitrogen guard holds and caps it.

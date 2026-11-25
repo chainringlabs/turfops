@@ -7,7 +7,7 @@ use super::resolve::{self, Candidate, Pending, COVERING_HOURS};
 use crate::db::weather_queries::days;
 use crate::db::weather_queries::disease_days::{disease_days, DiseaseDay};
 use crate::error::Result;
-use crate::models::weather_basis::BasisSpan;
+use crate::models::weather_basis::{Basis, BasisSpan};
 use crate::models::weather_record::{Input, Source, SourceKind};
 use crate::models::DailyWeather;
 use chrono::{DateTime, Duration, NaiveDate, Utc};
@@ -31,7 +31,7 @@ pub struct DiseaseInputs {
 impl WeatherRecord {
     /// One row per local day from `start` that a source speaks for. `dawn` and
     /// `afternoon` are the local hours whose presence the caller wants reported.
-    // @spec WX-REC-API-010, WX-REC-RES-005, WX-REC-FAIL-003
+    // @spec WX-REC-API-010, WX-REC-RES-005, WX-REC-FAIL-003, DIS-MODEL-DAY-002
     pub async fn fetch_daily_disease_inputs(
         &self,
         start: NaiveDate,
@@ -55,6 +55,7 @@ impl WeatherRecord {
                 .into_values()
                 .map(|day| DailyWeather {
                     precip_mm: rain.get(&day.value.weather.date).copied().unwrap_or(0.0),
+                    basis: Some(Basis::from(&candidates[day.from].source)),
                     ..day.value.weather
                 })
                 .collect(),
