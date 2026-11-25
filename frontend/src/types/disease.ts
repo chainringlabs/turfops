@@ -1,4 +1,5 @@
 import type { ShelfProduct } from "./inventory";
+import type { Basis } from "./sources";
 // Mirrors backend/src/models/disease.rs
 
 export type Disease =
@@ -18,6 +19,8 @@ export interface DailyRisk {
 	tier: RiskTier;
 	is_forecast: boolean;
 	partial: boolean;
+	/** The day's observed hours come from the hourly analysis. */
+	approximate: boolean;
 }
 
 export interface RiskFactor {
@@ -102,6 +105,8 @@ export interface DiseaseRisk {
 	score: number;
 	score_label: string;
 	as_of: string;
+	/** The headline day's observed hours come from the hourly analysis. */
+	approximate: boolean;
 	scale: RiskScale;
 	daily: DailyRisk[];
 	factors: RiskFactor[];
@@ -110,10 +115,26 @@ export interface DiseaseRisk {
 	management: DiseaseManagement;
 }
 
+/** One stretch of days whose hourly air and humidity rest on one basis. */
+export interface RiskBasisSpan {
+	input: string;
+	from: string;
+	to: string;
+	basis: Basis;
+}
+
+/** What hourly air and humidity rest on: the headline day, and the display window. */
+export interface RiskBasis {
+	headline: Basis | null;
+	spans: RiskBasisSpan[];
+}
+
 export interface DiseaseRiskResponse {
 	generated_at: string;
 	today: string;
-	station: string;
+	basis: RiskBasis;
+	/** The headline day's hours come from the hourly analysis. */
+	approximate: boolean;
 	diseases: DiseaseRisk[];
 	data_notes: string[];
 }

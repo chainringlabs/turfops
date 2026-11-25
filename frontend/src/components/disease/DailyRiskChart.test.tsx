@@ -83,7 +83,7 @@ describe("DailyRiskChart", () => {
 
 	it("tooltips name the day Partial day, Forecast or Observed", () => {
 		const row = (d: ReturnType<typeof day>) => ({
-			payload: { ...d, label: "9/21", plotted: d.value },
+			payload: { ...d, label: "9/21", plotted: d.value, approxMark: "" },
 		});
 		const kinds: [ReturnType<typeof day>, string][] = [
 			[day("2026-09-19", 4), "Observed"],
@@ -114,10 +114,41 @@ describe("DailyRiskChart", () => {
 					.map((c) => c.textContent),
 			);
 		expect(rows).toEqual([
-			["9/19", "4.2 E-index", "△ Moderate", "Observed"],
-			["Today", "5.4 E-index", "⚠ High", "Observed"],
-			["9/21", "6.3 E-index", "! Severe", "Forecast"],
-			["9/22", "3.1 E-index", "△ Moderate", "Partial day"],
+			["9/19", "4.2 E-index", "△ Moderate", "Observed", "No"],
+			["Today", "5.4 E-index", "⚠ High", "Observed", "No"],
+			["9/21", "6.3 E-index", "! Severe", "Forecast", "No"],
+			["9/22", "3.1 E-index", "△ Moderate", "Partial day", "No"],
 		]);
+	});
+
+	// @spec DIS-UI-CHART-005
+	it("marks approximate days in words on the bar, the legend and the table", () => {
+		const daily = [
+			day("2026-09-19", 4.2, { approximate: true }),
+			day(TODAY, 5.4, { approximate: true }),
+			day("2026-09-21", 6.3),
+		];
+		const { container } = render(
+			<DailyRiskChart daily={daily} scale={scale} today={TODAY} />,
+		);
+		const marks = container.querySelectorAll("[data-approx-mark]");
+		expect(marks).toHaveLength(2);
+		expect(marks[0]).toHaveTextContent("approx.");
+		expect(
+			screen.getByText("approx. = hourly estimate for your location"),
+		).toBeInTheDocument();
+		const table = screen.getByRole("table", { hidden: true });
+		const approximate = within(table)
+			.getAllByRole("row", { hidden: true })
+			.slice(1)
+			.map(
+				(r) => within(r).getAllByRole("cell", { hidden: true })[4].textContent,
+			);
+		expect(approximate).toEqual(["Yes", "Yes", "No"]);
+		// The tier's color is unchanged: the same fill as a measured day of that tier.
+		const fills = [...container.querySelectorAll(".recharts-rectangle")].map(
+			(bar) => bar.getAttribute("fill"),
+		);
+		expect(fills).toContain(RISK_TIER_COLORS.High);
 	});
 });

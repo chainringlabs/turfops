@@ -31,14 +31,20 @@ pub const FORECAST_DAYS: i64 = 4;
 /// A day needs this many hours of data to drive a headline or a trailing window.
 pub const MIN_USABLE_HOURS: f64 = 12.0;
 
-// @spec DIS-MODEL-SCORE-006, DIS-MODEL-SCORE-007, DIS-MODEL-HEAD-003
+// @spec DIS-MODEL-SCORE-006, DIS-MODEL-SCORE-007, DIS-MODEL-HEAD-003, DIS-MODEL-API-006
 /// Run every disease model. `series` must be ascending by date; diseases with no
-/// usable data in the window are omitted.
+/// usable data in the window are omitted. A risk whose headline day rests on the hourly
+/// analysis is scored the same way and marked approximate.
 pub fn assess_all(
     series: &[DailyWeather],
     today: NaiveDate,
     ctx: &DiseaseContext,
 ) -> Vec<DiseaseRisk> {
+    let approximate_on = |date: NaiveDate| {
+        series
+            .iter()
+            .any(|day| day.date == date && day.is_approximate())
+    };
     [
         brown_patch::assess(series, today, ctx),
         dollar_spot::assess(series, today, ctx),
@@ -48,7 +54,19 @@ pub fn assess_all(
     ]
     .into_iter()
     .flatten()
+    .map(|risk| DiseaseRisk {
+        approximate: approximate_on(risk.as_of),
+        ..risk
+    })
     .collect()
+}
+
+/// The day the headline describes: the latest usable day up to today.
+pub fn headline_day(series: &[DailyWeather], today: NaiveDate) -> Option<&DailyWeather> {
+    series
+        .iter()
+        .rev()
+        .find(|day| day.date <= today && is_usable(day))
 }
 
 /// Enough hours — and the right ones. Twelve hours of afternoon and evening (all a
@@ -115,6 +133,7 @@ fn score_window(
             tier: scale.tier_for(value),
             is_forecast: day.is_forecast,
             partial: !is_usable(day),
+            approximate: day.is_approximate(),
         });
         if day.date <= today && is_usable(day) {
             headline = Some((idx, value));
@@ -194,6 +213,7 @@ pub(crate) mod test_support {
             is_forecast: false,
             covers_dawn: true,
             covers_afternoon: true,
+            basis: None,
         }
     }
 

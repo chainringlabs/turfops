@@ -6,6 +6,7 @@ import type {
 	DiseaseRiskResponse,
 	FungicideOption,
 } from "../../types/disease";
+import type { Basis } from "../../types/sources";
 
 export const TODAY = "2026-09-20";
 
@@ -86,6 +87,7 @@ export function day(
 						: "Low",
 		is_forecast: date > TODAY,
 		partial: false,
+		approximate: false,
 		...overrides,
 	};
 }
@@ -101,6 +103,7 @@ export function risk(overrides: Partial<DiseaseRisk> = {}): DiseaseRisk {
 		score: 5.4,
 		score_label: "E-index 5.4",
 		as_of: TODAY,
+		approximate: false,
 		scale: {
 			min: -5,
 			max: 10,
@@ -148,13 +151,35 @@ export function risk(overrides: Partial<DiseaseRisk> = {}): DiseaseRisk {
 	};
 }
 
+/** A USCRN station six miles off. */
+export const STATION: Basis = {
+	kind: "Station",
+	source: "Avondale 2 N",
+	distance_miles: 6.2,
+	approximate: false,
+};
+
+/** The hourly analysis for the lawn's location. */
+export const ANALYSIS: Basis = {
+	kind: "Estimate",
+	source: "Hourly analysis",
+	distance_miles: null,
+	approximate: true,
+};
+
 export function response(
 	overrides: Partial<DiseaseRiskResponse> = {},
 ): DiseaseRiskResponse {
 	return {
 		generated_at: "2026-09-20T14:00:00Z",
 		today: TODAY,
-		station: "NOAA USCRN station 3761",
+		basis: {
+			headline: STATION,
+			spans: [
+				{ input: "air_temp", from: "2026-09-14", to: TODAY, basis: STATION },
+			],
+		},
+		approximate: false,
 		diseases: [
 			risk(),
 			risk({

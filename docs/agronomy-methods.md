@@ -26,7 +26,8 @@ a threshold, tier or rule in the code changes.**
 | Newest soil reading older than 72 h | Not used as current; `soil_observed_at` shows the real time and the dashboard shows a banner |
 | Station data older than 5 days | Timing windows trust only confirmed crossings and otherwise fall back to the calendar |
 | Forecast fetch fails | A forecast up to 6 h old is kept |
-| Lake read fails | The last good soil summary is kept; timing and disease recommendations drop out rather than guess |
+| Lake read fails | Timing recommendations drop out rather than guess |
+| Weather record cannot answer (no location, or a read fails) | Disease recommendations drop out rather than guess |
 
 ## Thresholds (TTTF, zone 7a)
 
@@ -78,10 +79,14 @@ advice is shown on the Soil Tests page and is not part of the recommendation fee
 
 ## Disease risk
 
-Each disease has its own model over a daily weather series: observed days from the lake
-(a usable day needs ≥ 12 hours plus both its pre-dawn 03–08 and afternoon 13–17 hours)
-and the rest of today plus the outlook from the forecast. The forecast fills only hours
-after the lake's newest observation, so no hour is counted twice. The headline is the
+Each disease has its own model over a daily weather series: observed days from the
+weather record's hourly air temperature and humidity — the owner's sensor, a station
+within 10 miles, or the hourly analysis for the location, which is approximate (a usable
+day needs ≥ 12 hours plus both its pre-dawn 03–08 and afternoon 13–17 hours) — and the
+rest of today plus the outlook from the forecast. The forecast fills only hours after the
+record's newest observation, so no hour is counted twice. A tier from the hourly analysis
+is computed the same way and marked approximate, with a data note; its recommendation is
+the same and carries a "Weather basis" data point. The headline is the
 latest usable day up to today (at most 6 days back); a disease with no usable day in
 that span is left out, and a data note names it. Scores are native to each model;
 **only the tier is comparable across diseases.**

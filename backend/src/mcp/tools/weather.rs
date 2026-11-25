@@ -182,6 +182,7 @@ mod tests {
             is_forecast: false,
             covers_dawn: true,
             covers_afternoon: true,
+            basis: None,
         }
     }
 

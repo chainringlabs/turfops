@@ -74,8 +74,9 @@ The first slice that changes what the owner sees. Five PRs:
    from the record, with its estimated method (#384, merged). Plant watering reads the
    summary (PR 2).
 4. Timing windows, disease risk and `/historical`, in three parts: (a) `/historical` from the
-   record, with basis-aware trend charts and the Environmental page's source credits (in
-   review); (b) disease risk from the record; (c) timing windows from the record.
+   record, with basis-aware trend charts and the Environmental page's source credits
+   (#387); (b) disease risk from the record, approximate tiers marked (in review, stacked
+   on 4a); (c) timing windows from the record.
 5. The clock follows the location, the no-location notice, MCP results without coordinates,
    MCP tools on the record, and the retired-settings lines.
 

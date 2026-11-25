@@ -292,13 +292,6 @@ impl DataSyncService {
         summary.last_updated = Some(now);
         Ok(summary)
     }
-
-    /// The same service with no weather lake, as if none were configured.
-    #[cfg(all(test, feature = "db-tests"))]
-    pub(crate) fn without_weather_lake(mut self) -> Self {
-        self.weather_client = None;
-        self
-    }
 }
 
 /// What to ask the weather record now, on the lawn's local calendar when it has a

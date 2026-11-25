@@ -167,6 +167,13 @@ fn observed_and_forecast_days_join_into_one_sorted_series() {
     let mut partial = day(date(9, 20), 20.0, 15.0, 25.0, 80.0);
     partial.hours_covered = 18.0;
     partial.precip_mm = 1.0;
+    let sensor = crate::models::weather_basis::Basis {
+        kind: crate::models::weather_basis::BasisKind::Sensor,
+        source: "Patio".into(),
+        distance_miles: None,
+        approximate: false,
+    };
+    partial.basis = Some(sensor.clone());
     let mut rest_of_today = day(date(9, 20), 20.0, 14.0, 26.0, 80.0);
     rest_of_today.hours_covered = 9.0;
     rest_of_today.precip_mm = 2.0;
@@ -185,13 +192,15 @@ fn observed_and_forecast_days_join_into_one_sorted_series() {
     assert_eq!(series[1].hours_covered, 24.0, "capped at 24");
     assert_eq!(series[1].precip_mm, 3.0);
     assert_eq!((series[1].temp_min_c, series[1].temp_max_c), (14.0, 26.0));
+    assert_eq!(series[1].basis, Some(sensor), "the observed hours' basis");
     assert_eq!(series[2], tomorrow);
+    assert_eq!(series[2].basis, None, "a forecast-only day has none");
 }
 
 // @spec DIS-MODEL-DAY-007
 #[test]
-fn hours_the_lake_has_reported_are_not_counted_again() {
-    // Lake reported through 14:00 UTC; the 12:00 forecast point is already observed.
+fn hours_the_record_has_reported_are_not_counted_again() {
+    // The record reported through 14:00 UTC; the 12:00 forecast point is already observed.
     let last_observed = Utc.with_ymd_and_hms(2026, 9, 21, 14, 0, 0).unwrap();
     let points = [
         point(21, 12, 70.0, 95.0, 0.0),

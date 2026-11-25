@@ -89,6 +89,7 @@ fn forecast_day(date: NaiveDate, pts: &[&ForecastPoint], clock: &Clock) -> Daily
         is_forecast: true,
         covers_dawn: pts.iter().any(|p| DAWN_HOURS.contains(&local_hour(p))),
         covers_afternoon: pts.iter().any(|p| AFTERNOON_HOURS.contains(&local_hour(p))),
+        basis: None,
     }
 }
 
@@ -110,6 +111,7 @@ fn merge_day(a: &DailyWeather, b: &DailyWeather) -> DailyWeather {
         is_forecast: a.is_forecast || b.is_forecast,
         covers_dawn: a.covers_dawn || b.covers_dawn,
         covers_afternoon: a.covers_afternoon || b.covers_afternoon,
+        basis: a.basis.clone().or_else(|| b.basis.clone()),
     }
 }
 

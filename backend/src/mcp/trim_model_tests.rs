@@ -186,7 +186,8 @@ fn disease_body() -> Value {
     let response = DiseaseRiskResponse {
         generated_at: Utc::now(),
         today: today(),
-        station: "NOAA USCRN station 3761".into(),
+        basis: Default::default(),
+        approximate: false,
         diseases: disease::assess_all(&series, today(), &ctx),
         data_notes: vec!["The lake lags a day.".into()],
     };

@@ -3,6 +3,8 @@ import {
 	BarChart,
 	CartesianGrid,
 	Cell,
+	LabelList,
+	type LabelProps,
 	ReferenceLine,
 	ResponsiveContainer,
 	Tooltip,
@@ -25,6 +27,8 @@ interface DailyRiskChartProps {
 
 interface ChartRow extends DailyRisk {
 	label: string;
+	/** "approx." on a day from the hourly analysis, else empty. */
+	approxMark: string;
 	/** Value clamped to the scale so out-of-range days still draw. */
 	plotted: number;
 }
@@ -35,6 +39,26 @@ function formatValue(value: number, scale: RiskScale): string {
 	const digits = scale.max <= 10 ? 1 : 0;
 	const separator = scale.unit === "%" ? "" : " ";
 	return `${value.toFixed(digits)}${separator}${scale.unit}`;
+}
+
+/** "approx." up the foot of an approximate day's bar, in ink, whatever its height. */
+function ApproxMark({ x, y, width, height, value }: LabelProps) {
+	if (!value) return null;
+	const left = Number(x) + Number(width) / 2;
+	const foot = Number(y) + Number(height) - 4;
+	return (
+		<text
+			x={left}
+			y={foot}
+			transform={`rotate(-90 ${left} ${foot})`}
+			dominantBaseline="central"
+			fontSize={9}
+			fill="#1a202c"
+			data-approx-mark
+		>
+			approx.
+		</text>
+	);
 }
 
 function dayKind(row: DailyRisk): string {
@@ -57,6 +81,7 @@ export function RiskTooltip({
 		<div style={styles.tooltip}>
 			<div style={styles.tooltipTitle}>
 				{row.label} · {dayKind(row)}
+				{row.approximate && " · approx."}
 			</div>
 			<div>{formatValue(row.value, scale)}</div>
 			<div>
@@ -72,7 +97,7 @@ export function RiskTooltip({
 	);
 }
 
-// @spec DIS-UI-CHART-003, DIS-UI-CHART-004, DIS-UI-CONV-003
+// @spec DIS-UI-CHART-003, DIS-UI-CHART-004, DIS-UI-CONV-003, DIS-UI-CHART-005
 export default function DailyRiskChart({
 	daily,
 	scale,
@@ -81,6 +106,7 @@ export default function DailyRiskChart({
 	const rows: ChartRow[] = daily.map((d) => ({
 		...d,
 		label: d.date === today ? "Today" : formatShortDate(d.date),
+		approxMark: d.approximate ? "approx." : "",
 		plotted: Math.min(scale.max, Math.max(scale.min, d.value)),
 	}));
 	const thresholds = [
@@ -149,6 +175,7 @@ export default function DailyRiskChart({
 								strokeWidth={row.date === today ? 2 : 0}
 							/>
 						))}
+						<LabelList dataKey="approxMark" content={ApproxMark} />
 					</Bar>
 				</BarChart>
 			</ResponsiveContainer>
@@ -179,6 +206,11 @@ export default function DailyRiskChart({
 					<span style={{ ...styles.swatch, ...styles.todaySwatch }} />
 					Outlined = today
 				</span>
+				{rows.some((row) => row.approximate) && (
+					<span style={styles.legendItem}>
+						approx. = hourly estimate for your location
+					</span>
+				)}
 			</div>
 
 			<details style={styles.details}>
@@ -190,6 +222,7 @@ export default function DailyRiskChart({
 							<th style={styles.th}>Score</th>
 							<th style={styles.th}>Tier</th>
 							<th style={styles.th}>Source</th>
+							<th style={styles.th}>Approximate</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -201,6 +234,7 @@ export default function DailyRiskChart({
 									{RISK_TIER_SYMBOLS[row.tier]} {row.tier}
 								</td>
 								<td style={styles.td}>{dayKind(row)}</td>
+								<td style={styles.td}>{row.approximate ? "Yes" : "No"}</td>
 							</tr>
 						))}
 					</tbody>

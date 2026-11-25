@@ -105,6 +105,7 @@ pub async fn disease_days(
                     is_forecast: false,
                     covers_dawn: row.try_get("dawn")?,
                     covers_afternoon: row.try_get("afternoon")?,
+                    basis: None,
                 },
                 newest_hour: row.try_get("newest")?,
             })

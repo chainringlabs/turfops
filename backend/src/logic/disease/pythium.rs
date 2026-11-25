@@ -77,6 +77,7 @@ pub(super) fn assess(
         score,
         score_label: format!("{score:.0} / 5"),
         as_of: day.date,
+        approximate: false,
         scale,
         daily: scored.daily,
         factors: factors(day),

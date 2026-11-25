@@ -1,123 +1,78 @@
-//! `GET /disease-risk` and the feed bridge against PostgreSQL and a lake fixture.
+//! `GET /disease-risk` and the feed bridge against the weather record (`--features db-tests`).
 
 use super::*;
 use crate::clock::Clock;
-use crate::config::{
-    Config, DataLakeConfig, DatabaseConfig, HomeAssistantConfig, LawnConfig, McpConfig, NoaaConfig,
-    ServerConfig, TemperatureUnit,
-};
 use crate::logic::data_sync::DataSyncService;
-use crate::models::{GrassType, RiskTier};
+use crate::logic::weather_record::lab::{d, Lab};
+use crate::models::weather_basis::BasisKind;
+use crate::models::RiskTier;
 use axum::response::IntoResponse;
-use duckdb::Connection;
+use chrono::{TimeZone, Utc};
 use sqlx::PgPool;
 
-fn config(silver: &str, clock: Clock) -> Config {
-    Config {
-        lawn: LawnConfig {
-            name: "Test".into(),
-            grass_type: "TallFescue".into(),
-            usda_zone: "7a".into(),
-            soil_type: None,
-            lawn_size_sqft: None,
-            irrigation_type: None,
-            location: Default::default(),
-        },
-        noaa: NoaaConfig {
-            station_wbanno: 3761,
-        },
-        datalake: DataLakeConfig {
-            silver_weather_path: silver.into(),
-            gold_weather_path: silver.into(),
-        },
-        homeassistant: HomeAssistantConfig {
-            url: String::new(),
-            token: String::new(),
-            temperature_entity: String::new(),
-            humidity_entity: String::new(),
-            temperature_unit: TemperatureUnit::Fahrenheit,
-        },
-        openweathermap: None,
-        openrouter: None,
-        server: ServerConfig {
-            host: "127.0.0.1".into(),
-            port: 0,
-            cors_allowed_origin: None,
-        },
-        database: DatabaseConfig {
-            host: String::new(),
-            port: 0,
-            name: String::new(),
-            user: String::new(),
-            password: String::new(),
-            max_connections: 1,
-        },
-        mcp: McpConfig { token: None },
-        sensor_readings: Default::default(),
-        clock,
+/// Noon Eastern on July 20, 2026, the Lab's "now".
+pub(super) fn clock() -> Clock {
+    Clock::Frozen {
+        at: Utc.with_ymd_and_hms(2026, 7, 20, 16, 0, 0).unwrap(),
+        zone: chrono_tz::America::New_York,
     }
 }
 
-pub(super) async fn state_with(pool: &PgPool, silver: &str, clock: Clock) -> AppState {
-    let sync = DataSyncService::initialize(&config(silver, clock), pool.clone())
-        .await
-        .summary_from_lake();
+pub(super) async fn state_on(pool: &PgPool, clock: Clock) -> AppState {
+    let mut config = crate::logic::data_sync::test_env::config(&[]);
+    config.clock = clock;
+    let sync = DataSyncService::initialize(&config, pool.clone()).await;
     AppState::new(pool.clone(), sync, None, false, clock)
 }
 
-pub(super) async fn lawn(pool: &PgPool) -> LawnProfile {
-    let profile = LawnProfile::new("Front".into(), GrassType::TallFescue, "7a".into());
-    queries::create_lawn_profile(pool, &profile).await.unwrap();
+pub(super) async fn profile(pool: &PgPool) -> LawnProfile {
     queries::get_default_lawn_profile(pool)
         .await
         .unwrap()
         .unwrap()
 }
 
-/// A silver parquet with 24 warm, saturated hours a day for `station` from twelve days
-/// before `today` through `today`, filed under each local date.
-pub(super) fn silver_fixture(name: &str, station: &str, today: NaiveDate) -> String {
-    let path =
-        std::env::temp_dir().join(format!("turfops_dr_{name}_{}.parquet", std::process::id()));
-    let path_s = path.to_string_lossy().to_string();
-    let start = today - Duration::days(disease::LOOKBACK_DAYS);
-    Connection::open_in_memory()
-        .unwrap()
-        .execute_batch(&format!(
-            "COPY (
-                SELECT ts + INTERVAL 4 HOUR AS obs_ts_utc, ts AS obs_ts_local,
-                       CAST(ts AS DATE) AS obs_date_local, '{station}' AS wbanno,
-                       24.0 AS air_temp_c, 21.0 AS air_temp_min_c, 31.0 AS air_temp_max_c,
-                       95.0 AS rh_pct, 0.0 AS precip_mm
-                FROM (SELECT TIMESTAMP '{start} 00:00:00' + n * INTERVAL 1 HOUR AS ts
-                      FROM range({hours}) t(n))
-             ) TO '{path_s}' (FORMAT PARQUET)",
-            hours = (disease::LOOKBACK_DAYS + 1) * 24
-        ))
-        .unwrap();
-    path_s
+/// Warm, saturated hours from the hourly analysis: every hour of July 8–19 and the
+/// first twelve hours of the 20th.
+pub(super) async fn humid_analysis(lab: &Lab) {
+    for day in 8..=19 {
+        lab.analysis_hours(day, 24, 80.0, 95.0, 0.0).await;
+    }
+    lab.analysis_hours(20, 12, 80.0, 95.0, 0.0).await;
 }
 
-pub(super) fn eastern() -> Clock {
-    Clock::Zone(chrono_tz::America::New_York)
-}
-
-// @spec DIS-MODEL-API-001
+// @spec DIS-MODEL-API-001, DIS-MODEL-API-006, DIS-MGMT-REC-007
 #[sqlx::test(migrations = "src/db/migrations")]
-async fn the_page_and_the_feed_read_the_same_assessment(pool: PgPool) {
-    let clock = eastern();
-    let silver = silver_fixture("same", "03761", clock.today());
-    let state = state_with(&pool, &silver, clock).await;
-    let profile = lawn(&pool).await;
+async fn the_page_and_the_feed_read_the_same_approximate_assessment(pool: PgPool) {
+    let lab = Lab::new(pool.clone()).await;
+    humid_analysis(&lab).await;
+    let state = state_on(&pool, clock()).await;
+    let profile = profile(&pool).await;
 
     let Json(response) = get_disease_risk(State(state.clone())).await.unwrap();
     let recs = recommendations(&state, &profile).await;
-    std::fs::remove_file(&silver).ok();
 
-    assert_eq!(response.today, clock.today());
-    assert_eq!(response.station, "NOAA USCRN station 3761");
-    assert!((Utc::now() - response.generated_at).num_seconds() < 60);
+    assert_eq!(response.today, d(20));
+    assert_eq!(response.generated_at, clock().now());
     assert_eq!(response.diseases.len(), 5);
+    // Today has no afternoon yet: the headline is the 19th, from the hourly analysis.
+    assert!(response.approximate);
+    let headline = response.basis.headline.as_ref().unwrap();
+    assert_eq!(headline.kind, BasisKind::Estimate);
+    assert!(headline.approximate);
+    let spans: Vec<_> = response
+        .basis
+        .spans
+        .iter()
+        .map(|s| (s.from, s.to))
+        .collect();
+    assert_eq!(spans, vec![(d(14), d(20))]);
+    for risk in &response.diseases {
+        assert_eq!(risk.as_of, d(19), "{}", risk.name);
+        assert!(risk.approximate, "{}", risk.name);
+        assert!(risk.daily.iter().all(|day| day.approximate));
+    }
+    assert!(response.data_notes.iter().any(|n| n == APPROXIMATE_NOTE));
     assert!(response
         .data_notes
         .iter()
@@ -141,55 +96,69 @@ async fn the_page_and_the_feed_read_the_same_assessment(pool: PgPool) {
             .find(|r| rec.id.ends_with(&r.slug.replace('-', "_")))
             .unwrap();
         assert_eq!(rec.description, risk.summary);
+        assert!(
+            rec.data_points.iter().any(|p| p.label == "Weather basis"),
+            "{}",
+            rec.id
+        );
     }
 }
 
 // @spec DIS-MODEL-DAY-001
 #[sqlx::test(migrations = "src/db/migrations")]
-async fn today_is_the_lawns_date_even_with_no_station_rows(pool: PgPool) {
-    // Kiritimati runs UTC+14: its date is ahead of UTC's for most of every day.
-    let clock = Clock::Zone(chrono_tz::Pacific::Kiritimati);
-    let silver = silver_fixture("nostation", "99999", clock.today());
-    let state = state_with(&pool, &silver, clock).await;
-    lawn(&pool).await;
+async fn today_is_the_lawns_date_even_with_no_hours(pool: PgPool) {
+    Lab::new(pool.clone()).await;
+    // 10 p.m. Eastern on the 20th is already the 21st in UTC.
+    let clock = Clock::Frozen {
+        at: Utc.with_ymd_and_hms(2026, 7, 21, 2, 0, 0).unwrap(),
+        zone: chrono_tz::America::New_York,
+    };
+    let state = state_on(&pool, clock).await;
 
     let Json(response) = get_disease_risk(State(state)).await.unwrap();
-    std::fs::remove_file(&silver).ok();
 
-    assert_eq!(response.today, clock.today());
+    assert_eq!(response.today, d(20));
     assert!(response.diseases.is_empty());
+    assert!(!response.approximate);
+    assert!(response.basis.headline.is_none());
     assert!(response
         .data_notes
-        .contains(&"No recent station observations are available.".to_string()));
+        .contains(&"No recent weather observations are available.".to_string()));
 }
 
 // @spec DIS-MODEL-API-002
 #[sqlx::test(migrations = "src/db/migrations")]
-async fn no_profile_is_404_no_lake_is_503_and_a_failed_read_is_an_error(pool: PgPool) {
-    let clock = eastern();
-    let silver = silver_fixture("errors", "03761", clock.today());
-    let state = state_with(&pool, &silver, clock).await;
+async fn no_profile_is_404_and_no_location_is_the_records_503(pool: PgPool) {
+    let state = state_on(&pool, clock()).await;
     let status = |r: Result<Json<DiseaseRiskResponse>, TurfOpsError>| {
         r.unwrap_err().into_response().status().as_u16()
     };
     assert_eq!(status(get_disease_risk(State(state.clone())).await), 404);
 
-    lawn(&pool).await;
-    let sync = DataSyncService::initialize(&config(&silver, clock), pool.clone())
+    let mut unplaced =
+        crate::logic::rules::test_fixtures::profile(crate::models::GrassType::TallFescue);
+    unplaced.id = None;
+    queries::create_lawn_profile(&pool, &unplaced)
         .await
-        .without_weather_lake();
-    let no_lake = AppState::new(pool.clone(), sync, None, false, clock);
-    assert_eq!(status(get_disease_risk(State(no_lake)).await), 503);
-    std::fs::remove_file(&silver).ok();
-
-    let broken = state_with(&pool, "/nonexistent/silver.parquet", clock).await;
-    assert_eq!(status(get_disease_risk(State(broken)).await), 503);
+        .unwrap();
+    let err = get_disease_risk(State(state)).await.unwrap_err();
+    assert_eq!(
+        err.owner_message(),
+        TurfOpsError::location_not_set().owner_message()
+    );
+    assert_eq!(err.into_response().status(), 503);
 }
 
 // @spec DIS-MGMT-REC-005
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn a_failed_assessment_contributes_no_recommendations(pool: PgPool) {
-    let state = state_with(&pool, "/nonexistent/silver.parquet", eastern()).await;
-    let profile = lawn(&pool).await;
+    let mut unplaced =
+        crate::logic::rules::test_fixtures::profile(crate::models::GrassType::TallFescue);
+    unplaced.id = None;
+    queries::create_lawn_profile(&pool, &unplaced)
+        .await
+        .unwrap();
+    let state = state_on(&pool, clock()).await;
+    let profile = profile(&pool).await;
     assert!(recommendations(&state, &profile).await.is_empty());
 }

@@ -70,6 +70,7 @@ pub(super) fn assess(
         score: pct,
         score_label: format!("{pct:.0}% probability"),
         as_of: series[scored.headline_idx].date,
+        approximate: false,
         scale,
         daily: scored.daily,
         factors: factors(mean_temp_c, mean_rh, pct),

@@ -4,11 +4,17 @@ import { RISK_TIER_COLORS, RISK_TIER_SYMBOLS } from "../../types/disease";
 interface TierBadgeProps {
 	tier: RiskTier;
 	size?: "sm" | "lg";
+	/** The tier rests on the hourly analysis: marked in words, the color unchanged. */
+	approximate?: boolean;
 }
 
-// @spec DIS-UI-CONV-001
+// @spec DIS-UI-CONV-001, DIS-UI-CHART-005
 /** Tier pill: tinted status color behind ink text, always with symbol + label. */
-export default function TierBadge({ tier, size = "sm" }: TierBadgeProps) {
+export default function TierBadge({
+	tier,
+	size = "sm",
+	approximate = false,
+}: TierBadgeProps) {
 	const color = RISK_TIER_COLORS[tier];
 	return (
 		<span
@@ -20,6 +26,7 @@ export default function TierBadge({ tier, size = "sm" }: TierBadgeProps) {
 			}}
 		>
 			<span aria-hidden="true">{RISK_TIER_SYMBOLS[tier]}</span> {tier}
+			{approximate && <span style={styles.approx}> · approx.</span>}
 		</span>
 	);
 }
@@ -36,4 +43,5 @@ const styles: Record<string, React.CSSProperties> = {
 		whiteSpace: "nowrap",
 	},
 	large: { fontSize: "0.9rem", padding: "4px 14px", borderRadius: 14 },
+	approx: { fontWeight: 400 },
 };

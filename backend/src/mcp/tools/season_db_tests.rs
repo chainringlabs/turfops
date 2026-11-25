@@ -210,7 +210,7 @@ const OVERVIEW_FIELDS: [&str; 13] = [
 // @spec MCP-TOOL-012
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn disease_risk_keeps_the_assessment_and_the_recommended_preventative(pool: PgPool) {
-    let (state, _lake, _) = lawn_with_lake(pool, "disease", 20).await;
+    let state = humid_lawn(pool).await;
     let full = body(api::disease_risk::get_disease_risk(State(state.clone())).await);
     let reply = call_tool(&state, "disease_risk", json!({})).await.json();
     let mut keys: Vec<&str> = reply
@@ -246,7 +246,7 @@ async fn disease_risk_keeps_the_assessment_and_the_recommended_preventative(pool
 // @spec MCP-TOOL-013
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn disease_detail_normalizes_the_slug_and_returns_the_whole_entry(pool: PgPool) {
-    let (state, _lake, _) = lawn_with_lake(pool, "detail", 20).await;
+    let state = humid_lawn(pool).await;
     let full = body(api::disease_risk::get_disease_risk(State(state.clone())).await);
     let entry = full["diseases"]
         .as_array()
@@ -275,7 +275,7 @@ async fn disease_detail_normalizes_the_slug_and_returns_the_whole_entry(pool: Pg
 // @spec MCP-TOOL-014
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn an_unknown_disease_lists_the_slugs_there_are(pool: PgPool) {
-    let (state, _lake, _) = lawn_with_lake(pool, "unknown", 20).await;
+    let state = humid_lawn(pool).await;
     let full = body(api::disease_risk::get_disease_risk(State(state.clone())).await);
     let slugs = names(&full["diseases"], "slug").join(", ");
     let reply = call_tool(&state, "disease_detail", json!({"slug": "Snow Mold"})).await;
