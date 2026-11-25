@@ -140,7 +140,7 @@ fn no_tool_reaches_a_handler_or_query_that_writes() {
 
 // @spec MCP-TOOL-001
 #[tokio::test]
-async fn exactly_the_eighteen_tools_are_listed() {
+async fn exactly_the_nineteen_tools_are_listed() {
     let mut names: Vec<String> = tool_list()
         .await
         .iter()
@@ -166,6 +166,7 @@ async fn exactly_the_eighteen_tools_are_listed() {
         "products",
         "shopping_list",
         "plants",
+        "sources",
     ];
     expected.sort();
     assert_eq!(names, expected);

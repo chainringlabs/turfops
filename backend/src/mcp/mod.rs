@@ -304,9 +304,13 @@ mod tests {
 
     // @spec MCP-DOC-004
     #[test]
-    fn instructions_name_one_clock_the_lawns_tz() {
+    fn instructions_name_one_clock_the_lawns_local_date() {
         let text = instructions::INSTRUCTIONS;
         assert!(!text.contains("station-local"), "second clock named");
-        assert!(text.contains("TZ"), "the lawn's clock is not named");
+        assert!(!text.contains("TZ"), "a timezone setting named");
+        assert!(
+            text.contains("the lawn's local date"),
+            "the lawn's clock is not named"
+        );
     }
 }
