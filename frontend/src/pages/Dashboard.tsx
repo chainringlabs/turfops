@@ -26,6 +26,7 @@ import {
 } from "../components/gaugeConfigs";
 import ShoppingListPanel from "../components/inventory/ShoppingListPanel";
 import NitrogenBudgetWidget from "../components/NitrogenBudgetWidget";
+import SetupNotice from "../components/SetupNotice";
 import SoilTempForecastWidget from "../components/SoilTempForecastWidget";
 import { currentBasisOf } from "../components/sources/display";
 import SourceStatusLine from "../components/sources/SourceStatusLine";
@@ -186,6 +187,8 @@ export default function Dashboard() {
 	} = data;
 	const current = environmental.current;
 	const bases = environmental.current_bases;
+	// @spec FEED-UI-015
+	const placed = profile.location !== null;
 
 	return (
 		<div>
@@ -209,92 +212,106 @@ export default function Dashboard() {
 				</div>
 			</div>
 
+			{!placed && <SetupNotice />}
+
 			{/* @spec SYNC-MERGE-006, FEED-UI-009: data sync owns the 72 h limit */}
-			{environmental.soil_stale && (
+			{placed && environmental.soil_stale && (
 				<div role="status" style={sharedStyles.notice}>
 					{staleSoilMessage(environmental)}
 				</div>
 			)}
 
 			{/* @spec FEED-UI-009, FEED-UI-014 */}
-			<SourceStatusLine sources={sources} forecast={forecast_status} />
+			{placed && (
+				<SourceStatusLine sources={sources} forecast={forecast_status} />
+			)}
 
 			{/* Gauges, each with its basis — @spec FEED-UI-009 */}
-			<div style={sharedStyles.gaugeGrid}>
-				<GaugeCard
-					style={sharedStyles.card}
-					config={SOIL_TEMP_GAUGE}
-					value={current?.soil_temp_10_f ?? null}
-					entry={currentBasisOf(bases, "soil_temp_10")}
-				>
-					{environmental.soil_temp_7day_avg_f !== null && (
-						<div style={styles.subtext}>
-							7-day avg: {environmental.soil_temp_7day_avg_f.toFixed(1)}°F{" "}
-							{trendArrow(environmental.soil_temp_trend)}
-						</div>
-					)}
-				</GaugeCard>
-				<GaugeCard
-					style={sharedStyles.card}
-					config={AMBIENT_TEMP_GAUGE}
-					value={current?.ambient_temp_f ?? null}
-					entry={currentBasisOf(bases, "air_temp")}
-				>
-					{environmental.ambient_temp_7day_avg_f !== null && (
-						<div style={styles.subtext}>
-							7-day avg: {environmental.ambient_temp_7day_avg_f.toFixed(1)}°F
-						</div>
-					)}
-				</GaugeCard>
-				<GaugeCard
-					style={sharedStyles.card}
-					config={HUMIDITY_GAUGE}
-					value={current?.humidity_percent ?? null}
-					entry={currentBasisOf(bases, "humidity")}
-				/>
-				<GaugeCard
-					style={sharedStyles.card}
-					config={SOIL_MOISTURE_GAUGE}
-					value={
-						current?.soil_moisture_10 !== null &&
-						current?.soil_moisture_10 !== undefined
-							? current.soil_moisture_10 * 100
-							: null
-					}
-					entry={currentBasisOf(bases, "soil_moisture_10")}
-				>
-					{environmental.precipitation_7day_total_mm !== null && (
-						<div style={styles.subtext}>
-							7-day precip:{" "}
-							{formatInches(environmental.precipitation_7day_total_mm)}
-						</div>
-					)}
-				</GaugeCard>
-			</div>
+			{placed && (
+				<div style={sharedStyles.gaugeGrid}>
+					<GaugeCard
+						style={sharedStyles.card}
+						config={SOIL_TEMP_GAUGE}
+						value={current?.soil_temp_10_f ?? null}
+						entry={currentBasisOf(bases, "soil_temp_10")}
+					>
+						{environmental.soil_temp_7day_avg_f !== null && (
+							<div style={styles.subtext}>
+								7-day avg: {environmental.soil_temp_7day_avg_f.toFixed(1)}°F{" "}
+								{trendArrow(environmental.soil_temp_trend)}
+							</div>
+						)}
+					</GaugeCard>
+					<GaugeCard
+						style={sharedStyles.card}
+						config={AMBIENT_TEMP_GAUGE}
+						value={current?.ambient_temp_f ?? null}
+						entry={currentBasisOf(bases, "air_temp")}
+					>
+						{environmental.ambient_temp_7day_avg_f !== null && (
+							<div style={styles.subtext}>
+								7-day avg: {environmental.ambient_temp_7day_avg_f.toFixed(1)}°F
+							</div>
+						)}
+					</GaugeCard>
+					<GaugeCard
+						style={sharedStyles.card}
+						config={HUMIDITY_GAUGE}
+						value={current?.humidity_percent ?? null}
+						entry={currentBasisOf(bases, "humidity")}
+					/>
+					<GaugeCard
+						style={sharedStyles.card}
+						config={SOIL_MOISTURE_GAUGE}
+						value={
+							current?.soil_moisture_10 !== null &&
+							current?.soil_moisture_10 !== undefined
+								? current.soil_moisture_10 * 100
+								: null
+						}
+						entry={currentBasisOf(bases, "soil_moisture_10")}
+					>
+						{environmental.precipitation_7day_total_mm !== null && (
+							<div style={styles.subtext}>
+								7-day precip:{" "}
+								{formatInches(environmental.precipitation_7day_total_mm)}
+							</div>
+						)}
+					</GaugeCard>
+				</div>
+			)}
 
 			{/* GDD, Disease Risk, Timing, Nitrogen Budget & Soil Temp Forecast widgets */}
 			{widgets && (
 				<div style={styles.widgetGrid}>
-					<Stale widget={widgets.gdd}>{(d) => <GddWidget data={d} />}</Stale>
-					<Stale widget={widgets.diseaseRisk}>
-						{(d) => <DiseaseRiskWidget data={d} />}
-					</Stale>
-					<Stale widget={widgets.timing}>
-						{(d) => <TimingWidget data={d} />}
-					</Stale>
+					{placed && (
+						<Stale widget={widgets.gdd}>{(d) => <GddWidget data={d} />}</Stale>
+					)}
+					{placed && (
+						<Stale widget={widgets.diseaseRisk}>
+							{(d) => <DiseaseRiskWidget data={d} />}
+						</Stale>
+					)}
+					{placed && (
+						<Stale widget={widgets.timing}>
+							{(d) => <TimingWidget data={d} />}
+						</Stale>
+					)}
 					<ShoppingListPanel compact />
 					<Stale widget={widgets.nBudget}>
 						{(d) => <NitrogenBudgetWidget data={d} />}
 					</Stale>
 					{/* @spec WX-OUTLOOK-UI-003: a failed outlook leaves no widget */}
-					<Stale widget={widgets.soilForecast}>
-						{(d) => (
-							<SoilTempForecastWidget
-								crossings={d.threshold_crossings}
-								currentSoilTemp={current?.soil_temp_10_f ?? null}
-							/>
-						)}
-					</Stale>
+					{placed && (
+						<Stale widget={widgets.soilForecast}>
+							{(d) => (
+								<SoilTempForecastWidget
+									crossings={d.threshold_crossings}
+									currentSoilTemp={current?.soil_temp_10_f ?? null}
+								/>
+							)}
+						</Stale>
+					)}
 				</div>
 			)}
 

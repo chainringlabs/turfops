@@ -161,6 +161,25 @@ describe("Disease Risk page", () => {
 		expect(screen.getByText("Loading disease risk…")).toBeInTheDocument();
 	});
 
+	// @spec UI-ERR-012, SETUP-FLOW-001
+	it("with no location shows the setup notice, not an error", async () => {
+		fetchRisk.mockRejectedValue(
+			new ApiError(
+				503,
+				"TurfOps doesn't know where your lawn is yet.",
+				false,
+				"location_not_set",
+			),
+		);
+		show("/disease-risk");
+		expect(
+			await screen.findByRole("heading", {
+				name: "Tell TurfOps where your lawn is",
+			}),
+		).toBeInTheDocument();
+		expect(document.body).not.toHaveTextContent("doesn't know where");
+	});
+
 	// @spec DIS-UI-PAGE-005
 	it.each([
 		[

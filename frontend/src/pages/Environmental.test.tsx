@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	getEnvironmental,
 	getHistorical,
+	getProfile,
 	getSoilTempForecast,
 	getSources,
 	refreshEnvironmental,
@@ -31,12 +32,16 @@ import {
 	sourcesView,
 	summary,
 } from "../test/environmentalFixtures";
-import type { CurrentBasis } from "../types";
+import type { CurrentBasis, LawnProfile } from "../types";
 import Environmental from "./Environmental";
 
 vi.mock("../api/client", () => ({
 	getEnvironmental: vi.fn(),
 	getHistorical: vi.fn(),
+	// A lawn with a location unless a test says otherwise.
+	getProfile: vi.fn(() =>
+		Promise.resolve({ location: { latitude: 39.86, longitude: -75.79 } }),
+	),
 	getSoilTempForecast: vi.fn(),
 	getSources: vi.fn(),
 	refreshEnvironmental: vi.fn(),
@@ -160,6 +165,22 @@ describe("Environmental page loading", () => {
 			screen.queryByText("Soil Temperature Forecast"),
 		).not.toBeInTheDocument();
 		expect(gaugeText(SOIL_TEMP_GAUGE.label)).toContain("62.4");
+	});
+});
+
+// @spec SETUP-FLOW-001, UI-ERR-012
+describe("Environmental page without a location", () => {
+	it("shows the setup notice in place of the weather", async () => {
+		vi.mocked(getProfile).mockResolvedValueOnce({
+			location: null,
+		} as unknown as LawnProfile);
+		render(<Environmental />);
+		expect(
+			await screen.findByRole("heading", {
+				name: "Tell TurfOps where your lawn is",
+			}),
+		).toBeInTheDocument();
+		expect(screen.queryByText("Refresh Now")).toBeNull();
 	});
 });
 

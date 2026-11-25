@@ -101,6 +101,25 @@ describe("Timing page layout", () => {
 
 // @spec TIME-UI-008
 describe("Timing page errors", () => {
+	// @spec UI-ERR-012, SETUP-FLOW-001
+	it("with no location shows the setup notice, not an error", async () => {
+		rejectWith(
+			new ApiError(
+				503,
+				"TurfOps doesn't know where your lawn is yet.",
+				false,
+				"location_not_set",
+			),
+		);
+		show();
+		expect(
+			await screen.findByRole("heading", {
+				name: "Tell TurfOps where your lawn is",
+			}),
+		).toBeInTheDocument();
+		expect(document.body).not.toHaveTextContent("doesn't know where");
+	});
+
 	it("tells an owner with no lawn profile to set one up in Settings", async () => {
 		rejectWith(new ApiError(404, "No lawn profile found"));
 		show();

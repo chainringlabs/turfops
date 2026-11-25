@@ -1,4 +1,4 @@
-use crate::clock::Clock;
+use crate::clock::{AppClock, Clock};
 use crate::datasources::OpenRouterClient;
 use crate::logic::data_sync::DataSyncService;
 use crate::logic::rules::RulesEngine;
@@ -38,8 +38,9 @@ pub struct AppState {
     pub crossing_memo: CrossingMemo,
     /// Whether `/mcp` is mounted (reported by the health check).
     pub mcp_enabled: bool,
-    /// The lawn's clock: every "today" and date gate.
-    pub clock: Clock,
+    /// The lawn's clock: every "today" and date gate. Shared, and replaced when the
+    /// lawn's location changes.
+    pub clock: AppClock,
     /// Starts a pass of the weather fetch schedule; absent where none runs.
     pub weather_waker: Option<Waker>,
     /// Reaches the outside weather sources for what setup asks at once: a place search,
@@ -80,6 +81,15 @@ impl AppState {
         self
     }
 
+    // @spec DEPLOY-TZ-008
+    /// Puts the clock of the lawn's location (or the host default without one) in force,
+    /// after a write that may have changed the location.
+    pub async fn follow_location(&self) -> crate::error::Result<()> {
+        let profile = crate::db::queries::get_default_lawn_profile(&self.pool).await?;
+        self.clock.replace(Clock::of_lawn(profile.as_ref()));
+        Ok(())
+    }
+
     pub fn new(
         pool: sqlx::PgPool,
         sync_service: DataSyncService,
@@ -95,7 +105,7 @@ impl AppState {
             climate_cache: Arc::new(RwLock::new(None)),
             crossing_memo: Arc::new(RwLock::new(None)),
             mcp_enabled,
-            clock,
+            clock: AppClock::new(clock),
             weather_waker: None,
             weather: None,
             sensor_readings: None,

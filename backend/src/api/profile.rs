@@ -123,6 +123,8 @@ pub async fn update_profile(
         queries::update_lawn_profile(&state.pool, &profile).await?;
     }
 
+    state.follow_location().await?;
+
     // Re-fetch to get the stored timestamps (and id, when created)
     let updated = queries::get_default_lawn_profile(&state.pool)
         .await?

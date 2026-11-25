@@ -109,7 +109,7 @@ impl TurfOpsMcp {
 impl TurfOpsMcp {
     // @spec MCP-HIST-003, MCP-HIST-007
     async fn history(&self, days: i64) -> Result<WeatherHistory, TurfOpsError> {
-        let asked = record_asked(&self.state.pool, &self.state.clock).await?;
+        let asked = record_asked(&self.state.pool, &self.state.clock.get()).await?;
         let start = history_start(asked.at.today, days);
         let record = WeatherRecord::new(self.state.pool.clone());
         let (observed, climate) = tokio::try_join!(

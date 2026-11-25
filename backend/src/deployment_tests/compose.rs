@@ -89,8 +89,8 @@ fn the_lake_is_mounted_read_only_at_data() {
 
 // @spec DEPLOY-COMPOSE-005
 #[test]
-fn the_app_gets_a_timezone_defaulting_to_new_york() {
-    assert!(app_environment().contains(&("TZ", "${TZ:-America/New_York}")));
+fn the_app_gets_no_timezone_the_location_gives_it() {
+    assert!(app_environment().iter().all(|(key, _)| *key != "TZ"));
 }
 
 // @spec DEPLOY-COMPOSE-006

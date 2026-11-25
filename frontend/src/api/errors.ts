@@ -9,13 +9,27 @@ export class ApiError extends Error {
 	readonly status: number;
 	/** The request was cancelled by the client's timeout. */
 	readonly timedOut: boolean;
+	/** The server's machine-readable reason, when it gave one. */
+	readonly reason: string | null;
 
-	constructor(status: number, message: string, timedOut = false) {
+	constructor(
+		status: number,
+		message: string,
+		timedOut = false,
+		reason: string | null = null,
+	) {
 		super(message);
 		this.name = "ApiError";
 		this.status = status;
 		this.timedOut = timedOut;
+		this.reason = reason;
 	}
+}
+
+// @spec UI-ERR-012
+/** The request failed because the lawn has no location: pages show `SetupNotice`. */
+export function needsLocation(err: unknown): boolean {
+	return err instanceof ApiError && err.reason === "location_not_set";
 }
 
 const SERVER_ERROR =

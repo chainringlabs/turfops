@@ -53,8 +53,7 @@ services:
       SERVER_HOST: "0.0.0.0"
       SERVER_PORT: "3000"
       # @spec DEPLOY-COMPOSE-005
-      # The lawn's timezone: "today" for the rules, nitrogen budget, plan and calendar.
-      TZ: ${TZ:-America/New_York}
+      # No timezone setting: "today" follows the zone of the lawn's location.
 
       # Lawn profile defaults
       LAWN_NAME: ${LAWN_NAME:-Main Lawn}

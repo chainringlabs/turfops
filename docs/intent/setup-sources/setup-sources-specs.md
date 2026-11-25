@@ -6,7 +6,7 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 
 ## The setup flow
 
-- [ ] **SETUP-FLOW-001**: While the lawn profile has no location, every page whose content depends on weather shall show one notice, "Tell TurfOps where your lawn is", linking to setup and saying that dates use UTC until the location is set, in place of that content, and pages that do not depend on weather shall work unchanged.
+- [x] **SETUP-FLOW-001**: While the lawn profile has no location, every page whose content depends on weather shall show one notice, "Tell TurfOps where your lawn is", linking to setup and saying that dates use UTC until the location is set, in place of that content, and pages that do not depend on weather shall work unchanged.
 - [x] **SETUP-FLOW-002**: Setup shall offer five steps in order (location, what we found, your sensors, your lawn, loading history), shall save a step when the owner continues from it, saving the location together with what we found when the owner continues from what we found, and shall keep what was saved when the owner leaves partway.
 - [x] **SETUP-FLOW-003**: Setup shall require only the location step; the owner shall be able to skip every other step.
 - [x] **SETUP-FLOW-004**: When setup is opened for a step named in its address (`/setup?step=…`), it shall open on that step with the stored location, pinned stations and forecast provider filled in; a step after the location step, opened while the lawn has no location, shall open on the location step.
