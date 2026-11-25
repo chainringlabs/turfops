@@ -73,6 +73,24 @@ function errorMessage(body: string, status: number): string {
 	return sentenceForStatus(status);
 }
 
+/** The server's machine-readable `reason`, when the error body carries one. */
+function errorReason(body: string): string | null {
+	try {
+		const parsed: unknown = JSON.parse(body);
+		if (
+			parsed &&
+			typeof parsed === "object" &&
+			"reason" in parsed &&
+			typeof parsed.reason === "string"
+		) {
+			return parsed.reason;
+		}
+	} catch {
+		// Not JSON: no reason.
+	}
+	return null;
+}
+
 // @spec UI-API-002
 export async function fetchJson<T>(
 	url: string,
@@ -95,7 +113,13 @@ export async function fetchJson<T>(
 		const res = await fetch(url, { ...init, headers, signal });
 		// @spec UI-ERR-004, UI-API-003
 		const text = await res.text();
-		if (!res.ok) throw new ApiError(res.status, errorMessage(text, res.status));
+		if (!res.ok)
+			throw new ApiError(
+				res.status,
+				errorMessage(text, res.status),
+				false,
+				errorReason(text),
+			);
 		// 204, or any 2xx with nothing in it, resolves with no value.
 		if (!text) return undefined as unknown as T;
 		return JSON.parse(text) as T;

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchJson } from "./client";
-import { ApiError } from "./errors";
+import { ApiError, needsLocation } from "./errors";
 
 function respond(status: number, body: string, type = "application/json") {
 	vi.stubGlobal(
@@ -22,6 +22,29 @@ afterEach(() => {
 
 // @spec UI-ERR-004
 describe("fetchJson errors", () => {
+	// @spec UI-ERR-012
+	it("keeps the server's reason, so a lawn with no location shows the setup notice", async () => {
+		respond(
+			503,
+			JSON.stringify({
+				error: "TurfOps doesn't know where your lawn is yet.",
+				reason: "location_not_set",
+			}),
+		);
+		const err = await fetchJson<never>("/api/v1/x").catch((e: ApiError) => e);
+		expect(err.reason).toBe("location_not_set");
+		expect(needsLocation(err)).toBe(true);
+
+		respond(
+			503,
+			JSON.stringify({ error: "Weather history is still loading." }),
+		);
+		const other = await fetchJson<never>("/api/v1/x").catch((e: ApiError) => e);
+		expect(other.reason).toBeNull();
+		expect(needsLocation(other)).toBe(false);
+		expect(needsLocation(new Error("x"))).toBe(false);
+	});
+
 	it("keeps the status and unwraps the server's error message", async () => {
 		respond(
 			409,

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getTimingWindows } from "../api/client";
-import { describeError } from "../api/errors";
+import { describeError, needsLocation } from "../api/errors";
+import SetupNotice from "../components/SetupNotice";
 import BasisLabel from "../components/sources/BasisLabel";
 import SoilSeasonChart from "../components/timing/SoilSeasonChart";
 import TimingMethod from "../components/timing/TimingMethod";
@@ -19,7 +20,7 @@ function freezeText(stat: DateStat | null, early: "p10" | "p90"): string {
 // @spec TIME-UI-001, TIME-UI-008
 export default function Timing() {
 	const [data, setData] = useState<TimingResponse | null>(null);
-	const [error, setError] = useState<string | null>(null);
+	const [error, setError] = useState<unknown>(null);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -29,14 +30,27 @@ export default function Timing() {
 			})
 			.catch((e: unknown) => {
 				// @spec TIME-UI-008
-				if (!cancelled) setError(describeError(e));
+				if (!cancelled) setError(e);
 			});
 		return () => {
 			cancelled = true;
 		};
 	}, []);
 
-	if (error) return <div style={sharedStyles.error}>{error}</div>;
+	// @spec UI-ERR-012, SETUP-FLOW-001
+	if (error !== null && needsLocation(error))
+		return (
+			<div>
+				<div style={sharedStyles.headerRow}>
+					<h1 style={sharedStyles.pageTitle}>
+						Seeding &amp; Pre-Emergent Timing
+					</h1>
+				</div>
+				<SetupNotice />
+			</div>
+		);
+	if (error !== null)
+		return <div style={sharedStyles.error}>{describeError(error)}</div>;
 	if (!data)
 		return <div style={sharedStyles.loading}>Loading timing windows…</div>;
 

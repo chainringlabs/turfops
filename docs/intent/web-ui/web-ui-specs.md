@@ -48,7 +48,7 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 - [x] **UI-ERR-009**: When an API request returns 400 or 409, the web UI shall show the server's `error` message as written, with no status prefix.
 - [x] **UI-ERR-010**: When an API request returns 500, the web UI shall say that something went wrong on the server and to try again, without the response body.
 - [x] **UI-ERR-011**: The web UI's error boundary shall not show the exception's message text, only "Something went wrong" and the Return to Dashboard action.
-- [ ] **UI-ERR-012**: When a page's weather request fails because the lawn has no location, the page shall show the shared setup notice (SETUP-FLOW-001) in place of its weather content, not an error message.
+- [x] **UI-ERR-012**: When a page's weather request fails because the lawn has no location, the page shall show the shared setup notice (SETUP-FLOW-001) in place of its weather content, not an error message.
 
 ## Shared type mirror
 
