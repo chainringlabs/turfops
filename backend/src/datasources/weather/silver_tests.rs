@@ -18,61 +18,6 @@ fn hour(at: NaiveDateTime, soil_10_c: Option<f64>) -> SilverRow {
     }
 }
 
-// @spec WX-SRC-LAKE-003
-#[tokio::test]
-async fn silver_is_converted_to_fahrenheit_with_sentinels_and_negatives_dropped() {
-    let good = SilverRow {
-        at: ts("2026-09-20 13:00:00"),
-        soil_temp_10: Some(20.0),
-        soil_temp_5: Some(-49.0),
-        soil_moisture_10: Some(0.25),
-        air_temp_c: Some(10.0),
-        rh_pct: Some(55.0),
-        precip_mm: Some(2.5),
-        ..Default::default()
-    };
-    let bad = SilverRow {
-        at: ts("2026-09-20 12:00:00"),
-        soil_temp_10: Some(-50.0),
-        soil_temp_5: Some(-9999.0),
-        soil_moisture_10: Some(-0.1),
-        air_temp_c: Some(-60.0),
-        rh_pct: Some(-1.0),
-        precip_mm: Some(-1.0),
-        ..Default::default()
-    };
-    let file = fixtures::silver(&[good, bad]);
-    let rows = fixtures::client(&file.path, "unused.parquet")
-        .fetch_range(
-            ts("2026-09-20 00:00:00").and_utc(),
-            ts("2026-09-21 00:00:00").and_utc(),
-        )
-        .await
-        .unwrap();
-
-    let (newest, oldest) = (&rows[0], &rows[1]);
-    assert_eq!(newest.soil_temp_10_f, Some(68.0));
-    assert!(
-        (newest.soil_temp_5_f.unwrap() - -56.2).abs() < 1e-9,
-        "-49 °C kept"
-    );
-    assert_eq!(newest.ambient_temp_f, Some(50.0));
-    assert_eq!(newest.humidity_percent, Some(55.0));
-    assert_eq!(newest.soil_moisture_10, Some(0.25));
-    assert_eq!(
-        newest.precipitation_mm,
-        Some(2.5),
-        "precipitation stays in mm"
-    );
-
-    assert_eq!(oldest.soil_temp_10_f, None, "-50 °C is a sentinel");
-    assert_eq!(oldest.soil_temp_5_f, None);
-    assert_eq!(oldest.ambient_temp_f, None);
-    assert_eq!(oldest.soil_moisture_10, None);
-    assert_eq!(oldest.humidity_percent, None);
-    assert_eq!(oldest.precipitation_mm, None);
-}
-
 // @spec WX-SRC-LAKE-009
 #[tokio::test]
 async fn dawn_and_afternoon_flags_count_only_usable_hours() {

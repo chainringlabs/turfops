@@ -60,9 +60,12 @@ pub struct DataSyncService {
     kept: Kept,
     refreshed_at: Option<DateTime<Utc>>,
     clock: Clock,
-    /// Tests over lake fixtures: the summary is the lake's, as before the record.
+    /// Tests of pages that still read the lake: answer with this summary (or an empty
+    /// one) and the forecast held, without the record.
     #[cfg(test)]
     lake_summary: bool,
+    #[cfg(test)]
+    pinned: Option<EnvironmentalSummary>,
 }
 
 impl DataSyncService {
@@ -84,6 +87,8 @@ impl DataSyncService {
             clock: config.clock,
             #[cfg(test)]
             lake_summary: false,
+            #[cfg(test)]
+            pinned: None,
         }
     }
 
@@ -260,7 +265,7 @@ impl DataSyncService {
         self.weather_client.as_ref()
     }
 
-    /// The lake's newest values and week, and the forecast held (tests over lake fixtures).
+    /// An empty reading and the forecast held (tests of pages that still read the lake).
     #[cfg(test)]
     async fn lake_for_tests(&self) -> crate::error::Result<EnvironmentalSummary> {
         let now = self.clock.now();
@@ -271,46 +276,15 @@ impl DataSyncService {
                 ..Default::default()
             });
         };
-        // Each value's newest non-empty hour within a day, and the week's means.
-        let mut hours = client
-            .fetch_range(now - Duration::days(7), now)
-            .await
-            .unwrap_or_default();
-        hours.sort_by_key(|reading| std::cmp::Reverse(reading.timestamp));
-        // Within a day of the newest hour, as the lake's own live reading was.
-        let newest_at = hours.first().map_or(now, |r| r.timestamp);
-        let day_ago = newest_at - Duration::days(1);
-        let newest = |pick: fn(&crate::models::EnvironmentalReading) -> Option<f64>| {
-            hours
-                .iter()
-                .filter(|r| r.timestamp >= day_ago)
-                .find_map(pick)
-        };
-        let mean = |pick: fn(&crate::models::EnvironmentalReading) -> Option<f64>| {
-            let values: Vec<f64> = hours.iter().filter_map(pick).collect();
-            (!values.is_empty()).then(|| values.iter().sum::<f64>() / values.len() as f64)
-        };
-        let current = crate::models::EnvironmentalReading {
-            timestamp: newest_at,
-            soil_temp_5_f: newest(|r| r.soil_temp_5_f),
-            soil_temp_10_f: newest(|r| r.soil_temp_10_f),
-            soil_temp_20_f: newest(|r| r.soil_temp_20_f),
-            soil_moisture_10: newest(|r| r.soil_moisture_10),
-            ambient_temp_f: newest(|r| r.ambient_temp_f),
-            humidity_percent: newest(|r| r.humidity_percent),
-            precipitation_mm: newest(|r| r.precipitation_mm),
+        let _ = client;
+        let mut summary = self.pinned.clone().unwrap_or_else(|| EnvironmentalSummary {
+            // A fixed stamp, so two calls compare equal.
+            current: Some(crate::models::EnvironmentalReading {
+                timestamp: DateTime::UNIX_EPOCH,
+                ..Default::default()
+            }),
             ..Default::default()
-        };
-        let mut summary = EnvironmentalSummary {
-            current: Some(current),
-            soil_temp_7day_avg_f: mean(|r| r.soil_temp_10_f),
-            ambient_temp_7day_avg_f: mean(|r| r.ambient_temp_f),
-            humidity_7day_avg: mean(|r| r.humidity_percent),
-            precipitation_7day_total_mm: (!hours.is_empty())
-                .then(|| hours.iter().filter_map(|r| r.precipitation_mm).sum()),
-            soil_temp_trend: crate::models::Trend::Unknown,
-            ..Default::default()
-        };
+        });
         summary.forecast = self
             .forecast
             .forecast()

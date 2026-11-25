@@ -7,11 +7,15 @@ import {
 	getEnvironmental,
 	getHistorical,
 	getSoilTempForecast,
+	getSources,
 } from "../api/client";
 import { ApiError } from "../api/errors";
 import {
+	ANALYSIS,
 	EMPTY_HISTORY,
 	historical,
+	STATION,
+	sourcesView,
 	summary,
 } from "../test/environmentalFixtures";
 import Environmental from "./Environmental";
@@ -20,6 +24,7 @@ vi.mock("../api/client", () => ({
 	getEnvironmental: vi.fn(),
 	getHistorical: vi.fn(),
 	getSoilTempForecast: vi.fn(),
+	getSources: vi.fn(),
 	refreshEnvironmental: vi.fn(),
 }));
 
@@ -56,6 +61,7 @@ function trends(): HTMLElement {
 
 beforeEach(() => {
 	vi.mocked(getEnvironmental).mockResolvedValue(summary());
+	vi.mocked(getSources).mockResolvedValue(sourcesView());
 	// No outlook section, so every "No data available" below is a trend chart.
 	vi.mocked(getSoilTempForecast).mockRejectedValue(new Error("503"));
 });
@@ -122,5 +128,35 @@ describe("Environmental historical trends", () => {
 		for (const label of CHARTS) {
 			expect(within(trends()).queryByText(label)).not.toBeInTheDocument();
 		}
+	});
+
+	// @spec WX-VIEW-BASIS-003
+	it("lists each chart's basis spans in words and gives its table a basis column", async () => {
+		const base = historical();
+		// The chart reads each point's local day.
+		const at = new Date(base.soil_temp_10_f[0].timestamp).toLocaleDateString(
+			"en-CA",
+		);
+		vi.mocked(getHistorical).mockResolvedValue({
+			...base,
+			basis: [
+				{ series: "soil_temp_10_f", from: at, to: at, basis: STATION },
+				{ series: "ambient_temp_f", from: at, to: at, basis: ANALYSIS },
+			],
+		});
+		render(
+			<MemoryRouter>
+				<Environmental />
+			</MemoryRouter>,
+		);
+		const chart = (await screen.findByText("Soil Temperature (10cm)"))
+			.parentElement as HTMLElement;
+		expect(chart).toHaveTextContent("Measured · PA Avondale 2 N, 2 mi:");
+		const table = within(chart).getByRole("table");
+		expect(within(table).getByText("Basis")).toBeInTheDocument();
+		expect(table).toHaveTextContent("Measured · PA Avondale 2 N, 2 mi");
+		const air = screen.getByText("Ambient Temperature")
+			.parentElement as HTMLElement;
+		expect(air).toHaveTextContent("Estimated for your location · approximate:");
 	});
 });

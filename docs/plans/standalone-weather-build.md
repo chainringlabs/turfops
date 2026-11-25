@@ -68,13 +68,14 @@ The first slice that changes what the owner sees. Five PRs:
 1. **The forecast from the chosen provider**, fetched on the schedule, with its status (#381, merged).
 2. **The summary from the record**, with basis labels on the dashboard and the Environmental
    page, refresh through the schedule, and source status in place of the connection flags
-   (in review).
+   (#382, merged).
 3. The daily series, in two parts: (a) `/gdd` and the seasonal plan's 10 cm crossings from
-   the record, with the crossing cache tables dropped; (b) the 10 cm outlook from the record,
-   with its estimated method. Plant watering already reads the summary (PR 2). Both parts are
-   in review, stacked on PR 2.
-4. Timing windows, disease risk and `/historical`, with basis-aware charts and the
-   Environmental page's source credits.
+   the record, with the crossing cache tables dropped (#383, merged); (b) the 10 cm outlook
+   from the record, with its estimated method (#384, merged). Plant watering reads the
+   summary (PR 2).
+4. Timing windows, disease risk and `/historical`, in three parts: (a) `/historical` from the
+   record, with basis-aware trend charts and the Environmental page's source credits (in
+   review); (b) disease risk from the record; (c) timing windows from the record.
 5. The clock follows the location, the no-location notice, MCP results without coordinates,
    MCP tools on the record, and the retired-settings lines.
 

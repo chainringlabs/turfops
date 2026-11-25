@@ -3,6 +3,7 @@ import {
 	getEnvironmental,
 	getHistorical,
 	getSoilTempForecast,
+	getSources,
 	refreshEnvironmental,
 } from "../api/client";
 import { describeError } from "../api/errors";
@@ -31,10 +32,12 @@ import type {
 	CurrentBasis,
 	EnvironmentalSummary,
 	HistoricalData,
+	SeriesSpan,
 	SoilTempForecast,
 	WeekBasis,
 } from "../types";
 import { PREDICTION_CONFIDENCE_COLORS } from "../types";
+import type { SourceView } from "../types/sources";
 import { FORECAST_PROVIDER_NAMES } from "../types/sources";
 import { mmToInches } from "../utils/units";
 
@@ -51,6 +54,7 @@ export default function Environmental() {
 	);
 	const [histRange, setHistRange] = useState<HistRange>("7d");
 	const [showAllDays, setShowAllDays] = useState(false);
+	const [sources, setSources] = useState<SourceView[]>([]);
 	const [histLoading, setHistLoading] = useState(false);
 	const [histError, setHistError] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -81,6 +85,13 @@ export default function Environmental() {
 				setLoading(false);
 			}
 		}
+	}, []);
+
+	// The sources the page draws on, for their credits; read once.
+	useEffect(() => {
+		getSources()
+			.then((view) => setSources(view.sources))
+			.catch(() => setSources([]));
 	}, []);
 
 	useEffect(() => {
@@ -462,12 +473,14 @@ export default function Environmental() {
 				<div style={styles.chartGrid}>
 					<TrendChart
 						data={histData.soil_temp_10_f}
+						spans={spansOf(histData, "soil_temp_10_f")}
 						label="Soil Temperature (10cm)"
 						unit={"\u00B0F"}
 						color="#e67e22"
 					/>
 					<TrendChart
 						data={histData.ambient_temp_f}
+						spans={spansOf(histData, "ambient_temp_f")}
 						label="Ambient Temperature"
 						unit={"\u00B0F"}
 						color="#3498db"
@@ -476,6 +489,7 @@ export default function Environmental() {
 					/>
 					<TrendChart
 						data={histData.humidity_percent}
+						spans={spansOf(histData, "humidity_percent")}
 						label="Humidity"
 						unit="%"
 						color="#9b59b6"
@@ -484,6 +498,7 @@ export default function Environmental() {
 					/>
 					<TrendChart
 						data={histData.soil_moisture_10}
+						spans={spansOf(histData, "soil_moisture_10")}
 						label="Soil Moisture (10cm)"
 						unit=""
 						color="#27ae60"
@@ -497,17 +512,73 @@ export default function Environmental() {
 						}))}
 						label="Precipitation"
 						unit="in"
+						spans={spansOf(histData, "precipitation_mm")}
 						color="#2c3e50"
 					/>
 					<TrendChart
 						data={histData.gdd_accumulation}
+						spans={spansOf(histData, "gdd_accumulation")}
 						label="GDD Accumulation (Base 50°F)"
 						unit="GDD"
 						color="#48bb78"
 					/>
 				</div>
 			) : null}
+
+			{/* @spec WX-VIEW-PAGE-012 */}
+			<SourceCredits
+				sources={sources}
+				used={namesDrawnOn(data, histData, soilForecast)}
+			/>
 		</div>
+	);
+}
+
+/** One chart series' basis spans. */
+function spansOf(data: HistoricalData, series: string): SeriesSpan[] {
+	return (data.basis ?? []).filter((s) => s.series === series);
+}
+
+/** The names of the sources every value on the page rests on. */
+function namesDrawnOn(
+	data: EnvironmentalSummary | null,
+	hist: HistoricalData | null,
+	outlook: SoilTempForecast | null,
+): Set<string> {
+	const names = new Set<string>();
+	for (const entry of data?.current_bases ?? []) {
+		if (entry.basis) names.add(entry.basis.source);
+	}
+	for (const week of Object.values(data?.week_bases ?? {})) {
+		names.add(week.basis.source);
+	}
+	for (const span of hist?.basis ?? []) names.add(span.basis.source);
+	if (outlook?.basis) names.add(outlook.basis.source);
+	return names;
+}
+
+/** Every source the page drew on, with the credit its terms require. */
+// @spec WX-VIEW-PAGE-012
+function SourceCredits({
+	sources,
+	used,
+}: {
+	sources: SourceView[];
+	used: Set<string>;
+}) {
+	const drawn = sources.filter((s) => used.has(s.name));
+	if (drawn.length === 0) return null;
+	return (
+		<section aria-label="Sources" style={styles.credits}>
+			<h2 style={styles.creditsTitle}>Sources</h2>
+			<ul style={styles.creditList}>
+				{drawn.map((s) => (
+					<li key={s.id}>
+						{s.name} — {s.attribution}
+					</li>
+				))}
+			</ul>
+		</section>
 	);
 }
 
@@ -573,6 +644,9 @@ const styles: Record<string, React.CSSProperties> = {
 	},
 	noSource: { fontSize: "0.8rem", color: "#718096" },
 	startsFrom: { fontSize: "0.8rem", color: "#4a5568", margin: "0 0 0.5rem" },
+	credits: { marginTop: "2rem", fontSize: "0.75rem", color: "#718096" },
+	creditsTitle: { fontSize: "0.8rem", fontWeight: 600, margin: "0 0 0.25rem" },
+	creditList: { margin: 0, paddingLeft: "1.1rem" },
 	refreshBtn: {
 		padding: "0.5rem 1rem",
 		backgroundColor: "#3182ce",

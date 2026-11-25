@@ -1,6 +1,11 @@
 use crate::clock::Clock;
-use crate::error::{Source, TurfOpsError};
+use crate::error::TurfOpsError;
+use crate::logic::data_sync::record_asked;
 use crate::logic::gdd;
+use crate::logic::weather_record::record::WeatherRecord;
+use crate::models::historical::SeriesSpan;
+use crate::models::weather_basis::BasisSpan;
+use crate::models::weather_record::Input;
 use crate::models::{EnvironmentalReading, HistoricalData, TimeSeriesPoint};
 use crate::state::AppState;
 use axum::extract::{Query, State};
@@ -13,9 +18,8 @@ pub struct HistoricalQuery {
     pub range: Option<String>,
 }
 
-/// GET /api/v1/historical?range=7d
-/// Returns time-series environmental data for the requested range, read directly from
-/// the data lake (silver hourly observations + gold daily GDD).
+/// GET /api/v1/historical?range=7d: the weather record's resolved hours for the range
+/// and the year-to-date GDD, each series with the basis it rests on.
 /// Supported ranges: 7d, 30d, 90d
 // @spec WX-VIEW-API-002, WX-VIEW-API-004, WX-VIEW-API-006
 pub async fn get_historical(
@@ -23,7 +27,7 @@ pub async fn get_historical(
     Query(params): Query<HistoricalQuery>,
 ) -> Result<Json<HistoricalData>, TurfOpsError> {
     let range_str = params.range.as_deref().unwrap_or("7d");
-    let now = Utc::now();
+    let now = state.clock.now();
 
     // Silver is hourly; longer ranges group hours into buckets to keep point counts
     // reasonable without dropping any hour's rain.
@@ -38,13 +42,11 @@ pub async fn get_historical(
         }
     };
 
-    let service = state.sync_service.read().await;
-    let client = service
-        .weather_client()
-        .ok_or_else(|| TurfOpsError::not_configured(Source::WeatherLake))?;
-
+    let asked = record_asked(&state.pool, &state.clock).await?;
+    let record = WeatherRecord::new(state.pool.clone());
     // fetch_range returns newest-first; reverse to ascending for charting.
-    let mut readings = client.fetch_range(start, now).await?;
+    let range = record.fetch_range(start, now, asked).await?;
+    let mut readings = range.rows;
     readings.reverse();
 
     let Series {
@@ -55,12 +57,11 @@ pub async fn get_historical(
         precipitation_mm,
     } = series(&readings, bucket_hours);
 
-    // GDD accumulation from the gold daily layer. Accumulate from Jan 1 so the values
-    // are true year-to-date (resetting on year boundaries), then keep only points
-    // within the requested range.
+    // GDD accumulated from Jan 1 so the values are true year-to-date (resetting on year
+    // boundaries), then only the points within the requested range.
     let (accum_start, start_date, end_date) = gdd_window(&state.clock, start, now);
-    let gdd_records =
-        gdd::accumulate_daily_gdd(&client.fetch_daily_gdd(accum_start, end_date).await?);
+    let gdd = record.fetch_daily_gdd(accum_start, end_date, asked).await?;
+    let gdd_records = gdd::accumulate_daily_gdd(&gdd.rows);
 
     let gdd_accumulation: Vec<TimeSeriesPoint> = gdd_records
         .iter()
@@ -71,6 +72,9 @@ pub async fn get_historical(
         })
         .collect();
 
+    let mut basis = series_spans(&range.basis, start_date, end_date);
+    basis.extend(series_spans(&gdd.basis, start_date, end_date));
+
     Ok(Json(HistoricalData {
         range: range_str.to_string(),
         soil_temp_10_f,
@@ -79,6 +83,7 @@ pub async fn get_historical(
         soil_moisture_10,
         precipitation_mm,
         gdd_accumulation,
+        basis,
     }))
 }
 
@@ -168,8 +173,35 @@ fn gdd_window(
     (accum_start, start_date, clock.local_date(now))
 }
 
-#[cfg(test)]
-mod handler_tests;
+/// The record's basis spans of the charted inputs, as runs of each series' days within
+/// the range.
+// @spec WX-VIEW-API-002, WX-VIEW-API-004
+fn series_spans(spans: &[BasisSpan], first: NaiveDate, last: NaiveDate) -> Vec<SeriesSpan> {
+    spans
+        .iter()
+        .filter_map(|span| {
+            let series = match span.input {
+                Input::SoilTemp10 => "soil_temp_10_f",
+                Input::AirTemp => "ambient_temp_f",
+                Input::Humidity => "humidity_percent",
+                Input::SoilMoisture10 => "soil_moisture_10",
+                Input::Rain => "precipitation_mm",
+                Input::DailyAir => "gdd_accumulation",
+                _ => return None,
+            };
+            let (from, to) = (span.from.max(first), span.to.min(last));
+            (from <= to).then(|| SeriesSpan {
+                series: series.to_string(),
+                from,
+                to,
+                basis: span.basis.clone(),
+            })
+        })
+        .collect()
+}
+
+#[cfg(all(test, feature = "db-tests"))]
+mod db_tests;
 
 #[cfg(test)]
 mod tests {
