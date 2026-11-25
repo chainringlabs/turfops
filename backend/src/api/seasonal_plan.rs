@@ -1,26 +1,32 @@
+use crate::db::soil_estimate_queries;
+use crate::db::weather_queries::plan;
 use crate::db::{plant_queries, queries};
 use crate::error::TurfOpsError;
+use crate::logic::data_sync::record_asked;
 use crate::logic::plant_maintenance::{build_plant_activities, plant_log_range};
 use crate::logic::rules::plan_state::{season_states, SeasonInputs, SeasonState};
-use crate::logic::seasonal_plan::{analyze_year, apply_rule_states, build_seasonal_plan};
+use crate::logic::seasonal_plan::{
+    apply_rule_states, build_seasonal_plan, crossings_from_record, RecordCrossings,
+};
+use crate::logic::soil_estimate::scores::{self, Direction};
+use crate::logic::weather_record::record::WeatherRecord;
 use crate::models::seasonal_plan::SeasonalPlan;
 use crate::models::LawnProfile;
 use crate::state::AppState;
 use axum::extract::{Query, State};
 use axum::Json;
-use chrono::{Datelike, NaiveDate, TimeZone, Utc};
+use chrono::{Datelike, NaiveDate};
 use serde::Deserialize;
+use std::sync::Arc;
 
 #[cfg(all(test, feature = "db-tests"))]
-mod cache_db_tests;
-#[cfg(all(test, feature = "db-tests"))]
 pub(crate) mod db_support;
-#[cfg(all(test, feature = "db-tests"))]
-mod fill_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod merge_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod plant_overlay_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod record_db_tests;
 
 #[derive(Debug, Deserialize)]
 pub struct SeasonalPlanQuery {
@@ -29,9 +35,8 @@ pub struct SeasonalPlanQuery {
 
 /// GET /api/v1/seasonal-plan?year=2026
 ///
-/// Returns a seasonal plan for the requested year based on historical
-/// soil temperature threshold crossings from NOAA data.
-/// Lazily fills the threshold crossing cache from the weather data lake on first call.
+/// Returns a seasonal plan for the requested year from the lawn's 10 cm threshold
+/// crossings in the weather record.
 // @spec PLAN-MERGE-001, PLAN-MERGE-002, PLAN-MERGE-003, PLAN-MERGE-004, PLAN-MERGE-005, PLAN-MERGE-007, PLAN-MERGE-008
 pub async fn get_seasonal_plan(
     State(state): State<AppState>,
@@ -39,8 +44,7 @@ pub async fn get_seasonal_plan(
 ) -> Result<Json<SeasonalPlan>, TurfOpsError> {
     let today = state.clock.today();
     let year = params.year.unwrap_or_else(|| today.year());
-    let settled_years = fill_crossing_cache(&state, today).await?;
-    let all_crossings = queries::get_threshold_crossings(&state.pool).await?;
+    let found = record_crossings(&state).await;
 
     // Get application history for the requested year
     let profile = queries::get_default_lawn_profile(&state.pool)
@@ -66,8 +70,8 @@ pub async fn get_seasonal_plan(
 
     let mut plan = build_seasonal_plan(
         year,
-        &all_crossings,
-        &settled_years,
+        &found.crossings,
+        &found.settled_years,
         &applications,
         profile.grass_type,
         today,
@@ -115,58 +119,71 @@ pub async fn get_seasonal_plan(
     Ok(Json(plan))
 }
 
-/// Bring the 10 cm crossing cache up to date for the configured station and return its
-/// settled years. Every unsettled year from ten years back through this one is re-read
-/// from the lake, newest first, so the lake's newest date is known before an older year is
-/// judged settled. Each computed year gets a marker, even with no crossings. A failed read
-/// or write keeps that year's cached rows and moves on. Without a lake the cache is used
-/// as it is: every settled marker it holds (only one station's survive a fill).
-// @spec PLAN-CACHE-002, PLAN-CACHE-003, PLAN-CACHE-005, PLAN-CACHE-006, PLAN-CACHE-007, PLAN-CACHE-008
-async fn fill_crossing_cache(state: &AppState, today: NaiveDate) -> Result<Vec<i32>, TurfOpsError> {
-    let sync = state.sync_service.read().await;
-    let Some(client) = sync.weather_client() else {
-        return queries::get_cached_settled_years(&state.pool).await;
-    };
-    let station = client.station_wbanno();
-    queries::delete_crossings_for_other_stations(&state.pool, station).await?;
-    let settled = queries::get_settled_crossing_years(&state.pool, station).await?;
-    let current_year = today.year();
-    let mut lake_latest: Option<NaiveDate> = None;
-    for fill_year in (current_year - 10..=current_year)
-        .rev()
-        .filter(|y| !settled.contains(y))
-    {
-        let (Some(start), Some(end)) = (
-            Utc.with_ymd_and_hms(fill_year, 1, 1, 0, 0, 0).single(),
-            Utc.with_ymd_and_hms(fill_year, 12, 31, 23, 59, 59).single(),
-        ) else {
-            continue;
-        };
-        let daily_temps = match client.fetch_daily_soil_temp_averages(start, end).await {
-            Ok(daily_temps) => daily_temps,
-            Err(e) => {
-                tracing::warn!(
-                    year = fill_year,
-                    "Failed to read soil temps for the seasonal plan: {e}"
-                );
-                continue;
-            }
-        };
-        lake_latest = lake_latest.max(daily_temps.last().map(|d| d.date));
-        let analysis = analyze_year(fill_year, &daily_temps, today, lake_latest);
-        if let Err(e) = queries::replace_threshold_crossings(
-            &state.pool,
-            fill_year,
-            station,
-            &analysis.crossings,
-            analysis.settled,
-        )
-        .await
-        {
-            tracing::warn!(year = fill_year, "Failed to cache threshold crossings: {e}");
+/// How long the crossings found in the record are reused.
+const CROSSINGS_FOR: chrono::Duration = chrono::Duration::hours(1);
+
+/// The 10 cm crossings of the ten years before the lawn's current year and of the current
+/// year, from one read of the weather record, reused for an hour while the basis plan and
+/// the lawn's date stay the same. Nothing is stored. A record that cannot answer gives a
+/// plan with no 10 cm crossings.
+// @spec PLAN-CROSS-014, PLAN-CROSS-015
+async fn record_crossings(state: &AppState) -> Arc<RecordCrossings> {
+    match find_crossings(state).await {
+        Ok(found) => found,
+        Err(error) => {
+            tracing::warn!(
+                ?error,
+                "Seasonal plan: no 10 cm crossings from the weather record"
+            );
+            Arc::new(RecordCrossings::default())
         }
     }
-    queries::get_settled_crossing_years(&state.pool, station).await
+}
+
+async fn find_crossings(state: &AppState) -> Result<Arc<RecordCrossings>, TurfOpsError> {
+    let asked = record_asked(&state.pool, &state.clock).await?;
+    let today = asked.at.today;
+    let placed = plan::read(&state.pool).await?;
+    let key = format!(
+        "{today}|{}",
+        placed
+            .iter()
+            .map(|p| format!("{}:{}:{}", p.input.as_str(), p.rank, p.source.id))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    let now = asked.at.now;
+    if let Some((held, at, found)) = state.crossing_memo.read().await.as_ref() {
+        let same = held.as_ref().is_none_or(|held| *held == key);
+        if same && now - *at < CROSSINGS_FOR {
+            return Ok(found.clone());
+        }
+    }
+    let first = NaiveDate::from_ymd_opt(today.year() - 10, 1, 1)
+        .ok_or_else(|| TurfOpsError::InvalidData(format!("Invalid year: {}", today.year())))?;
+    let series = WeatherRecord::new(state.pool.clone())
+        .fetch_daily_soil_temp_averages(first, today, asked)
+        .await?;
+    let calibration = soil_estimate_queries::all(&state.pool)
+        .await?
+        .into_iter()
+        .find(|fit| fit.depth_cm == 10)
+        .map(|fit| fit.calibration);
+    let datable = |value: f64, falling: bool| {
+        let direction = if falling {
+            Direction::Falling
+        } else {
+            Direction::Rising
+        };
+        calibration.is_some_and(|calibration| {
+            scores::embedded()
+                .datable(10, value, direction, calibration)
+                .is_some()
+        })
+    };
+    let found = Arc::new(crossings_from_record(&series, today, &datable));
+    *state.crossing_memo.write().await = Some((Some(key), now, found.clone()));
+    Ok(found)
 }
 
 /// The current season's rule states, judged on the same feed, conditions and log as the

@@ -1,7 +1,9 @@
-//! Crossing detection, aggregation, voting and the settled judgment.
+//! Crossing detection, aggregation, voting, estimated crossings and the settled judgment.
 
 use super::*;
 use crate::models::seasonal_plan::{DailySoilTempAvg, ThresholdCrossing};
+use crate::models::weather_basis::{BasisKind, BasisSpan, Series};
+use crate::models::weather_record::Input;
 
 fn d(year: i32, month: u32, day: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(year, month, day).unwrap()
@@ -194,6 +196,7 @@ fn crossed(year: i32, month: u32, day: u32) -> ThresholdCrossing {
         threshold_name: "soil_50f_rising".into(),
         crossing_date: d(year, month, day),
         avg_soil_temp_f: 50.0,
+        estimated: false,
     }
 }
 
@@ -241,39 +244,119 @@ fn only_the_ten_most_recent_settled_years_before_the_plan_year_vote() {
     );
 }
 
-// @spec PLAN-CACHE-005
-#[test]
-fn a_year_is_settled_only_after_it_ends_and_the_lake_has_reported_december_31() {
-    assert!(
-        !year_settled(2025, d(2025, 12, 31), Some(d(2025, 12, 31))),
-        "year not over"
-    );
-    assert!(
-        !year_settled(2025, d(2026, 1, 1), Some(d(2025, 12, 30))),
-        "lake still behind"
-    );
-    assert!(!year_settled(2025, d(2026, 1, 1), None), "no lake reading");
-    assert!(year_settled(2025, d(2026, 1, 1), Some(d(2025, 12, 31))));
-    assert!(year_settled(2024, d(2026, 3, 1), Some(d(2026, 2, 28))));
+fn record(
+    rows: Vec<DailySoilTempAvg>,
+    estimated: &[(NaiveDate, NaiveDate)],
+) -> Series<DailySoilTempAvg> {
+    let estimate = crate::models::weather_basis::Basis {
+        kind: BasisKind::Estimate,
+        source: "Soil temperature estimate".into(),
+        distance_miles: None,
+        approximate: false,
+    };
+    Series {
+        rows,
+        basis: estimated
+            .iter()
+            .map(|(from, to)| BasisSpan {
+                input: Input::SoilTemp10,
+                from: *from,
+                to: *to,
+                basis: estimate.clone(),
+            })
+            .collect(),
+    }
 }
 
-// @spec PLAN-CACHE-008, PLAN-CROSS-001
+/// A year at 40°F through March, then 60°F: 50°F rising is crossed on Apr 4.
+fn spring_year(year: i32) -> Vec<DailySoilTempAvg> {
+    series(&[
+        (d(year, 1, 1), d(year, 3, 31), 40.0),
+        (d(year, 4, 1), d(year, 12, 31), 60.0),
+    ])
+}
+
+fn rising_50(found: &RecordCrossings, year: i32) -> Option<&ThresholdCrossing> {
+    found
+        .crossings
+        .iter()
+        .find(|c| c.year == year && c.threshold_name == "soil_50f_rising")
+}
+
+// @spec PLAN-CROSS-013
 #[test]
-fn a_year_too_thin_to_analyze_still_settles() {
+fn a_year_is_settled_only_once_it_is_over_and_the_record_holds_its_december_31() {
+    let both: Vec<DailySoilTempAvg> = spring_year(2024)
+        .into_iter()
+        .chain(spring_year(2025))
+        .collect();
+    let nothing_datable = |_: f64, _: bool| false;
+    let found = crossings_from_record(&record(both.clone(), &[]), d(2026, 1, 5), &nothing_datable);
+    assert_eq!(found.settled_years, vec![2024, 2025]);
+
+    let found = crossings_from_record(
+        &record(both.clone(), &[]),
+        d(2025, 12, 31),
+        &nothing_datable,
+    );
+    assert_eq!(found.settled_years, vec![2024], "2025 is not over");
+
+    let short: Vec<DailySoilTempAvg> = both
+        .into_iter()
+        .filter(|r| r.date < d(2025, 12, 31))
+        .collect();
+    let found = crossings_from_record(&record(short, &[]), d(2026, 1, 5), &nothing_datable);
+    assert_eq!(
+        found.settled_years,
+        vec![2024],
+        "the record does not hold Dec 31 yet"
+    );
+}
+
+// @spec PLAN-CROSS-001
+#[test]
+fn a_year_too_thin_to_analyze_has_no_crossings() {
     let rows = series(&[
         (d(2024, 3, 1), d(2024, 3, 20), 40.0),
         (d(2024, 3, 21), d(2024, 3, 29), 60.0),
     ]);
-    let analysis = analyze_year(2024, &rows, d(2026, 1, 5), Some(d(2026, 1, 4)));
-    assert!(
-        analysis.crossings.is_empty(),
-        "fewer than 30 daily means: no crossings"
-    );
-    assert!(
-        analysis.settled,
-        "a marker settles the year so it is not re-read on every load"
-    );
+    let found = crossings_from_record(&record(rows, &[]), d(2026, 1, 5), &|_, _| true);
+    assert!(found.crossings.is_empty(), "fewer than 30 daily means");
+}
 
-    let this_year = analyze_year(2026, &rows, d(2026, 1, 5), Some(d(2026, 1, 4)));
-    assert!(!this_year.settled);
+// @spec PLAN-CROSS-011
+#[test]
+fn an_estimated_crossing_counts_only_where_the_estimate_may_date_it() {
+    let measured =
+        crossings_from_record(&record(spring_year(2024), &[]), d(2026, 1, 5), &|_, _| {
+            false
+        });
+    let crossing = rising_50(&measured, 2024).expect("a measured crossing always counts");
+    assert_eq!(crossing.crossing_date, d(2024, 4, 4));
+    assert!(!crossing.estimated);
+
+    // The estimate stands behind April 6: one of the five held days.
+    let spans = [(d(2024, 4, 6), d(2024, 4, 6))];
+    let not_datable = crossings_from_record(
+        &record(spring_year(2024), &spans),
+        d(2026, 1, 5),
+        &|_, _| false,
+    );
+    assert!(rising_50(&not_datable, 2024).is_none());
+
+    let datable = crossings_from_record(
+        &record(spring_year(2024), &spans),
+        d(2026, 1, 5),
+        &|value, falling| value == 50.0 && !falling,
+    );
+    assert!(rising_50(&datable, 2024).expect("datable").estimated);
+
+    // An estimated day outside the held days leaves the crossing measured.
+    let later = [(d(2024, 4, 9), d(2024, 4, 9))];
+    let found = crossings_from_record(
+        &record(spring_year(2024), &later),
+        d(2026, 1, 5),
+        &|_, _| false,
+    );
+    assert!(!rising_50(&found, 2024).unwrap().estimated);
 }

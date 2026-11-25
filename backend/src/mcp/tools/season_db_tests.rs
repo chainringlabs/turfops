@@ -94,17 +94,22 @@ async fn seasonal_plan_is_the_plan_body_for_the_year_asked(pool: PgPool) {
 // @spec MCP-TOOL-009
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn gdd_is_the_gdd_body_for_the_year_without_daily_history(pool: PgPool) {
-    let (state, _lake, _) = lawn_with_lake(pool, "gdd", 10).await;
-    let year = state
-        .clock
-        .today()
-        .format("%Y")
-        .to_string()
-        .parse::<i32>()
-        .unwrap();
-    let reply = call_tool(&state, "gdd", json!({"year": year})).await.json();
+    use crate::logic::weather_record::lab::{Lab, PRISM};
+    let lab = Lab::new(pool.clone()).await;
+    lab.grid(PRISM, 17, 80.0, 60.0).await;
+    lab.grid(PRISM, 18, 82.0, 62.0).await;
+    // Noon Eastern on July 20, 2026: the lab's days are July's.
+    let clock = crate::clock::Clock::Frozen {
+        at: chrono::TimeZone::with_ymd_and_hms(&chrono::Utc, 2026, 7, 20, 16, 0, 0).unwrap(),
+        zone: chrono_tz::America::New_York,
+    };
+    let mut config = crate::logic::data_sync::test_env::config(&[]);
+    config.clock = clock;
+    let sync = crate::logic::data_sync::DataSyncService::initialize(&config, pool.clone()).await;
+    let state = crate::state::AppState::new(pool, sync, None, true, clock);
+    let reply = call_tool(&state, "gdd", json!({"year": 2026})).await.json();
     let handler =
-        body(api::gdd::get_gdd(State(state.clone()), Query(GddQuery { year: Some(year) })).await);
+        body(api::gdd::get_gdd(State(state.clone()), Query(GddQuery { year: Some(2026) })).await);
     assert!(handler["daily_history"]
         .as_array()
         .is_some_and(|d| !d.is_empty()));

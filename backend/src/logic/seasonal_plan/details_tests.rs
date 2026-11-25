@@ -82,6 +82,7 @@ fn crossings_in(years: impl Iterator<Item = i32>, name: &str) -> Vec<ThresholdCr
             threshold_name: name.into(),
             crossing_date: d(year, 4, 10),
             avg_soil_temp_f: 0.0,
+            estimated: false,
         })
         .collect()
 }

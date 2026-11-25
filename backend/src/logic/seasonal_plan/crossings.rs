@@ -1,7 +1,9 @@
 //! 10 cm soil-temperature threshold crossings: finding each year's crossings from the
-//! lake's daily means, and summarizing them across years for a plan year.
+//! weather record's daily means, and summarizing them across years for a plan year.
 
 use crate::models::seasonal_plan::*;
+use crate::models::weather_basis::{BasisKind, Series};
+use crate::models::weather_record::Input;
 use chrono::{Datelike, NaiveDate};
 
 /// Soil temperature thresholds (°F, 7-day rolling average) that trigger activities.
@@ -52,6 +54,7 @@ pub fn find_threshold_crossings(
                 threshold_name: name.to_string(),
                 crossing_date: date,
                 avg_soil_temp_f: mean,
+                estimated: false,
             })
         })
         .collect()
@@ -147,39 +150,82 @@ pub fn voting_years(settled_years: &[i32], plan_year: i32) -> Vec<i32> {
     years
 }
 
-/// Whether a year's crossings are final: computed after the year ended on the lawn's
-/// calendar, with the lake already reporting December 31 of that year or later.
-// @spec PLAN-CACHE-005
-pub fn year_settled(year: i32, today: NaiveDate, lake_latest: Option<NaiveDate>) -> bool {
-    let year_end = NaiveDate::from_ymd_opt(year, 12, 31);
-    today.year() > year
-        && lake_latest
-            .zip(year_end)
-            .is_some_and(|(latest, end)| latest >= end)
-}
-
-/// One year's pass over the lake: its crossings (none below 30 daily means, PLAN-CROSS-001)
-/// and whether the result is final, which the cache records with a settled marker even
-/// when there are no crossings (PLAN-CACHE-008).
-#[derive(Debug, Clone)]
-pub struct YearAnalysis {
+/// The crossings of every year one record series covers, and which of those years are
+/// settled.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct RecordCrossings {
     pub crossings: Vec<ThresholdCrossing>,
-    pub settled: bool,
+    pub settled_years: Vec<i32>,
 }
 
-// @spec PLAN-CROSS-001, PLAN-CACHE-008
-pub fn analyze_year(
-    year: i32,
-    daily_temps: &[DailySoilTempAvg],
+/// A threshold's value and whether it is crossed falling.
+pub fn threshold(name: &str) -> Option<(f64, bool)> {
+    THRESHOLDS
+        .iter()
+        .find(|(n, _)| *n == name)
+        .map(|&(n, value)| (value, n.ends_with("_falling")))
+}
+
+/// Each year's crossings from one series of the record's daily 10 cm means: a year with
+/// fewer than 30 days has none; a crossing any of whose five held days rests on the
+/// estimate is marked estimated and kept only when `datable` says the estimate may date
+/// that threshold and direction. A year is settled once it is over on the lawn's
+/// calendar (`today`) and the series holds December 31 of it or later.
+// @spec PLAN-CROSS-001, PLAN-CROSS-011, PLAN-CROSS-013
+pub fn crossings_from_record(
+    series: &Series<DailySoilTempAvg>,
     today: NaiveDate,
-    lake_latest: Option<NaiveDate>,
-) -> YearAnalysis {
-    YearAnalysis {
-        crossings: if daily_temps.len() >= 30 {
-            find_threshold_crossings(year, daily_temps)
-        } else {
-            Vec::new()
-        },
-        settled: year_settled(year, today, lake_latest),
+    datable: &dyn Fn(f64, bool) -> bool,
+) -> RecordCrossings {
+    let estimated_days: Vec<(NaiveDate, NaiveDate)> = series
+        .basis
+        .iter()
+        .filter(|span| span.input == Input::SoilTemp10 && span.basis.kind == BasisKind::Estimate)
+        .map(|span| (span.from, span.to))
+        .collect();
+    let estimated = |day: NaiveDate| {
+        estimated_days
+            .iter()
+            .any(|(from, to)| *from <= day && day <= *to)
+    };
+    let newest = series.rows.last().map(|row| row.date);
+    let mut years: Vec<i32> = series.rows.iter().map(|row| row.date.year()).collect();
+    years.dedup();
+
+    let mut crossings = Vec::new();
+    let mut settled_years = Vec::new();
+    for year in years {
+        let days: Vec<DailySoilTempAvg> = series
+            .rows
+            .iter()
+            .filter(|row| row.date.year() == year)
+            .cloned()
+            .collect();
+        if days.len() >= 30 {
+            for mut crossing in find_threshold_crossings(year, &days) {
+                let held = (0..HOLD_DAYS as i64)
+                    .map(|n| crossing.crossing_date + chrono::Duration::days(n));
+                crossing.estimated = held.into_iter().any(estimated);
+                let keep = !crossing.estimated
+                    || threshold(&crossing.threshold_name)
+                        .is_some_and(|(value, falling)| datable(value, falling));
+                if keep {
+                    crossings.push(crossing);
+                }
+            }
+        }
+        let year_end = NaiveDate::from_ymd_opt(year, 12, 31);
+        let over = today.year() > year;
+        if over
+            && newest
+                .zip(year_end)
+                .is_some_and(|(newest, end)| newest >= end)
+        {
+            settled_years.push(year);
+        }
+    }
+    RecordCrossings {
+        crossings,
+        settled_years,
     }
 }

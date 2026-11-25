@@ -102,37 +102,6 @@ impl WeatherLakeClient {
         .await
     }
 
-    /// Daily mean soil temp at 10cm (°F) per day in range, for the seasonal plan.
-    /// Sourced from the gold layer (already aggregated + converted to °F).
-    // @spec WX-SRC-LAKE-007
-    pub async fn fetch_daily_soil_temp_averages(
-        &self,
-        start: DateTime<Utc>,
-        end: DateTime<Utc>,
-    ) -> Result<Vec<crate::models::seasonal_plan::DailySoilTempAvg>> {
-        let src = Self::parquet(&self.gold_weather_path);
-        let (start_s, end_s) = (fmt_date(start), fmt_date(end));
-        Self::run(move |conn| {
-            let sql = format!(
-                "SELECT day, soil_temp_10_f_mean \
-                 FROM {src} \
-                 WHERE day >= ?::DATE AND day <= ?::DATE AND hours_observed >= 12 \
-                   AND soil_temp_10_f_mean IS NOT NULL \
-                 ORDER BY day ASC"
-            );
-            let mut stmt = conn.prepare(&sql)?;
-            let mut rows = stmt.query(duckdb::params![start_s, end_s])?;
-            let mut out = Vec::new();
-            while let Some(row) = rows.next()? {
-                let date: NaiveDate = row.get(0)?;
-                let avg_temp_f: f64 = row.get(1)?;
-                out.push(crate::models::seasonal_plan::DailySoilTempAvg { date, avg_temp_f });
-            }
-            Ok(out)
-        })
-        .await
-    }
-
     /// Daily paired `(date, air_temp_avg_f, soil_temp_10_f_mean)` for the regression model.
     // @spec WX-SRC-LAKE-007
     pub async fn fetch_daily_paired_averages(

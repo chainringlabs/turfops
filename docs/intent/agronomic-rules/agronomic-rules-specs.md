@@ -107,13 +107,13 @@ Design: [agronomic-rules-design.md](agronomic-rules-design.md). Prefix `RULE`. F
 
 ## Growing degree days and the crabgrass model
 
-- [ ] **RULE-GDD-001**: The system shall take each day's GDD (base 50°F) from the weather record's `gdd50`, computed there as the greater of zero and the mean of the day's resolved maximum and minimum air temperature minus 50°F, and shall only sum it.
+- [x] **RULE-GDD-001**: The system shall take each day's GDD (base 50°F) from the weather record's `gdd50`, computed there as the greater of zero and the mean of the day's resolved maximum and minimum air temperature minus 50°F, and shall only sum it.
 - [x] **RULE-GDD-002**: When supplying year-to-date GDD to the rules, the system shall sum daily `gdd50` from Jan 1 of the lawn's local current year through the lawn's local today.
 - [x] **RULE-GDD-003**: When accumulating a GDD history, the system shall reset the running total at each calendar year.
 - [x] **RULE-GDD-004**: The crabgrass model shall report PreGermination below 75 GDD, ApproachingGermination from 75 to below 150, GerminationLikely from 150 to below 200, and PostGermination at 200 or more, with a germination threshold of 200.
 - [x] **RULE-GDD-005**: The crabgrass model shall be informational only; no recommendation shall read it.
 - [x] **RULE-GDD-006**: When `GET /api/v1/gdd` is called, the system shall return the year's running GDD history, its current total and the crabgrass model for the requested year (default: the server's local current year), through today for the current year and Jan 1–Dec 31 for other years; if the year cannot be represented, then it shall return 400.
-- [ ] **RULE-GDD-007**: If the weather record cannot answer (the location is not set, or the read fails), then `GET /api/v1/gdd` shall return a data-unavailable error instead of a zero total and a PreGermination status.
+- [x] **RULE-GDD-007**: If the weather record cannot answer (the location is not set, or the read fails), then `GET /api/v1/gdd` shall return a data-unavailable error instead of a zero total and a PreGermination status.
 
 ## Dashboard widgets
 

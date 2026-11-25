@@ -49,7 +49,6 @@ fn holly(profile: i64) -> Plant {
 async fn plant_activities_are_appended_as_built_over_the_plant_log_range(pool: PgPool) {
     let year = this_year() - 1;
     let profile = create_profile(&pool, "Front").await;
-    settled_history(&pool, STATION, year).await;
     let mut plant = holly(profile);
     plant.id = Some(plant_queries::create_plant(&pool, &plant).await.unwrap());
     // The window opens Dec 1 of the plan year and closes in February of the next one;
@@ -59,6 +58,7 @@ async fn plant_activities_are_appended_as_built_over_the_plant_log_range(pool: P
     queries::create_application(&pool, &pruned).await.unwrap();
 
     let state = state(&pool, None);
+    settled_history(&state, year).await;
     let plan = get_plan(&state, Some(year)).await.unwrap();
     let overlay: Vec<_> = plan
         .activities

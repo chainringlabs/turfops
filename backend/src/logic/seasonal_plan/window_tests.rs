@@ -107,6 +107,7 @@ fn every_year_on(years: impl Iterator<Item = i32>, month: u32, day: u32) -> Vec<
             threshold_name: "soil_50f_rising".into(),
             crossing_date: d(year, month, day),
             avg_soil_temp_f: 50.0,
+            estimated: false,
         })
         .collect()
 }

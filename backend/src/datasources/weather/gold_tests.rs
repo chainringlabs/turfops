@@ -38,25 +38,12 @@ fn days() -> Vec<GoldRow> {
 
 // @spec WX-SRC-LAKE-007
 #[tokio::test]
-async fn gold_daily_series_keep_complete_days_in_date_order() {
+async fn gold_daily_pairs_keep_complete_days_in_date_order() {
     let gold = fixtures::gold(&days());
     let client = fixtures::client("unused.parquet", &gold.path);
     let (start, end) = (
         Utc.with_ymd_and_hms(2026, 8, 1, 0, 0, 0).unwrap(),
         Utc.with_ymd_and_hms(2026, 9, 30, 0, 0, 0).unwrap(),
-    );
-
-    let soil: Vec<(NaiveDate, f64)> = client
-        .fetch_daily_soil_temp_averages(start, end)
-        .await
-        .unwrap()
-        .into_iter()
-        .map(|s| (s.date, s.avg_temp_f))
-        .collect();
-    // Sep 2 has 11 hours; Sep 5 has no 10 cm mean.
-    assert_eq!(
-        soil,
-        vec![(d(9, 1), 60.0), (d(9, 3), 59.0), (d(9, 4), 61.0)]
     );
 
     let pairs = client

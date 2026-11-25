@@ -454,9 +454,7 @@ mod tests {
     fn only_the_application_indexes_are_application_duplicates() {
         assert!(is_application_duplicate(Some("applications_unique_turf")));
         assert!(is_application_duplicate(Some("applications_unique_plant")));
-        assert!(!is_application_duplicate(Some(
-            "seasonal_crossing_years_pkey"
-        )));
+        assert!(!is_application_duplicate(Some("products_name_key")));
         assert!(!is_application_duplicate(None));
     }
 
