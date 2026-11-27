@@ -4,7 +4,7 @@ Environmental Views — leaf segment `WX-VIEW` under the `weather-data` sub-HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `357e2d3`): 24 of 26 active specs implemented; 2 marked `[ ]` (2 of them already cited in code).
+**PARTIAL** — audited 2026-11-27 (git SHA `24a3baf`): 24 of 26 active specs implemented; 2 marked `[ ]` (2 of them already cited in code).
 
 ## References
 

@@ -181,3 +181,16 @@ async fn a_point_the_service_does_not_cover_is_an_outage_of_the_forecast() {
         assert!(!message.contains("Requested Point") && !message.contains("127.0.0.1"));
     }
 }
+
+// @spec WX-SRC-NORM-002
+#[test]
+fn an_implausible_feels_like_is_emptied_and_the_hour_kept() {
+    let from = r#""apparentTemperature":{"uom":"wmoUnit:degC","values":[
+ {"validTime":"2026-11-22T15:00:00+00:00/PT1H","value":10.0}]}"#;
+    assert!(GRID.contains(from));
+    // 70 °C is 158 °F.
+    let grid = GRID.replace(from, &from.replace("10.0", "70.0"));
+    let first = &parse(&grid, at(14, 0)).unwrap()[0];
+    assert_eq!(first.feels_like_f, None);
+    assert_eq!(first.temp_f, points()[0].temp_f);
+}

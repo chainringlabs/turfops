@@ -145,3 +145,14 @@ async fn a_refusal_or_an_unreadable_body_is_an_outage_of_the_forecast() {
         assert!(!message.contains("quota") && !message.contains("127.0.0.1"));
     }
 }
+
+// @spec WX-SRC-NORM-002
+#[test]
+fn an_implausible_feels_like_is_emptied_and_the_hour_kept() {
+    let body = FORECAST.replace(
+        r#""apparent_temperature":[49.0,"#,
+        r#""apparent_temperature":[151.0,"#,
+    );
+    let first = &parse(&body, at(11, 0)).unwrap()[0];
+    assert_eq!((first.feels_like_f, first.temp_f), (None, 52.8));
+}

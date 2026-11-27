@@ -7,15 +7,15 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 ## Units, sentinels and time
 
 - [x] **WX-SRC-NORM-001**: Every client shall return temperatures in °F, precipitation in millimetres, relative humidity in percent and soil moisture as a fraction from 0 to 1, converting from the units the source declares.
-- [ ] **WX-SRC-NORM-002**: Every client shall return as empty any value that is the source's missing marker, any temperature outside −80 to 150 °F, any relative humidity outside 0 to 100, any precipitation that is negative or above 300 mm in an hour, and any soil moisture outside 0 to 1, keeping the rest of the row.
+- [x] **WX-SRC-NORM-002**: Every client shall return as empty any value that is the source's missing marker, any temperature outside −80 to 150 °F, any relative humidity outside 0 to 100, any precipitation that is negative or above 300 mm in an hour, and any soil moisture outside 0 to 1, keeping the rest of the row; a forecast slot whose temperature, relative humidity or wind speed is emptied this way is not returned (WX-SRC-FC-003).
 - [ ] **WX-SRC-NORM-003**: Every client shall return as empty any value the source itself flags as failed quality control.
 - [ ] **WX-SRC-NORM-004**: Every client shall stamp an hourly row with the UTC start of the hour it describes, and shall leave a daily row on the source's own day.
 
 ## How requests are made
 
-- [ ] **WX-SRC-REQ-001**: Every outside request shall carry a `User-Agent` naming TurfOps and its version, and shall carry no owner name, address or contact detail.
-- [ ] **WX-SRC-REQ-002**: Every outside request shall time out after 5 seconds to connect and 30 seconds in total, except a grid request spanning more than one year, which shall time out after 120 seconds in total.
-- [ ] **WX-SRC-REQ-003**: The clients shall make at most one request at a time to a host, with at least 1 second between requests to the same host and at least 2 seconds between requests to RCC-ACIS.
+- [x] **WX-SRC-REQ-001**: Every outside request shall carry a `User-Agent` naming TurfOps and its version, and shall carry no owner name, address or contact detail.
+- [x] **WX-SRC-REQ-002**: Every outside request shall time out after 5 seconds to connect and 30 seconds in total, except a grid request spanning more than one year, which shall time out after 120 seconds in total.
+- [x] **WX-SRC-REQ-003**: The clients shall make at most one request at a time to a host, with at least 1 second between requests to the same host and at least 2 seconds between requests to RCC-ACIS.
 - [x] **WX-SRC-REQ-004**: When re-requesting a file it has fetched before, a client shall send `If-Modified-Since` with the time of the copy it holds, and shall treat a not-modified answer as a success that returns no rows.
 - [x] **WX-SRC-REQ-005**: A client shall not retry a failed request; it shall return the failure to its caller.
 - [x] **WX-SRC-REQ-006**: A point query to an outside source shall send the lawn's coordinates and nothing else about the lawn or its owner.

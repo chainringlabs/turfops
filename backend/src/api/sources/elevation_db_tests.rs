@@ -28,7 +28,7 @@ async fn asking_open_meteo(pool: &PgPool, answers: Vec<(u16, &'static str)>) -> 
         grid: GridClient::new(outside.clone()).with_url(nowhere),
         open_meteo: OpenMeteoClient::new(outside.clone()).with_urls(&base, nowhere),
         nws: crate::datasources::nws::NwsClient::new(outside).with_base_url(nowhere),
-        owm: crate::datasources::OpenWeatherMapClient::new().with_base_url(nowhere),
+        owm: crate::datasources::OpenWeatherMapClient::at(nowhere),
     };
     stocked(pool)
         .await

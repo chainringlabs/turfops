@@ -1,16 +1,21 @@
+use super::outside::{Fetched, Outside};
 use crate::clock::Clock;
 use crate::error::{Result, Source, TurfOpsError};
 use crate::models::forecast::{ForecastPoint, ForecastProvider, WeatherCondition, WeatherForecast};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
-use std::time::Duration;
+use std::sync::Arc;
 
 const API_BASE_URL: &str = "https://api.openweathermap.org/data/2.5";
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+const TEMPERATURE_F: (f64, f64) = (-80.0, 150.0);
+const PERCENT: (f64, f64) = (0.0, 100.0);
+/// Up to 300 mm for each hour of a slot.
+const SLOT_PRECIP_MM: (f64, f64) = (0.0, 300.0 * SLOT_HOURS as f64);
 
+/// The OpenWeatherMap forecast client. Its requests go through [`Outside`], like every
+/// other outside request.
 pub struct OpenWeatherMapClient {
-    client: reqwest::Client,
+    outside: Arc<Outside>,
     base_url: String,
 }
 
@@ -71,21 +76,21 @@ struct OwmPrecipitation {
 
 // @spec WX-SRC-OWM-005, DEPLOY-LOG-003
 /// A failed request as a data-source error. The request URL carries the API key in its
-/// query string, and reqwest's error text includes the URL, so it is stripped here: no
-/// caller, log line or response can then leak the key.
-fn request_error(e: reqwest::Error) -> TurfOpsError {
-    TurfOpsError::unavailable(Source::Forecast, e.without_url())
+/// query string, and a failure's detail can name the URL, so the key is taken out here:
+/// no caller, log line or response can then leak it.
+fn request_error(detail: &str, key: &str) -> TurfOpsError {
+    let detail = if key.is_empty() {
+        detail.to_string()
+    } else {
+        detail.replace(key, "[key]")
+    };
+    TurfOpsError::unavailable(Source::Forecast, detail)
 }
 
 impl OpenWeatherMapClient {
-    pub fn new() -> Self {
-        let client = reqwest::Client::builder()
-            .connect_timeout(CONNECT_TIMEOUT)
-            .timeout(REQUEST_TIMEOUT)
-            .build()
-            .expect("failed to build OpenWeatherMap HTTP client");
+    pub fn new(outside: Arc<Outside>) -> Self {
         Self {
-            client,
+            outside,
             base_url: API_BASE_URL.to_string(),
         }
     }
@@ -97,9 +102,16 @@ impl OpenWeatherMapClient {
         self
     }
 
+    /// An unpaced client aimed at `base_url` (tests against a local stub).
+    #[cfg(test)]
+    pub(crate) fn at(base_url: &str) -> Self {
+        Self::new(Arc::new(Outside::unpaced())).with_base_url(base_url)
+    }
+
     /// The 5-day, 3-hour forecast for a point, asked with `key`; daily summaries are
     /// `clock`'s local days.
-    // @spec WX-SRC-OWM-001, WX-SRC-FC-010, WX-SRC-CFG-003
+    // @spec WX-SRC-OWM-001, WX-SRC-FC-010, WX-SRC-CFG-003, WX-SRC-REQ-001, WX-SRC-REQ-002
+    // @spec WX-SRC-REQ-003, WX-SRC-OWM-006
     pub async fn forecast(
         &self,
         latitude: f64,
@@ -112,33 +124,24 @@ impl OpenWeatherMapClient {
             "{}/forecast?lat={latitude}&lon={longitude}&appid={key}&units=imperial",
             self.base_url
         );
-
-        let response = self.client.get(&url).send().await.map_err(request_error)?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            // @spec WX-SRC-OWM-006
-            return Err(TurfOpsError::unavailable(
-                Source::Forecast,
-                format!("OpenWeatherMap returned {}: {}", status, body),
-            ));
-        }
-
-        let owm_response: OwmForecastResponse = response.json().await.map_err(|e| {
-            TurfOpsError::unavailable(
-                Source::Forecast,
-                format!(
-                    "Failed to parse OpenWeatherMap response: {}",
-                    e.without_url()
-                ),
+        let text = match self.outside.get(&url, None).await {
+            Ok(Fetched::Body { text, .. }) => text,
+            Ok(Fetched::NotModified | Fetched::Missing) => {
+                return Err(request_error(&format!("{url} returned no forecast"), key))
+            }
+            Err(detail) => return Err(request_error(&detail, key)),
+        };
+        let owm_response: OwmForecastResponse = serde_json::from_str(&text).map_err(|e| {
+            request_error(
+                &format!("Failed to parse OpenWeatherMap response: {e}"),
+                key,
             )
         })?;
 
         let hourly = owm_response
             .list
             .iter()
-            .map(convert_forecast_item)
+            .filter_map(convert_forecast_item)
             .collect();
         Ok(WeatherForecast::new(
             ForecastProvider::OpenWeatherMap,
@@ -149,17 +152,13 @@ impl OpenWeatherMapClient {
     }
 }
 
-impl Default for OpenWeatherMapClient {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// OpenWeatherMap's slots are three hours long.
 const SLOT_HOURS: u32 = 3;
 
-// @spec WX-SRC-FC-002, WX-SRC-OWM-001
-fn convert_forecast_item(item: &OwmForecastItem) -> ForecastPoint {
+/// The point for one slot, or none when its time, temperature, humidity or wind speed is
+/// missing or implausible; any other implausible value is left empty.
+// @spec WX-SRC-FC-002, WX-SRC-FC-003, WX-SRC-OWM-001, WX-SRC-NORM-002, WX-SRC-NORM-004
+fn convert_forecast_item(item: &OwmForecastItem) -> Option<ForecastPoint> {
     let weather_condition = item
         .weather
         .first()
@@ -168,22 +167,28 @@ fn convert_forecast_item(item: &OwmForecastItem) -> ForecastPoint {
     // A slot with no rain or snow entry is a forecast of none.
     let rain_mm = item.rain.as_ref().map(|r| r.three_hour).unwrap_or(0.0);
     let snow_mm = item.snow.as_ref().map(|s| s.three_hour).unwrap_or(0.0);
-    ForecastPoint {
-        timestamp: DateTime::from_timestamp(item.dt, 0).unwrap_or_else(Utc::now),
+    Some(ForecastPoint {
+        timestamp: DateTime::from_timestamp(item.dt, 0)?,
         slot_hours: SLOT_HOURS,
-        temp_f: item.main.temp,
-        feels_like_f: Some(item.main.feels_like),
-        humidity_percent: item.main.humidity,
-        precipitation_mm: Some(rain_mm + snow_mm),
-        precipitation_prob: Some(item.pop),
-        wind_speed_mph: item.wind.speed,
-        wind_gust_mph: item.wind.gust,
-        cloud_cover_percent: Some(item.clouds.all),
+        temp_f: within(item.main.temp, TEMPERATURE_F)?,
+        feels_like_f: within(item.main.feels_like, TEMPERATURE_F),
+        humidity_percent: within(item.main.humidity, PERCENT)?,
+        precipitation_mm: within(rain_mm + snow_mm, SLOT_PRECIP_MM),
+        precipitation_prob: within(item.pop, (0.0, 1.0)),
+        wind_speed_mph: Some(item.wind.speed).filter(|v| *v >= 0.0)?,
+        wind_gust_mph: item.wind.gust.filter(|v| *v >= 0.0),
+        cloud_cover_percent: within(item.clouds.all, PERCENT),
         weather_condition,
-    }
+    })
+}
+
+fn within(value: f64, (low, high): (f64, f64)) -> Option<f64> {
+    (value >= low && value <= high).then_some(value)
 }
 
 #[cfg(test)]
 mod fetch_tests;
+#[cfg(test)]
+mod norm_tests;
 #[cfg(test)]
 mod tests;

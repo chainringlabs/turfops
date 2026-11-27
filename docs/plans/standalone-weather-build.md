@@ -137,11 +137,6 @@ Nothing.
 Each of these is marked `[ ]` in its spec file and has code citing it; the code does part of
 what the spec says. Checked against the code on 2026-11-27.
 
-- **WX-SRC-REQ-001, -002, -003**: the OpenWeatherMap client builds its own HTTP client, so it
-  sends no `User-Agent`, times out at 15 s rather than 30 s, and is not paced per host.
-- **WX-SRC-NORM-002**: OpenWeatherMap range-checks nothing; feels-like temperatures are never
-  range-checked; the Open-Meteo and NWS forecasts drop a whole slot for one implausible value
-  instead of emptying that value.
 - **WX-SRC-NORM-003**: the SCAN request asks for no quality flags, so values AWDB marks
   suspect are stored as good.
 - **WX-SRC-NORM-004**: waits on the SCAN precipitation-hour check above.

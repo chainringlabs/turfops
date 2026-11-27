@@ -251,7 +251,7 @@ mapping is made in the app and stored there.
 |---|---|---|---|
 | Open-Meteo (default) | 1 h | 16 days | Nothing |
 | National Weather Service | 1 h | About 6.5 days | Nothing |
-| OpenWeatherMap | 3 h | 5 days | `OWM_API_KEY` |
+| OpenWeatherMap | 3 h | 5 days | The key stored in the app |
 
 How each provider's response becomes hourly points:
 

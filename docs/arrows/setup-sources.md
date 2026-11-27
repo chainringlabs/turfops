@@ -4,7 +4,7 @@ Setup and Sources — leaf segment `SETUP` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `357e2d3`): 70 of 74 active specs implemented; 4 marked `[ ]` (2 of them already cited in code).
+**PARTIAL** — audited 2026-11-27 (git SHA `24a3baf`): 70 of 74 active specs implemented; 4 marked `[ ]` (2 of them already cited in code).
 
 ## References
 

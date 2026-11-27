@@ -84,6 +84,7 @@ fn down(detail: String) -> TurfOpsError {
 /// and gust cover the hour before their stamp. A point takes the first group from its
 /// start and the second from its end.
 // @spec WX-SRC-FC-002, WX-SRC-FC-003, WX-SRC-FC-005, WX-SRC-FC-009, WX-SRC-NORM-001
+// @spec WX-SRC-NORM-002
 pub fn parse(json: &str, now: DateTime<Utc>) -> std::result::Result<Vec<ForecastPoint>, String> {
     let body: Body =
         serde_json::from_str(json).map_err(|e| format!("forecast did not parse: {e}"))?;
@@ -147,7 +148,9 @@ fn point(
         temp_f: h.temperature_2m[start]
             .map(scales.to_f)
             .and_then(|v| within(v, TEMPERATURE_F))?,
-        feels_like_f: h.apparent_temperature[start].map(scales.to_f),
+        feels_like_f: h.apparent_temperature[start]
+            .map(scales.to_f)
+            .and_then(|v| within(v, TEMPERATURE_F)),
         humidity_percent: h.relative_humidity_2m[start].and_then(|v| within(v, HUMIDITY_PCT))?,
         precipitation_mm: h.precipitation[end]
             .map(|v| v * scales.to_mm)
