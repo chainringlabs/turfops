@@ -4,7 +4,7 @@ Web UI — leaf segment `UI` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `44031e1`): 62 of 65 active specs implemented; 3 marked `[ ]` (3 of them already cited in code).
+**PARTIAL** — audited 2026-11-27 (git SHA `357e2d3`): 63 of 65 active specs implemented; 2 marked `[ ]` (2 of them already cited in code).
 
 ## References
 
@@ -113,7 +113,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
 | SHELL | UI-SHELL-001 – UI-SHELL-007 | 7 | 0 | 0 | 7 | 7 |
-| NAV | UI-NAV-001 – UI-NAV-003 | 2 | 0 | 1 | 3 | 3 |
+| NAV | UI-NAV-001 – UI-NAV-003 | 3 | 0 | 0 | 3 | 3 |
 | DASH | UI-DASH-001 – UI-DASH-003 | 3 | 0 | 0 | 3 | 3 |
 | API | UI-API-001 – UI-API-006 | 6 | 0 | 0 | 6 | 6 |
 | ERR | UI-ERR-001 – UI-ERR-012 | 10 | 0 | 2 | 12 | 12 |
@@ -122,13 +122,13 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | CONV | UI-CONV-001 – UI-CONV-005 | 5 | 0 | 0 | 5 | 5 |
 | BUILD | UI-BUILD-001 – UI-BUILD-010 | 10 | 0 | 0 | 10 | 10 |
 | SRV | UI-SRV-001 – UI-SRV-010 | 9 | 0 | 0 | 9 | 9 |
-| **Total** | | **62** | **0** | **3** | **65** | **65** |
+| **Total** | | **63** | **0** | **2** | **65** | **65** |
 
-**Summary:** 62 of 65 active specs implemented; 0 deferred; 62 implemented specs cited by a test.
+**Summary:** 63 of 65 active specs implemented; 0 deferred; 63 implemented specs cited by a test.
 
 ## Key Findings
 
-1. **Marked `[ ]` but cited in code:** UI-NAV-003, UI-ERR-002, UI-ERR-003. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
+1. **Marked `[ ]` but cited in code:** UI-ERR-002, UI-ERR-003. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
 
 ## Work Required
 
@@ -136,7 +136,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Confirm UI-NAV-003, UI-ERR-002, UI-ERR-003 against the code and set their markers.
+- Confirm UI-ERR-002, UI-ERR-003 against the code and set their markers.
 
 ### Nice to Have
 - None.

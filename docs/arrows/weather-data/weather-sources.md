@@ -4,7 +4,7 @@ Weather Sources — leaf segment `WX-SRC` under the `weather-data` sub-HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `44031e1`): 72 of 80 active specs implemented; 8 marked `[ ]` (8 of them already cited in code).
+**PARTIAL** — audited 2026-11-27 (git SHA `357e2d3`): 73 of 80 active specs implemented; 7 marked `[ ]` (7 of them already cited in code).
 
 ## References
 
@@ -111,8 +111,8 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| NORM | WX-SRC-NORM-001 – WX-SRC-NORM-004 | 0 | 0 | 4 | 4 | 4 |
-| REQ | WX-SRC-REQ-001 – WX-SRC-REQ-006 | 5 | 0 | 1 | 6 | 6 |
+| NORM | WX-SRC-NORM-001 – WX-SRC-NORM-004 | 1 | 0 | 3 | 4 | 4 |
+| REQ | WX-SRC-REQ-001 – WX-SRC-REQ-006 | 3 | 0 | 3 | 6 | 6 |
 | CAD | WX-SRC-CAD-001 – WX-SRC-CAD-002 | 2 | 0 | 0 | 2 | 2 |
 | USCRN | WX-SRC-USCRN-001 – WX-SRC-USCRN-006 | 6 | 0 | 0 | 6 | 6 |
 | SCAN | WX-SRC-SCAN-001 – WX-SRC-SCAN-003 | 3 | 0 | 0 | 3 | 3 |
@@ -120,18 +120,18 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | OM | WX-SRC-OM-001 – WX-SRC-OM-004 | 4 | 0 | 0 | 4 | 4 |
 | HA | WX-SRC-HA-001 – WX-SRC-HA-014 | 14 | 0 | 0 | 14 | 14 |
 | POST | WX-SRC-POST-001 – WX-SRC-POST-015 | 15 | 0 | 0 | 15 | 15 |
-| FC | WX-SRC-FC-001 – WX-SRC-FC-010 | 9 | 0 | 1 | 10 | 10 |
+| FC | WX-SRC-FC-001 – WX-SRC-FC-010 | 10 | 0 | 0 | 10 | 10 |
 | OWM | WX-SRC-OWM-001 – WX-SRC-OWM-006 | 6 | 0 | 0 | 6 | 6 |
 | MODEL | WX-SRC-MODEL-003 – WX-SRC-MODEL-004 | 2 | 0 | 0 | 2 | 1 |
 | CFG | WX-SRC-CFG-002 – WX-SRC-CFG-004 | 3 | 0 | 0 | 3 | 1 |
-| ERR | WX-SRC-ERR-001 – WX-SRC-ERR-002 | 0 | 0 | 2 | 2 | 2 |
-| **Total** | | **72** | **0** | **8** | **80** | **77** |
+| ERR | WX-SRC-ERR-001 – WX-SRC-ERR-002 | 1 | 0 | 1 | 2 | 2 |
+| **Total** | | **73** | **0** | **7** | **80** | **77** |
 
-**Summary:** 72 of 80 active specs implemented; 0 deferred; 69 implemented specs cited by a test, 3 not.
+**Summary:** 73 of 80 active specs implemented; 0 deferred; 70 implemented specs cited by a test, 3 not.
 
 ## Key Findings
 
-1. **Marked `[ ]` but cited in code:** WX-SRC-NORM-001, WX-SRC-NORM-002, WX-SRC-NORM-003, WX-SRC-NORM-004, WX-SRC-REQ-006, WX-SRC-FC-001, WX-SRC-ERR-001, WX-SRC-ERR-002. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
+1. **Marked `[ ]` but cited in code:** WX-SRC-NORM-002, WX-SRC-NORM-003, WX-SRC-NORM-004, WX-SRC-REQ-001, WX-SRC-REQ-002, WX-SRC-REQ-003, WX-SRC-ERR-001. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
 2. **Implemented, no test cites it:** WX-SRC-MODEL-003, WX-SRC-CFG-002, WX-SRC-CFG-004.
 
 ## Work Required
@@ -140,7 +140,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Confirm WX-SRC-NORM-001, WX-SRC-NORM-002, WX-SRC-NORM-003, WX-SRC-NORM-004, WX-SRC-REQ-006, WX-SRC-FC-001, WX-SRC-ERR-001, WX-SRC-ERR-002 against the code and set their markers.
+- Confirm WX-SRC-NORM-002, WX-SRC-NORM-003, WX-SRC-NORM-004, WX-SRC-REQ-001, WX-SRC-REQ-002, WX-SRC-REQ-003, WX-SRC-ERR-001 against the code and set their markers.
 - Add a test citing WX-SRC-MODEL-003, WX-SRC-CFG-002, WX-SRC-CFG-004.
 
 ### Nice to Have

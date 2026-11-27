@@ -4,7 +4,7 @@ Setup and Sources — leaf segment `SETUP` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `44031e1`): 67 of 74 active specs implemented; 7 marked `[ ]` (5 of them already cited in code).
+**PARTIAL** — audited 2026-11-27 (git SHA `357e2d3`): 70 of 74 active specs implemented; 4 marked `[ ]` (2 of them already cited in code).
 
 ## References
 
@@ -119,16 +119,16 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | HA | SETUP-HA-001 – SETUP-HA-005 | 5 | 0 | 0 | 5 | 5 |
 | MAP | SETUP-MAP-001 – SETUP-MAP-014 | 14 | 0 | 0 | 14 | 14 |
 | PAGE | SETUP-PAGE-001 – SETUP-PAGE-013 | 13 | 0 | 0 | 13 | 13 |
-| API | SETUP-API-001 – SETUP-API-015 | 13 | 0 | 1 | 14 | 14 |
-| CRED | SETUP-CRED-001 – SETUP-CRED-004 | 2 | 0 | 2 | 3 | 3 |
-| FAIL | SETUP-FAIL-001 – SETUP-FAIL-004 | 0 | 0 | 4 | 3 | 3 |
-| **Total** | | **67** | **0** | **7** | **72** | **72** |
+| API | SETUP-API-001 – SETUP-API-015 | 14 | 0 | 0 | 14 | 14 |
+| CRED | SETUP-CRED-001 – SETUP-CRED-004 | 3 | 0 | 1 | 3 | 3 |
+| FAIL | SETUP-FAIL-001 – SETUP-FAIL-004 | 1 | 0 | 3 | 3 | 3 |
+| **Total** | | **70** | **0** | **4** | **72** | **72** |
 
-**Summary:** 67 of 74 active specs implemented; 0 deferred; 67 implemented specs cited by a test.
+**Summary:** 70 of 74 active specs implemented; 0 deferred; 70 implemented specs cited by a test.
 
 ## Key Findings
 
-1. **Marked `[ ]` but cited in code:** SETUP-API-010, SETUP-CRED-001, SETUP-FAIL-001, SETUP-FAIL-002, SETUP-FAIL-004. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
+1. **Marked `[ ]` but cited in code:** SETUP-FAIL-001, SETUP-FAIL-004. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
 2. **Open gaps (not yet built):** SETUP-CRED-004, SETUP-FAIL-003.
 
 ## Work Required
@@ -137,7 +137,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Confirm SETUP-API-010, SETUP-CRED-001, SETUP-FAIL-001, SETUP-FAIL-002, SETUP-FAIL-004 against the code and set their markers.
+- Confirm SETUP-FAIL-001, SETUP-FAIL-004 against the code and set their markers.
 - Build or defer SETUP-CRED-004, SETUP-FAIL-003.
 
 ### Nice to Have
