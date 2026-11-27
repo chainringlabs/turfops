@@ -4,7 +4,7 @@ Deployment — leaf segment `DEPLOY` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-11-27 (git SHA `44031e1`): all 77 active specs implemented; 64 cited by a test, 77 cited in code.
+**OK** — audited 2026-11-27 (git SHA `357e2d3`): all 77 active specs implemented; 64 cited by a test, 77 cited in code.
 
 ## References
 

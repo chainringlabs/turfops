@@ -5,7 +5,7 @@ on a decision. The research behind the design is in
 [standalone-weather-sources.md](standalone-weather-sources.md); the design and specs are under
 `docs/intent/`. This file is the place to start when picking the work up.
 
-Status as of 2026-11-27: slices 7 and 8 are complete and deployed (#374 to #394); every page, rule and MCP tool reads the weather record. Slice 9 removes the lake: the reader, DuckDB, its settings and its documents are deleted in the PR that carries this line. An arrow-maintenance pass over `docs/arrows/` follows it.
+Status as of 2026-11-27: slices 7 to 9 are complete and deployed (#374 to #397); every page, rule and MCP tool reads the weather record, and the lake, DuckDB and their settings are gone. `docs/arrows/` was re-audited in #399. What remains is the list of specs that fall short, under Known gaps.
 
 ## The goal
 
@@ -103,11 +103,8 @@ What each covers:
 
 ### Slice 9, removal
 
-DuckDB, the lake reader, its configuration and error, the build's C++ toolchain, and the
-documents that describe them: `CLAUDE.md`, the README, `docs/timing-windows.md` and the intent
-docs. The cache tables and the Compose mount went earlier (#383, #394). `docs/arrows/` is
-refreshed by an arrow-maintenance pass in its own PR, since its overlays predate every
-standalone segment.
+Done (#397): DuckDB, the lake reader, its configuration and error, the build's C++ toolchain,
+and the documents that describe them.
 
 ## Waiting on a decision
 
@@ -134,6 +131,42 @@ Nothing.
   instance. The client falls back to `last_updated`.
 - **The disease tier thresholds** have not been re-run on hourly-analysis inputs.
 - **The anchoring rules** are unscored.
+
+### Specs that fall short
+
+Each of these is marked `[ ]` in its spec file and has code citing it; the code does part of
+what the spec says. Checked against the code on 2026-11-27.
+
+- **WX-SRC-REQ-001, -002, -003**: the OpenWeatherMap client builds its own HTTP client, so it
+  sends no `User-Agent`, times out at 15 s rather than 30 s, and is not paced per host.
+- **WX-SRC-NORM-002**: OpenWeatherMap range-checks nothing; feels-like temperatures are never
+  range-checked; the Open-Meteo and NWS forecasts drop a whole slot for one implausible value
+  instead of emptying that value.
+- **WX-SRC-NORM-003**: the SCAN request asks for no quality flags, so values AWDB marks
+  suspect are stored as good.
+- **WX-SRC-NORM-004**: waits on the SCAN precipitation-hour check above.
+- **WX-SRC-ERR-001**: Home Assistant failures discard their detail instead of logging it;
+  the station, grid and analysis sentences name the source generically and not what depends
+  on it; USCRN skips unreadable lines silently; the forecast not-configured sentence still
+  says to set `OWM_API_KEY`, though nothing raises it.
+- **SYNC-SCHED-008**: `PUT /profile` still accepts a location and does not wake the schedule
+  (the UI sends locations through setup, which does).
+- **SETUP-FAIL-001**: a place search that hangs shows the browser's 15 s timeout message,
+  because the backend may wait up to 30 s.
+- **SETUP-FAIL-004**: no "try again" on the what-we-found step; a station list loaded for one
+  network but not the other is treated as loaded.
+- **WX-VIEW-BASIS-001**: no basis label on the dashboard widgets (GDD, outlook, disease,
+  timing), the Seasonal Plan, the Calendar or recommendation data points; the GDD and plan
+  responses carry no basis to show.
+- **WX-VIEW-PAGE-008**: the soil line always says "Station soil observed", also for a sensor,
+  and for an estimate shows local midnight instead of the day it is for.
+- **WX-EST-SCORE-003**: the outlook's and the Timing note's daily error come from the stored
+  fit's training RMSE, not the scoring file, so they can differ from the Sources page.
+- **RULE-WX-006**: a missing 7-day rain total counts as dry for the first day, and a good day
+  with no following summary counts as dry the day after.
+- **UI-ERR-002, -003**: row-parse failures (a plant's plan JSON, a product's category or
+  profile) answer 400 with serde text and are not logged; one bad product row fails the whole
+  product list.
 
 ## Operations notes
 

@@ -4,7 +4,7 @@ Agronomic Rules — leaf segment `RULE` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `44031e1`): 77 of 82 active specs implemented; 5 marked `[ ]` (2 of them already cited in code).
+**PARTIAL** — audited 2026-11-27 (git SHA `357e2d3`): 78 of 82 active specs implemented; 4 marked `[ ]` (1 of them already cited in code).
 
 ## References
 
@@ -95,18 +95,18 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | GRUB | RULE-GRUB-001 – RULE-GRUB-006 | 6 | 0 | 0 | 6 | 6 |
 | BLOCK | RULE-BLOCK-001 – RULE-BLOCK-002 | 2 | 0 | 0 | 2 | 2 |
 | FALL | RULE-FALL-001 – RULE-FALL-007 | 7 | 0 | 0 | 7 | 7 |
-| WX | RULE-WX-001 – RULE-WX-013 | 9 | 0 | 4 | 11 | 11 |
+| WX | RULE-WX-001 – RULE-WX-013 | 10 | 0 | 3 | 11 | 11 |
 | GUARD | RULE-GUARD-001 – RULE-GUARD-011 | 10 | 1 | 0 | 10 | 10 |
 | BUDGET | RULE-BUDGET-001 – RULE-BUDGET-005 | 5 | 0 | 0 | 5 | 5 |
 | GDD | RULE-GDD-001 – RULE-GDD-007 | 7 | 0 | 0 | 7 | 6 |
 | UI | RULE-UI-001 – RULE-UI-002 | 2 | 0 | 0 | 2 | 2 |
-| **Total** | | **77** | **1** | **5** | **79** | **78** |
+| **Total** | | **78** | **1** | **4** | **79** | **78** |
 
-**Summary:** 77 of 82 active specs implemented; 1 deferred; 76 implemented specs cited by a test, 1 not.
+**Summary:** 78 of 82 active specs implemented; 1 deferred; 77 implemented specs cited by a test, 1 not.
 
 ## Key Findings
 
-1. **Marked `[ ]` but cited in code:** RULE-WX-002, RULE-WX-006. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
+1. **Marked `[ ]` but cited in code:** RULE-WX-006. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
 2. **Open gaps (not yet built):** RULE-ENG-016, RULE-WX-009, RULE-WX-010.
 3. **Implemented, no test cites it:** RULE-GDD-002.
 4. **Deferred:** RULE-GUARD-005.
@@ -117,7 +117,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Confirm RULE-WX-002, RULE-WX-006 against the code and set their markers.
+- Confirm RULE-WX-006 against the code and set their markers.
 - Build or defer RULE-ENG-016, RULE-WX-009, RULE-WX-010.
 - Add a test citing RULE-GDD-002.
 

@@ -4,7 +4,7 @@ Landscape Plants — leaf segment `PLANT` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `44031e1`): 76 of 79 active specs implemented; 3 marked `[ ]` (3 of them already cited in code).
+**OK** — audited 2026-11-27 (git SHA `357e2d3`): all 79 active specs implemented, each cited in code and by a test.
 
 ## References
 
@@ -85,16 +85,16 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | PROMPT | PLANT-PROMPT-001 – PLANT-PROMPT-009 | 9 | 0 | 0 | 9 | 9 |
 | WIN | PLANT-WIN-001 – PLANT-WIN-007 | 7 | 0 | 0 | 7 | 7 |
 | REC | PLANT-REC-001 – PLANT-REC-008 | 8 | 0 | 0 | 8 | 8 |
-| WATER | PLANT-WATER-001 – PLANT-WATER-007 | 4 | 0 | 3 | 7 | 7 |
+| WATER | PLANT-WATER-001 – PLANT-WATER-007 | 7 | 0 | 0 | 7 | 7 |
 | PLAN | PLANT-PLAN-001 – PLANT-PLAN-005 | 5 | 0 | 0 | 5 | 5 |
 | UI | PLANT-UI-001 – PLANT-UI-013 | 13 | 0 | 0 | 13 | 13 |
-| **Total** | | **76** | **0** | **3** | **79** | **79** |
+| **Total** | | **79** | **0** | **0** | **79** | **79** |
 
-**Summary:** 76 of 79 active specs implemented; 0 deferred; 76 implemented specs cited by a test.
+**Summary:** 79 of 79 active specs implemented; 0 deferred; 79 implemented specs cited by a test.
 
 ## Key Findings
 
-1. **Marked `[ ]` but cited in code:** PLANT-WATER-001, PLANT-WATER-002, PLANT-WATER-003. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
+1. No findings.
 
 ## Work Required
 
@@ -102,7 +102,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Confirm PLANT-WATER-001, PLANT-WATER-002, PLANT-WATER-003 against the code and set their markers.
+- None.
 
 ### Nice to Have
 - None.

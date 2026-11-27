@@ -4,7 +4,7 @@ Recommendation Feed — leaf segment `FEED` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `44031e1`): 49 of 52 active specs implemented; 3 marked `[ ]` (2 of them already cited in code).
+**PARTIAL** — audited 2026-11-27 (git SHA `357e2d3`): 51 of 52 active specs implemented; 1 marked `[ ]`.
 
 ## References
 
@@ -70,19 +70,18 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
 | REC | FEED-REC-001 – FEED-REC-005 | 4 | 0 | 1 | 4 | 4 |
-| PIPE | FEED-PIPE-001 – FEED-PIPE-018 | 14 | 1 | 2 | 16 | 16 |
+| PIPE | FEED-PIPE-001 – FEED-PIPE-018 | 16 | 1 | 0 | 16 | 16 |
 | STATE | FEED-STATE-001 – FEED-STATE-010 | 10 | 0 | 0 | 10 | 10 |
 | API | FEED-API-001 – FEED-API-006 | 6 | 0 | 0 | 6 | 6 |
 | UI | FEED-UI-001 – FEED-UI-015 | 15 | 0 | 0 | 15 | 15 |
-| **Total** | | **49** | **1** | **3** | **51** | **51** |
+| **Total** | | **51** | **1** | **1** | **51** | **51** |
 
-**Summary:** 49 of 52 active specs implemented; 1 deferred; 49 implemented specs cited by a test.
+**Summary:** 51 of 52 active specs implemented; 1 deferred; 51 implemented specs cited by a test.
 
 ## Key Findings
 
-1. **Marked `[ ]` but cited in code:** FEED-PIPE-015, FEED-PIPE-016. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
-2. **Open gaps (not yet built):** FEED-REC-005.
-3. **Deferred:** FEED-PIPE-010.
+1. **Open gaps (not yet built):** FEED-REC-005.
+2. **Deferred:** FEED-PIPE-010.
 
 ## Work Required
 
@@ -90,7 +89,6 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Confirm FEED-PIPE-015, FEED-PIPE-016 against the code and set their markers.
 - Build or defer FEED-REC-005.
 
 ### Nice to Have
