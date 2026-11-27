@@ -78,13 +78,19 @@ fn the_app_waits_for_a_healthy_database() {
     assert!(db.contains("interval: 5s") && db.contains("retries: 5"));
 }
 
-// @spec DEPLOY-COMPOSE-004
+// @spec DEPLOY-COMPOSE-011
 #[test]
-fn the_lake_is_mounted_read_only_at_data() {
-    assert!(has(
-        &service("app"),
-        "- ${DATALAKE_HOST_PATH:-/data}:/data:ro"
-    ));
+fn the_app_mounts_nothing_from_the_host() {
+    let app = service("app").join("\n");
+    assert!(!app.contains("volumes:"), "{app}");
+    for retired in [
+        "DATALAKE",
+        "NOAA_STATION_WBANNO",
+        "WEATHER_SILVER_PATH",
+        "HA_TEMPERATURE_UNIT",
+    ] {
+        assert!(!app.contains(retired), "{retired}");
+    }
 }
 
 // @spec DEPLOY-COMPOSE-005

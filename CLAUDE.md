@@ -18,7 +18,7 @@ Containerized web application for tracking lawn care activities with data-driven
 ### Backend
 - `cd backend && cargo build` — Build backend
 - `cd backend && cargo test` — Run tests (1,176 tests; no database needed)
-- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,512 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
+- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,513 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
 - `cd backend && cargo run --release --features scoring -- score-estimate --cache <dir> --out src/logic/soil_estimate/scores.json` — Re-score the soil estimate against USCRN (downloads about 1,900 public files into `<dir>` on first run; re-run when the model, the calibration rule or a consumer's crossing rule changes)
 - `cd backend && cargo test live_ -- --ignored --test-threads=1` — One real request to each outside weather source (NOAA, RCC-ACIS, USDA, Open-Meteo, National Weather Service), to confirm the parsers still match what the services send; not part of the suite
 - `cd backend && DATABASE_URL=… cargo test --features db-tests live_schedule -- --ignored` — The fetch schedule's first passes for a new lawn against the real services, into the test database; not part of the suite
@@ -163,8 +163,7 @@ turfops/
 
 See `backend/.env.example` for full list:
 - `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD` — App PostgreSQL connection
-- `DATALAKE_ROOT` — Mount point of the NOAA weather data lake (default `/data`); silver/gold weather parquet paths derive beneath it. Override individually with `WEATHER_SILVER_PATH` / `WEATHER_GOLD_PATH`.
-- `NOAA_STATION_WBANNO` — USCRN station filter (default 3761)
+- Retired, each logged once at startup as having no effect: `DATALAKE_ROOT`, `WEATHER_SILVER_PATH`, `WEATHER_GOLD_PATH`, `NOAA_STATION_WBANNO`, `HA_TEMPERATURE_UNIT` (and `OWM_ENABLED` / `OWM_LATITUDE` / `OWM_LONGITUDE`). The example Compose mounts no volume for the app.
 - `HA_URL`, `HA_TOKEN` — Home Assistant connection. Also copied once into the app's database (`service_credential`) on a start that finds no connection ever stored there; the setup endpoints read and change that stored copy, and forgetting it in the app is not undone by a restart. The pages still read the environment until the cutover
 - `OWM_API_KEY` — OpenWeatherMap API key (an empty value = not configured, same for the other optional keys); copied once into `service_credential` the same way; it does not choose OpenWeatherMap (the provider is chosen in setup). `OWM_LATITUDE` / `OWM_LONGITUDE` / `OWM_ENABLED` are no longer read
 - `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_ENABLED` — landscape-plant care plans (503 without a key)

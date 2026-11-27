@@ -104,6 +104,8 @@ impl SensorReader {
         if !forced && (!waited || !self.failing.may_try(now)) {
             return Ok(Read::NotDue);
         }
+        // @spec WX-SRC-CFG-002
+        // Only the connection stored in the app; none stored is not configured.
         let Some(held) = setup_queries::credential(pool, Service::HomeAssistant).await? else {
             return Ok(Read::NoSensors);
         };

@@ -37,7 +37,6 @@ fn config() -> Config {
             token: String::new(),
             temperature_entity: String::new(),
             humidity_entity: String::new(),
-            temperature_unit: Default::default(),
         },
         openweathermap: None,
         openrouter: None,

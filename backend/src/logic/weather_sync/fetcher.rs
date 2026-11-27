@@ -70,6 +70,7 @@ impl Fetcher {
     pub async fn run(&self, fetch: &Fetch, now: DateTime<Utc>) -> Result<usize> {
         let outcome = self.attempt(fetch, now).await;
         if let Err(error) = &outcome {
+            // @spec DEPLOY-LOG-004
             tracing::warn!(source = %fetch.source.key, ?error, "weather fetch failed");
             let product = fetch.product.as_str();
             let said = error.owner_message();

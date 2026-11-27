@@ -287,6 +287,7 @@ impl Schedule {
         match next {
             Some(fetch) if self.last_backfill.as_ref() != Some(&fetch) => {
                 if let Some(rows) = self.attempt(&fetch, now).await {
+                    // @spec DEPLOY-LOG-004
                     tracing::info!(
                         source = %fetch.source.name,
                         from = %fetch.span.0,

@@ -65,10 +65,10 @@ fn the_station_defaults_to_3761_and_an_unparsable_one_warns() {
     );
 }
 
-// @spec WX-SRC-CFG-002
+// @spec DEPLOY-CONFIG-016
 #[test]
-fn home_assistant_defaults_to_localhost_with_no_token() {
+fn home_assistant_is_not_set_unless_the_environment_gives_one() {
     let (config, _) = load(&[]);
-    assert_eq!(config.homeassistant.url, "http://localhost:8123");
+    assert!(config.homeassistant.url.is_empty());
     assert!(config.homeassistant.token.is_empty());
 }

@@ -116,9 +116,9 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 
 ## Settings
 
-- [ ] **WX-SRC-CFG-002**: The system shall use the Home Assistant address and token stored in the app, and shall treat Home Assistant as not configured when none is stored.
+- [x] **WX-SRC-CFG-002**: The system shall use the Home Assistant address and token stored in the app, and shall treat Home Assistant as not configured when none is stored.
 - [x] **WX-SRC-CFG-003**: The system shall use the OpenWeatherMap key stored in the app; a stored key shall not by itself choose OpenWeatherMap as the forecast provider.
-- [ ] **WX-SRC-CFG-004**: The station and grid clients shall take the station or point as an argument and shall read no setting.
+- [x] **WX-SRC-CFG-004**: The station and grid clients shall take the station or point as an argument and shall read no setting.
 
 ## Errors
 

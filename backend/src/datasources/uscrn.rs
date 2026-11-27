@@ -33,6 +33,8 @@ pub struct UscrnClient {
     base: String,
 }
 
+// @spec WX-SRC-CFG-004
+// The station is an argument to every call; the client reads no setting.
 impl UscrnClient {
     pub fn new(outside: Arc<Outside>) -> Self {
         Self {
