@@ -1,25 +1,25 @@
 # Arrow: applications
 
-Lawn Profile & Application Log — leaf segment `APP` under the root HLD.
+Applications — leaf segment `APP` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `2bf061e`): every implemented spec was checked against the code while linking it. 75 of 75 implemented specs are linked to both code and a test.
+**PARTIAL** — audited 2026-11-27 (git SHA `44031e1`): 81 of 82 active specs implemented; 1 marked `[ ]`.
 
 ## References
 
 ### HLD
-- [docs/high-level-design.md](../../docs/high-level-design.md) § System Design — component "Applications"
+- [docs/high-level-design.md](../high-level-design.md) § System Design — component "Applications"
 
 ### LLD
-- [docs/intent/applications/applications-design.md](../../docs/intent/applications/applications-design.md)
+- [docs/intent/applications/applications-design.md](../intent/applications/applications-design.md)
 
 ### EARS
-- [docs/intent/applications/applications-specs.md](../../docs/intent/applications/applications-specs.md) (75 specs, prefix `APP`)
+- [docs/intent/applications/applications-specs.md](../intent/applications/applications-specs.md) (82 specs, prefix `APP`)
 
 ### Related docs
-- [docs/agronomy-methods.md](../../docs/agronomy-methods.md)
-- [docs/plans/product-inventory.md](../../docs/plans/product-inventory.md)
+- [docs/agronomy-methods.md](../agronomy-methods.md)
+- [docs/plans/product-inventory.md](../plans/product-inventory.md)
 
 ### Tests
 - [backend/src/api/applications/duplicate_db_tests.rs](../../backend/src/api/applications/duplicate_db_tests.rs)
@@ -29,11 +29,13 @@ Lawn Profile & Application Log — leaf segment `APP` under the root HLD.
 - [backend/src/api/applications/write_db_tests.rs](../../backend/src/api/applications/write_db_tests.rs)
 - [backend/src/api/profile/db_tests.rs](../../backend/src/api/profile/db_tests.rs)
 - [backend/src/api/profile/route_tests.rs](../../backend/src/api/profile/route_tests.rs)
+- [backend/src/config/location_seed_tests.rs](../../backend/src/config/location_seed_tests.rs)
 - [backend/src/config/startup_profile_db_tests.rs](../../backend/src/config/startup_profile_db_tests.rs)
 - [backend/src/db/db_tests.rs](../../backend/src/db/db_tests.rs)
 - [backend/src/db/queries/row_tests.rs](../../backend/src/db/queries/row_tests.rs)
 - [backend/src/logic/follow_up/reminder_tests.rs](../../backend/src/logic/follow_up/reminder_tests.rs)
 - [backend/src/models/application/log_tests.rs](../../backend/src/models/application/log_tests.rs)
+- [backend/src/models/lawn_profile/location_tests.rs](../../backend/src/models/lawn_profile/location_tests.rs)
 - [backend/src/models/lawn_profile/parse_tests.rs](../../backend/src/models/lawn_profile/parse_tests.rs)
 - [frontend/src/api/client.test.ts](../../frontend/src/api/client.test.ts)
 - [frontend/src/components/FracClassPicker.test.tsx](../../frontend/src/components/FracClassPicker.test.tsx)
@@ -48,10 +50,9 @@ Lawn Profile & Application Log — leaf segment `APP` under the root HLD.
 - [backend/src/api/applications.rs](../../backend/src/api/applications.rs)
 - [backend/src/api/applications/product_link.rs](../../backend/src/api/applications/product_link.rs)
 - [backend/src/api/applications/validate.rs](../../backend/src/api/applications/validate.rs)
-- [backend/src/api/frac_classes.rs](../../backend/src/api/frac_classes.rs)
 - [backend/src/api/profile.rs](../../backend/src/api/profile.rs)
 - [backend/src/config.rs](../../backend/src/config.rs)
-- [backend/src/db/migrations](../../backend/src/db/migrations)
+- [backend/src/config/location_seed.rs](../../backend/src/config/location_seed.rs)
 - [backend/src/db/migrations/20261011000100_applications_cleanup.sql](../../backend/src/db/migrations/20261011000100_applications_cleanup.sql)
 - [backend/src/db/plant_queries.rs](../../backend/src/db/plant_queries.rs)
 - [backend/src/db/product_queries.rs](../../backend/src/db/product_queries.rs)
@@ -61,32 +62,29 @@ Lawn Profile & Application Log — leaf segment `APP` under the root HLD.
 - [backend/src/main.rs](../../backend/src/main.rs)
 - [backend/src/models/application.rs](../../backend/src/models/application.rs)
 - [backend/src/models/lawn_profile.rs](../../backend/src/models/lawn_profile.rs)
-- [backend/src/models/product/enums.rs](../../backend/src/models/product/enums.rs)
+- [backend/src/models/lawn_profile/location.rs](../../backend/src/models/lawn_profile/location.rs)
 - [frontend/src/api/client.ts](../../frontend/src/api/client.ts)
-- [frontend/src/api/errors.ts](../../frontend/src/api/errors.ts)
 - [frontend/src/components/FracClassPicker.tsx](../../frontend/src/components/FracClassPicker.tsx)
 - [frontend/src/components/ProductPicker.tsx](../../frontend/src/components/ProductPicker.tsx)
 - [frontend/src/components/applications/formRules.ts](../../frontend/src/components/applications/formRules.ts)
+- [frontend/src/components/profile/LawnProfileForm.tsx](../../frontend/src/components/profile/LawnProfileForm.tsx)
 - [frontend/src/pages/Applications.tsx](../../frontend/src/pages/Applications.tsx)
 - [frontend/src/pages/Settings.tsx](../../frontend/src/pages/Settings.tsx)
-- [frontend/src/types/index.ts](../../frontend/src/types/index.ts)
-- [frontend/src/types/inventoryCompat.ts](../../frontend/src/types/inventoryCompat.ts)
-- [frontend/src/utils/dates.ts](../../frontend/src/utils/dates.ts)
 
 ## Architecture
 
 **Purpose:** see the LLD's Context and Design Philosophy; this page carries pointers and coverage only.
 
-**Spec facets:**
-1. `APP-PROF` — lawn profile, startup seeding, `/profile`
-2. `APP-LOG` — application types, scope, row shape, the turf / nitrogen / feeding definitions
-3. `APP-DUP` — duplicate key
-4. `APP-API` — `/applications` endpoints and validation
-5. `APP-LINK` — shelf-product link
-6. `APP-FRAC` — FRAC classes on the entry and the form's picker
-7. `APP-FOLLOW` — follow-up reminders
+**Spec facets** (named by their section in the spec file):
+1. `APP-PROF` — Lawn profile
+2. `APP-LOG` — Application log model
+3. `APP-DUP` — Duplicate key
+4. `APP-API` — Applications endpoints
+5. `APP-LINK` — Shelf-product link
+6. `APP-FRAC` — FRAC classes on the entry
+7. `APP-FOLLOW` — Follow-up reminders
 8. `APP-LIST` — Applications page list
-9. `APP-FORM` — application form and product picker
+9. `APP-FORM` — Application form
 10. `APP-SET` — Settings page
 
 ## Spec Coverage
@@ -95,7 +93,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| PROF | APP-PROF-001 – APP-PROF-012 | 12 | 0 | 0 | 12 | 12 |
+| PROF | APP-PROF-001 – APP-PROF-019 | 18 | 0 | 1 | 17 | 17 |
 | LOG | APP-LOG-001 – APP-LOG-012 | 12 | 0 | 0 | 12 | 12 |
 | DUP | APP-DUP-001 – APP-DUP-003 | 3 | 0 | 0 | 3 | 3 |
 | API | APP-API-001 – APP-API-012 | 12 | 0 | 0 | 12 | 12 |
@@ -105,13 +103,15 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | LIST | APP-LIST-001 – APP-LIST-005 | 5 | 0 | 0 | 5 | 5 |
 | FORM | APP-FORM-001 – APP-FORM-011 | 11 | 0 | 0 | 11 | 11 |
 | SET | APP-SET-001 – APP-SET-003 | 3 | 0 | 0 | 3 | 3 |
-| **Total** | | **75** | **0** | **0** | **75** | **75** |
+| **Total** | | **81** | **0** | **1** | **80** | **80** |
 
-**Summary:** 75 of 75 active specs implemented; 0 deferred; 75 implemented specs cited by a test, 0 cited nowhere.
+**Summary:** 81 of 82 active specs implemented; 0 deferred; 80 implemented specs cited by a test, 1 not.
 
 ## Key Findings
 
-1. No findings.
+1. **Open gaps (not yet built):** APP-PROF-018.
+2. **Implemented, no `@spec` in code:** APP-PROF-019.
+3. **Implemented, no test cites it:** APP-PROF-019.
 
 ## Work Required
 
@@ -119,7 +119,9 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- None.
+- Build or defer APP-PROF-018.
+- Add a test citing APP-PROF-019.
+- Annotate the code behind APP-PROF-019.
 
 ### Nice to Have
 - None.

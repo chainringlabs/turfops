@@ -1,21 +1,21 @@
 # Arrow: recommendation-feed
 
-Recommendation Feed & Answered State — leaf segment `FEED` under the root HLD.
+Recommendation Feed — leaf segment `FEED` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `2bf061e`): every implemented spec was checked against the code while linking it. 49 of 49 implemented specs are linked to both code and a test.
+**PARTIAL** — audited 2026-11-27 (git SHA `44031e1`): 49 of 52 active specs implemented; 3 marked `[ ]` (2 of them already cited in code).
 
 ## References
 
 ### HLD
-- [docs/high-level-design.md](../../docs/high-level-design.md) § System Design — component "Recommendation feed and state"
+- [docs/high-level-design.md](../high-level-design.md) § System Design — component "Recommendation feed and state"
 
 ### LLD
-- [docs/intent/recommendation-feed/recommendation-feed-design.md](../../docs/intent/recommendation-feed/recommendation-feed-design.md)
+- [docs/intent/recommendation-feed/recommendation-feed-design.md](../intent/recommendation-feed/recommendation-feed-design.md)
 
 ### EARS
-- [docs/intent/recommendation-feed/recommendation-feed-specs.md](../../docs/intent/recommendation-feed/recommendation-feed-specs.md) (50 specs, prefix `FEED`)
+- [docs/intent/recommendation-feed/recommendation-feed-specs.md](../intent/recommendation-feed/recommendation-feed-specs.md) (53 specs, prefix `FEED`)
 
 ### Tests
 - [backend/src/api/recommendation_feed/clock_db_tests.rs](../../backend/src/api/recommendation_feed/clock_db_tests.rs)
@@ -27,6 +27,7 @@ Recommendation Feed & Answered State — leaf segment `FEED` under the root HLD.
 - [backend/src/models/recommendation/contract_tests.rs](../../backend/src/models/recommendation/contract_tests.rs)
 - [backend/src/models/recommendation_state/policy_tests.rs](../../backend/src/models/recommendation_state/policy_tests.rs)
 - [frontend/src/components/dashboard/loadDashboard.test.ts](../../frontend/src/components/dashboard/loadDashboard.test.ts)
+- [frontend/src/components/sources/display.test.ts](../../frontend/src/components/sources/display.test.ts)
 - [frontend/src/pages/Dashboard.test.tsx](../../frontend/src/pages/Dashboard.test.tsx)
 - [frontend/src/pages/Recommendations.test.tsx](../../frontend/src/pages/Recommendations.test.tsx)
 - [frontend/tests/repo.test.ts](../../frontend/tests/repo.test.ts)
@@ -35,37 +36,32 @@ Recommendation Feed & Answered State — leaf segment `FEED` under the root HLD.
 ### Code
 - [backend/src/api/dashboard.rs](../../backend/src/api/dashboard.rs)
 - [backend/src/api/disease_risk.rs](../../backend/src/api/disease_risk.rs)
-- [backend/src/api/inventory.rs](../../backend/src/api/inventory.rs)
 - [backend/src/api/recommendation_feed.rs](../../backend/src/api/recommendation_feed.rs)
 - [backend/src/api/recommendations.rs](../../backend/src/api/recommendations.rs)
 - [backend/src/api/timing.rs](../../backend/src/api/timing.rs)
-- [backend/src/db/migrations/20240101000003_recommendation_states.sql](../../backend/src/db/migrations/20240101000003_recommendation_states.sql)
-- [backend/src/db/migrations/20260921000100_recommendation_state_severity.sql](../../backend/src/db/migrations/20260921000100_recommendation_state_severity.sql)
 - [backend/src/db/queries.rs](../../backend/src/db/queries.rs)
-- [backend/src/logic/inventory.rs](../../backend/src/logic/inventory.rs)
 - [backend/src/logic/plant_maintenance.rs](../../backend/src/logic/plant_maintenance.rs)
-- [backend/src/logic/rules/nitrogen_guard.rs](../../backend/src/logic/rules/nitrogen_guard.rs)
 - [backend/src/logic/rules/spring_nitrogen.rs](../../backend/src/logic/rules/spring_nitrogen.rs)
-- [backend/src/mcp/tools/lawn.rs](../../backend/src/mcp/tools/lawn.rs)
 - [backend/src/models/recommendation.rs](../../backend/src/models/recommendation.rs)
 - [backend/src/models/recommendation_state.rs](../../backend/src/models/recommendation_state.rs)
-- [frontend/src/api/client.ts](../../frontend/src/api/client.ts)
 - [frontend/src/components/AlertCard.tsx](../../frontend/src/components/AlertCard.tsx)
 - [frontend/src/components/dashboard/loadDashboard.ts](../../frontend/src/components/dashboard/loadDashboard.ts)
+- [frontend/src/components/environmental/GaugeCard.tsx](../../frontend/src/components/environmental/GaugeCard.tsx)
+- [frontend/src/components/sources/SourceStatusLine.tsx](../../frontend/src/components/sources/SourceStatusLine.tsx)
+- [frontend/src/components/sources/display.ts](../../frontend/src/components/sources/display.ts)
 - [frontend/src/pages/Dashboard.tsx](../../frontend/src/pages/Dashboard.tsx)
 - [frontend/src/pages/Recommendations.tsx](../../frontend/src/pages/Recommendations.tsx)
-- [frontend/src/types/index.ts](../../frontend/src/types/index.ts)
 
 ## Architecture
 
 **Purpose:** see the LLD's Context and Design Philosophy; this page carries pointers and coverage only.
 
-**Spec facets:**
-1. `FEED-REC` — the recommendation contract
-2. `FEED-PIPE` — building the feed
-3. `FEED-STATE` — answered-state policy
-4. `FEED-API` — endpoints
-5. `FEED-UI` — Recommendations page and dashboard layout
+**Spec facets** (named by their section in the spec file):
+1. `FEED-REC` — Recommendation contract
+2. `FEED-PIPE` — Building the feed
+3. `FEED-STATE` — Answered state
+4. `FEED-API` — Endpoints
+5. `FEED-UI` — Recommendations page and dashboard
 
 ## Spec Coverage
 
@@ -73,18 +69,20 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| REC | FEED-REC-001 – FEED-REC-004 | 4 | 0 | 0 | 4 | 4 |
-| PIPE | FEED-PIPE-001 – FEED-PIPE-018 | 16 | 1 | 0 | 16 | 16 |
+| REC | FEED-REC-001 – FEED-REC-005 | 4 | 0 | 1 | 4 | 4 |
+| PIPE | FEED-PIPE-001 – FEED-PIPE-018 | 14 | 1 | 2 | 16 | 16 |
 | STATE | FEED-STATE-001 – FEED-STATE-010 | 10 | 0 | 0 | 10 | 10 |
 | API | FEED-API-001 – FEED-API-006 | 6 | 0 | 0 | 6 | 6 |
-| UI | FEED-UI-001 – FEED-UI-013 | 13 | 0 | 0 | 13 | 13 |
-| **Total** | | **49** | **1** | **0** | **49** | **49** |
+| UI | FEED-UI-001 – FEED-UI-015 | 15 | 0 | 0 | 15 | 15 |
+| **Total** | | **49** | **1** | **3** | **51** | **51** |
 
-**Summary:** 49 of 49 active specs implemented; 1 deferred; 49 implemented specs cited by a test, 0 cited nowhere.
+**Summary:** 49 of 52 active specs implemented; 1 deferred; 49 implemented specs cited by a test.
 
 ## Key Findings
 
-1. **Deferred:** FEED-PIPE-010.
+1. **Marked `[ ]` but cited in code:** FEED-PIPE-015, FEED-PIPE-016. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
+2. **Open gaps (not yet built):** FEED-REC-005.
+3. **Deferred:** FEED-PIPE-010.
 
 ## Work Required
 
@@ -92,7 +90,8 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- None.
+- Confirm FEED-PIPE-015, FEED-PIPE-016 against the code and set their markers.
+- Build or defer FEED-REC-005.
 
 ### Nice to Have
 - None.

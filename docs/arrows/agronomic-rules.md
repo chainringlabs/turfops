@@ -4,26 +4,25 @@ Agronomic Rules — leaf segment `RULE` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `2bf061e`): every implemented spec was checked against the code while linking it. 76 of 76 implemented specs are linked to both code and a test.
+**PARTIAL** — audited 2026-11-27 (git SHA `44031e1`): 77 of 82 active specs implemented; 5 marked `[ ]` (2 of them already cited in code).
 
 ## References
 
 ### HLD
-- [docs/high-level-design.md](../../docs/high-level-design.md) § System Design — component "Agronomic rules"
+- [docs/high-level-design.md](../high-level-design.md) § System Design — component "Agronomic rules"
 
 ### LLD
-- [docs/intent/agronomic-rules/agronomic-rules-design.md](../../docs/intent/agronomic-rules/agronomic-rules-design.md)
+- [docs/intent/agronomic-rules/agronomic-rules-design.md](../intent/agronomic-rules/agronomic-rules-design.md)
 
 ### EARS
-- [docs/intent/agronomic-rules/agronomic-rules-specs.md](../../docs/intent/agronomic-rules/agronomic-rules-specs.md) (77 specs, prefix `RULE`)
+- [docs/intent/agronomic-rules/agronomic-rules-specs.md](../intent/agronomic-rules/agronomic-rules-specs.md) (83 specs, prefix `RULE`)
 
 ### Related docs
-- [docs/agronomy-methods.md](../../docs/agronomy-methods.md)
+- [docs/agronomy-methods.md](../agronomy-methods.md)
 
 ### Tests
-- [backend/src/api/gdd/handler_tests.rs](../../backend/src/api/gdd/handler_tests.rs)
+- [backend/src/api/gdd/db_tests.rs](../../backend/src/api/gdd/db_tests.rs)
 - [backend/src/api/nitrogen_budget/db_tests.rs](../../backend/src/api/nitrogen_budget/db_tests.rs)
-- [backend/src/datasources/weather/tests.rs](../../backend/src/datasources/weather/tests.rs)
 - [backend/src/logic/gdd/lake_tests.rs](../../backend/src/logic/gdd/lake_tests.rs)
 - [backend/src/logic/rules/broadleaf_herbicide/rule_tests.rs](../../backend/src/logic/rules/broadleaf_herbicide/rule_tests.rs)
 - [backend/src/logic/rules/engine_tests.rs](../../backend/src/logic/rules/engine_tests.rs)
@@ -39,17 +38,13 @@ Agronomic Rules — leaf segment `RULE` under the root HLD.
 - [backend/src/logic/rules/weather_rule_tests.rs](../../backend/src/logic/rules/weather_rule_tests.rs)
 - [frontend/src/components/GddWidget.test.tsx](../../frontend/src/components/GddWidget.test.tsx)
 - [frontend/src/components/NitrogenBudgetWidget.test.tsx](../../frontend/src/components/NitrogenBudgetWidget.test.tsx)
-- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/nitrogen_budget.rs`, `backend/src/logic/rules/fall_fertilization/recs.rs`, `backend/src/logic/rules/nitrogen_guard.rs`, `backend/src/logic/rules/spring_nitrogen.rs`, `backend/src/models/nitrogen_budget.rs`
+- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/nitrogen_budget.rs`, `backend/src/logic/rules/fall_fertilization/recs.rs`, `backend/src/logic/rules/irrigation_forecast.rs`, `backend/src/logic/rules/nitrogen_guard.rs`, `backend/src/logic/rules/spring_nitrogen.rs`, `backend/src/logic/rules/thresholds.rs`, `backend/src/models/nitrogen_budget.rs`
 
 ### Code
 - [backend/src/api/gdd.rs](../../backend/src/api/gdd.rs)
 - [backend/src/api/nitrogen_budget.rs](../../backend/src/api/nitrogen_budget.rs)
-- [backend/src/api/recommendation_feed.rs](../../backend/src/api/recommendation_feed.rs)
-- [backend/src/clock.rs](../../backend/src/clock.rs)
-- [backend/src/datasources/weather.rs](../../backend/src/datasources/weather.rs)
+- [backend/src/logic/data_sync.rs](../../backend/src/logic/data_sync.rs)
 - [backend/src/logic/gdd.rs](../../backend/src/logic/gdd.rs)
-- [backend/src/logic/plant_maintenance/watering.rs](../../backend/src/logic/plant_maintenance/watering.rs)
-- [backend/src/logic/rules](../../backend/src/logic/rules)
 - [backend/src/logic/rules/application_window.rs](../../backend/src/logic/rules/application_window.rs)
 - [backend/src/logic/rules/broadleaf_herbicide.rs](../../backend/src/logic/rules/broadleaf_herbicide.rs)
 - [backend/src/logic/rules/engine.rs](../../backend/src/logic/rules/engine.rs)
@@ -65,36 +60,28 @@ Agronomic Rules — leaf segment `RULE` under the root HLD.
 - [backend/src/logic/rules/plan_state.rs](../../backend/src/logic/rules/plan_state.rs)
 - [backend/src/logic/rules/rain_delay.rs](../../backend/src/logic/rules/rain_delay.rs)
 - [backend/src/logic/rules/spring_nitrogen.rs](../../backend/src/logic/rules/spring_nitrogen.rs)
-- [backend/src/logic/timing/companions.rs](../../backend/src/logic/timing/companions.rs)
-- [backend/src/logic/timing/recommendations.rs](../../backend/src/logic/timing/recommendations.rs)
-- [backend/src/models/application.rs](../../backend/src/models/application.rs)
-- [backend/src/models/gdd.rs](../../backend/src/models/gdd.rs)
-- [backend/src/models/inventory.rs](../../backend/src/models/inventory.rs)
+- [backend/src/logic/rules/thresholds.rs](../../backend/src/logic/rules/thresholds.rs)
 - [backend/src/models/lawn_profile.rs](../../backend/src/models/lawn_profile.rs)
 - [backend/src/models/nitrogen_budget.rs](../../backend/src/models/nitrogen_budget.rs)
-- [backend/src/models/recommendation.rs](../../backend/src/models/recommendation.rs)
-- [backend/src/state.rs](../../backend/src/state.rs)
 - [frontend/src/components/GddWidget.tsx](../../frontend/src/components/GddWidget.tsx)
 - [frontend/src/components/NitrogenBudgetWidget.tsx](../../frontend/src/components/NitrogenBudgetWidget.tsx)
-- [frontend/src/pages/Dashboard.tsx](../../frontend/src/pages/Dashboard.tsx)
-- [frontend/src/types/index.ts](../../frontend/src/types/index.ts)
 
 ## Architecture
 
 **Purpose:** see the LLD's Context and Design Philosophy; this page carries pointers and coverage only.
 
-**Spec facets:**
-1. `RULE-ENG` — rule contract and engine
-2. `RULE-SPRING` — spring nitrogen
-3. `RULE-BROAD` — broadleaf herbicide
-4. `RULE-GRUB` — grub control
-5. `RULE-BLOCK` — fertilizer block
-6. `RULE-FALL` — fall fertilization
-7. `RULE-WX` — rain delay, irrigation, heat stress, application window, mowing height
-8. `RULE-GUARD` — nitrogen guard
-9. `RULE-BUDGET` — annual nitrogen budget
-10. `RULE-GDD` — growing degree days and the crabgrass model
-11. `RULE-UI` — dashboard widgets
+**Spec facets** (named by their section in the spec file):
+1. `RULE-ENG` — Rule contract and engine
+2. `RULE-SPRING` — Spring nitrogen
+3. `RULE-BROAD` — Broadleaf herbicide
+4. `RULE-GRUB` — Grub control
+5. `RULE-BLOCK` — Fertilizer block
+6. `RULE-FALL` — Fall fertilization
+7. `RULE-WX` — Weather rules
+8. `RULE-GUARD` — Nitrogen guard
+9. `RULE-BUDGET` — Annual nitrogen budget
+10. `RULE-GDD` — Growing degree days and the crabgrass model
+11. `RULE-UI` — Dashboard widgets
 
 ## Spec Coverage
 
@@ -102,24 +89,27 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| ENG | RULE-ENG-001 – RULE-ENG-015 | 15 | 0 | 0 | 15 | 15 |
+| ENG | RULE-ENG-001 – RULE-ENG-016 | 15 | 0 | 1 | 15 | 15 |
 | SPRING | RULE-SPRING-001 – RULE-SPRING-010 | 10 | 0 | 0 | 10 | 10 |
 | BROAD | RULE-BROAD-001 – RULE-BROAD-004 | 4 | 0 | 0 | 4 | 4 |
 | GRUB | RULE-GRUB-001 – RULE-GRUB-006 | 6 | 0 | 0 | 6 | 6 |
 | BLOCK | RULE-BLOCK-001 – RULE-BLOCK-002 | 2 | 0 | 0 | 2 | 2 |
 | FALL | RULE-FALL-001 – RULE-FALL-007 | 7 | 0 | 0 | 7 | 7 |
-| WX | RULE-WX-001 – RULE-WX-008 | 8 | 0 | 0 | 8 | 8 |
+| WX | RULE-WX-001 – RULE-WX-013 | 9 | 0 | 4 | 11 | 11 |
 | GUARD | RULE-GUARD-001 – RULE-GUARD-011 | 10 | 1 | 0 | 10 | 10 |
 | BUDGET | RULE-BUDGET-001 – RULE-BUDGET-005 | 5 | 0 | 0 | 5 | 5 |
-| GDD | RULE-GDD-001 – RULE-GDD-007 | 7 | 0 | 0 | 7 | 7 |
+| GDD | RULE-GDD-001 – RULE-GDD-007 | 7 | 0 | 0 | 7 | 6 |
 | UI | RULE-UI-001 – RULE-UI-002 | 2 | 0 | 0 | 2 | 2 |
-| **Total** | | **76** | **1** | **0** | **76** | **76** |
+| **Total** | | **77** | **1** | **5** | **79** | **78** |
 
-**Summary:** 76 of 76 active specs implemented; 1 deferred; 76 implemented specs cited by a test, 0 cited nowhere.
+**Summary:** 77 of 82 active specs implemented; 1 deferred; 76 implemented specs cited by a test, 1 not.
 
 ## Key Findings
 
-1. **Deferred:** RULE-GUARD-005.
+1. **Marked `[ ]` but cited in code:** RULE-WX-002, RULE-WX-006. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
+2. **Open gaps (not yet built):** RULE-ENG-016, RULE-WX-009, RULE-WX-010.
+3. **Implemented, no test cites it:** RULE-GDD-002.
+4. **Deferred:** RULE-GUARD-005.
 
 ## Work Required
 
@@ -127,7 +117,9 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- None.
+- Confirm RULE-WX-002, RULE-WX-006 against the code and set their markers.
+- Build or defer RULE-ENG-016, RULE-WX-009, RULE-WX-010.
+- Add a test citing RULE-GDD-002.
 
 ### Nice to Have
 - None.

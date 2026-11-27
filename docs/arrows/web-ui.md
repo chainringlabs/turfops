@@ -1,24 +1,24 @@
 # Arrow: web-ui
 
-Web UI Shell & Conventions — leaf segment `UI` under the root HLD.
+Web UI — leaf segment `UI` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `2bf061e`): every implemented spec was checked against the code while linking it. 64 of 64 implemented specs are linked to both code and a test.
+**PARTIAL** — audited 2026-11-27 (git SHA `44031e1`): 62 of 65 active specs implemented; 3 marked `[ ]` (3 of them already cited in code).
 
 ## References
 
 ### HLD
-- [docs/high-level-design.md](../../docs/high-level-design.md) § System Design — component "Web UI"
+- [docs/high-level-design.md](../high-level-design.md) § System Design — component "Web UI"
 
 ### LLD
-- [docs/intent/web-ui/web-ui-design.md](../../docs/intent/web-ui/web-ui-design.md)
+- [docs/intent/web-ui/web-ui-design.md](../intent/web-ui/web-ui-design.md)
 
 ### EARS
-- [docs/intent/web-ui/web-ui-specs.md](../../docs/intent/web-ui/web-ui-specs.md) (64 specs, prefix `UI`)
+- [docs/intent/web-ui/web-ui-specs.md](../intent/web-ui/web-ui-specs.md) (65 specs, prefix `UI`)
 
 ### Related docs
-- [docs/timing-windows.md](../../docs/timing-windows.md)
+- [docs/timing-windows.md](../timing-windows.md)
 
 ### Tests
 - [backend/src/config/cors_origin_tests.rs](../../backend/src/config/cors_origin_tests.rs)
@@ -39,8 +39,12 @@ Web UI Shell & Conventions — leaf segment `UI` under the root HLD.
 - [frontend/src/components/disease/DiseaseDetail.test.tsx](../../frontend/src/components/disease/DiseaseDetail.test.tsx)
 - [frontend/src/components/timing/SoilSeasonChart.test.tsx](../../frontend/src/components/timing/SoilSeasonChart.test.tsx)
 - [frontend/src/pages/DashboardLoad.test.tsx](../../frontend/src/pages/DashboardLoad.test.tsx)
+- [frontend/src/pages/DiseaseRisk.test.tsx](../../frontend/src/pages/DiseaseRisk.test.tsx)
+- [frontend/src/pages/Environmental.test.tsx](../../frontend/src/pages/Environmental.test.tsx)
+- [frontend/src/pages/Timing.test.tsx](../../frontend/src/pages/Timing.test.tsx)
 - [frontend/src/pages/pageErrors.test.tsx](../../frontend/src/pages/pageErrors.test.tsx)
 - [frontend/src/test/setup.test.tsx](../../frontend/src/test/setup.test.tsx)
+- [frontend/src/test/setup.ts](../../frontend/src/test/setup.ts)
 - [frontend/src/types/mirror.test.ts](../../frontend/src/types/mirror.test.ts)
 - [frontend/src/types/statusPalette.test.ts](../../frontend/src/types/statusPalette.test.ts)
 - [frontend/src/utils/dates.test.ts](../../frontend/src/utils/dates.test.ts)
@@ -52,55 +56,30 @@ Web UI Shell & Conventions — leaf segment `UI` under the root HLD.
 
 ### Code
 - [.github/workflows/ci.yml](../../.github/workflows/ci.yml)
-- [.github/workflows/docker-publish.yml](../../.github/workflows/docker-publish.yml)
 - [backend/src/api/json_errors.rs](../../backend/src/api/json_errors.rs)
-- [backend/src/config.rs](../../backend/src/config.rs)
 - [backend/src/config/load.rs](../../backend/src/config/load.rs)
 - [backend/src/error.rs](../../backend/src/error.rs)
 - [backend/src/main.rs](../../backend/src/main.rs)
 - [backend/src/web.rs](../../backend/src/web.rs)
-- [frontend/README.md](../../frontend/README.md)
 - [frontend/biome.jsonc](../../frontend/biome.jsonc)
 - [frontend/index.html](../../frontend/index.html)
-- [frontend/package.json](../../frontend/package.json)
 - [frontend/src/App.tsx](../../frontend/src/App.tsx)
 - [frontend/src/api/client.ts](../../frontend/src/api/client.ts)
 - [frontend/src/api/errors.ts](../../frontend/src/api/errors.ts)
-- [frontend/src/components/AlertCard.tsx](../../frontend/src/components/AlertCard.tsx)
 - [frontend/src/components/ChartTable.tsx](../../frontend/src/components/ChartTable.tsx)
-- [frontend/src/components/Gauge.tsx](../../frontend/src/components/Gauge.tsx)
-- [frontend/src/components/GddWidget.tsx](../../frontend/src/components/GddWidget.tsx)
-- [frontend/src/components/InventoryBadge.tsx](../../frontend/src/components/InventoryBadge.tsx)
 - [frontend/src/components/Layout.tsx](../../frontend/src/components/Layout.tsx)
-- [frontend/src/components/NitrogenBudgetWidget.tsx](../../frontend/src/components/NitrogenBudgetWidget.tsx)
 - [frontend/src/components/PredictionChart.tsx](../../frontend/src/components/PredictionChart.tsx)
 - [frontend/src/components/SoilTempForecastWidget.tsx](../../frontend/src/components/SoilTempForecastWidget.tsx)
 - [frontend/src/components/dashboard/loadDashboard.ts](../../frontend/src/components/dashboard/loadDashboard.ts)
-- [frontend/src/components/disease/DailyRiskChart.tsx](../../frontend/src/components/disease/DailyRiskChart.tsx)
 - [frontend/src/components/disease/DiseaseDetail.tsx](../../frontend/src/components/disease/DiseaseDetail.tsx)
-- [frontend/src/components/disease/DiseaseRiskWidget.tsx](../../frontend/src/components/disease/DiseaseRiskWidget.tsx)
-- [frontend/src/components/disease/TierBadge.tsx](../../frontend/src/components/disease/TierBadge.tsx)
-- [frontend/src/components/inventory/ShoppingListPanel.tsx](../../frontend/src/components/inventory/ShoppingListPanel.tsx)
 - [frontend/src/components/timing/SoilSeasonChart.tsx](../../frontend/src/components/timing/SoilSeasonChart.tsx)
-- [frontend/src/components/timing/SoilSeasonTable.tsx](../../frontend/src/components/timing/SoilSeasonTable.tsx)
-- [frontend/src/components/timing/TimingWidget.tsx](../../frontend/src/components/timing/TimingWidget.tsx)
 - [frontend/src/components/useServerToday.ts](../../frontend/src/components/useServerToday.ts)
-- [frontend/src/index.css](../../frontend/src/index.css)
-- [frontend/src/main.tsx](../../frontend/src/main.tsx)
 - [frontend/src/pages/Applications.tsx](../../frontend/src/pages/Applications.tsx)
-- [frontend/src/pages/Calendar.tsx](../../frontend/src/pages/Calendar.tsx)
 - [frontend/src/pages/Dashboard.tsx](../../frontend/src/pages/Dashboard.tsx)
 - [frontend/src/pages/DiseaseRisk.tsx](../../frontend/src/pages/DiseaseRisk.tsx)
 - [frontend/src/pages/Environmental.tsx](../../frontend/src/pages/Environmental.tsx)
-- [frontend/src/pages/Inventory.tsx](../../frontend/src/pages/Inventory.tsx)
-- [frontend/src/pages/Landscape.tsx](../../frontend/src/pages/Landscape.tsx)
-- [frontend/src/pages/Recommendations.tsx](../../frontend/src/pages/Recommendations.tsx)
-- [frontend/src/pages/SeasonalPlan.tsx](../../frontend/src/pages/SeasonalPlan.tsx)
-- [frontend/src/pages/Settings.tsx](../../frontend/src/pages/Settings.tsx)
 - [frontend/src/pages/SoilTests.tsx](../../frontend/src/pages/SoilTests.tsx)
 - [frontend/src/pages/Timing.tsx](../../frontend/src/pages/Timing.tsx)
-- [frontend/src/styles/shared.ts](../../frontend/src/styles/shared.ts)
-- [frontend/src/test/setup.ts](../../frontend/src/test/setup.ts)
 - [frontend/src/types/disease.ts](../../frontend/src/types/disease.ts)
 - [frontend/src/types/index.ts](../../frontend/src/types/index.ts)
 - [frontend/src/types/inventory.ts](../../frontend/src/types/inventory.ts)
@@ -115,17 +94,17 @@ Web UI Shell & Conventions — leaf segment `UI` under the root HLD.
 
 **Purpose:** see the LLD's Context and Design Philosophy; this page carries pointers and coverage only.
 
-**Spec facets:**
-1. `UI-SHELL` — entry, routes, error boundary, not-found page, page loading
-2. `UI-NAV` — sidebar
-3. `UI-DASH` — dashboard data loading
-4. `UI-API` — the typed API client
-5. `UI-ERR` — human-readable errors, client and API error body
-6. `UI-TYPE` — shared TypeScript mirror
-7. `UI-UTIL` — shared date, unit and label helpers
-8. `UI-CONV` — cross-cutting presentation conventions
-9. `UI-BUILD` — build, lint and type-check tooling
-10. `UI-SRV` — SPA serving, request limits and CORS
+**Spec facets** (named by their section in the spec file):
+1. `UI-SHELL` — Shell and routing
+2. `UI-NAV` — Navigation
+3. `UI-DASH` — Dashboard data loading
+4. `UI-API` — API client
+5. `UI-ERR` — Human-readable errors
+6. `UI-TYPE` — Shared type mirror
+7. `UI-UTIL` — Shared helpers
+8. `UI-CONV` — Presentation conventions
+9. `UI-BUILD` — Build, lint and type-check tooling
+10. `UI-SRV` — SPA serving and CORS
 
 ## Spec Coverage
 
@@ -134,22 +113,22 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
 | SHELL | UI-SHELL-001 – UI-SHELL-007 | 7 | 0 | 0 | 7 | 7 |
-| NAV | UI-NAV-001 – UI-NAV-003 | 3 | 0 | 0 | 3 | 3 |
+| NAV | UI-NAV-001 – UI-NAV-003 | 2 | 0 | 1 | 3 | 3 |
 | DASH | UI-DASH-001 – UI-DASH-003 | 3 | 0 | 0 | 3 | 3 |
 | API | UI-API-001 – UI-API-006 | 6 | 0 | 0 | 6 | 6 |
-| ERR | UI-ERR-001 – UI-ERR-011 | 11 | 0 | 0 | 11 | 11 |
+| ERR | UI-ERR-001 – UI-ERR-012 | 10 | 0 | 2 | 12 | 12 |
 | TYPE | UI-TYPE-001 – UI-TYPE-004 | 4 | 0 | 0 | 4 | 4 |
 | UTIL | UI-UTIL-001 – UI-UTIL-006 | 6 | 0 | 0 | 6 | 6 |
 | CONV | UI-CONV-001 – UI-CONV-005 | 5 | 0 | 0 | 5 | 5 |
 | BUILD | UI-BUILD-001 – UI-BUILD-010 | 10 | 0 | 0 | 10 | 10 |
 | SRV | UI-SRV-001 – UI-SRV-010 | 9 | 0 | 0 | 9 | 9 |
-| **Total** | | **64** | **0** | **0** | **64** | **64** |
+| **Total** | | **62** | **0** | **3** | **65** | **65** |
 
-**Summary:** 64 of 64 active specs implemented; 0 deferred; 64 implemented specs cited by a test, 0 cited nowhere.
+**Summary:** 62 of 65 active specs implemented; 0 deferred; 62 implemented specs cited by a test.
 
 ## Key Findings
 
-1. No findings.
+1. **Marked `[ ]` but cited in code:** UI-NAV-003, UI-ERR-002, UI-ERR-003. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
 
 ## Work Required
 
@@ -157,7 +136,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- None.
+- Confirm UI-NAV-003, UI-ERR-002, UI-ERR-003 against the code and set their markers.
 
 ### Nice to Have
 - None.
