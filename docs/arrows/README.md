@@ -6,7 +6,7 @@ This directory tracks the arrow of intent across the project — the chain from 
 HLD → LLDs → EARS → Tests → Code
 ```
 
-TurfOps' tree: 18 leaf segments (one per leaf LLD under `docs/intent/`) and two sub-HLD grouping nodes, `weather-data` and `disease-risk`, whose leaves' arrow docs sit in matching subdirectories here.
+TurfOps’ tree: 21 leaf segments (one per leaf LLD under `docs/intent/`) and two sub-HLD grouping nodes, `weather-data` and `disease-risk`, whose leaves' arrow docs sit in matching subdirectories here.
 
 ## Files in this directory
 

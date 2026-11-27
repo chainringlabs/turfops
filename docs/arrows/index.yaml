@@ -1,11 +1,12 @@
 schema_version: 2
-last_updated: 2026-10-12
+last_updated: 2026-11-27
 
 # Organizational clusters (navigation only; nodes, not paths).
 taxonomy:
   conditions:
     - weather-data
     - data-sync
+    - setup-sources
   agronomy:
     - agronomic-rules
     - timing-windows
@@ -26,78 +27,100 @@ taxonomy:
 # Design tree. Leaves own EARS + an arrow doc; weather-data and disease-risk are sub-HLDs.
 arrows:
   weather-data:
-    status: OK
+    status: PARTIAL
     parent: null
-    children: [weather-sources, soil-temp-outlook, environmental-views]
+    children: [weather-sources, weather-record, soil-estimate, soil-temp-outlook, environmental-views]
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: ../intent/weather-data/weather-data-design.md
-    next: null
+    next: "See the children: weather-sources, soil-estimate, environmental-views"
     drift: null
   weather-sources:
-    status: OK
+    status: PARTIAL
     parent: weather-data
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: weather-data/weather-sources.md
-    next: null
+    next: "Confirm WX-SRC-NORM-001, WX-SRC-NORM-002, WX-SRC-NORM-003, WX-SRC-NORM-004, WX-SRC-REQ-006, WX-SRC-FC-001, WX-SRC-ERR-001, WX-SRC-ERR-002 against the code and set their markers."
+    drift: "8 spec(s) marked [ ] are already cited in code"
+  weather-record:
+    status: OK
+    parent: weather-data
+    sampled: 2026-11-27
+    audited: 2026-11-27
+    audited_sha: 44031e1
+    blocks: []
+    blockedBy: []
+    detail: weather-data/weather-record.md
+    next: "Add a test citing WX-REC-RES-009, WX-REC-API-001."
     drift: null
+  soil-estimate:
+    status: PARTIAL
+    parent: weather-data
+    sampled: 2026-11-27
+    audited: 2026-11-27
+    audited_sha: 44031e1
+    blocks: []
+    blockedBy: []
+    detail: weather-data/soil-estimate.md
+    next: "Confirm WX-EST-SCORE-003 against the code and set their markers."
+    drift: "1 spec(s) marked [ ] are already cited in code"
   soil-temp-outlook:
     status: OK
     parent: weather-data
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: weather-data/soil-temp-outlook.md
     next: null
     drift: null
   environmental-views:
-    status: OK
+    status: PARTIAL
     parent: weather-data
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: weather-data/environmental-views.md
-    next: null
-    drift: null
+    next: "Confirm WX-VIEW-BASIS-001, WX-VIEW-PAGE-008 against the code and set their markers."
+    drift: "2 spec(s) marked [ ] are already cited in code"
   data-sync:
-    status: OK
+    status: PARTIAL
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: data-sync.md
-    next: null
-    drift: null
+    next: "Confirm SYNC-SCHED-008 against the code and set their markers."
+    drift: "1 spec(s) marked [ ] are already cited in code"
   agronomic-rules:
-    status: OK
+    status: PARTIAL
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: agronomic-rules.md
-    next: null
-    drift: null
+    next: "Confirm RULE-WX-002, RULE-WX-006 against the code and set their markers."
+    drift: "2 spec(s) marked [ ] are already cited in code"
   timing-windows:
     status: OK
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: timing-windows.md
@@ -108,8 +131,8 @@ arrows:
     parent: null
     children: [risk-models, management, disease-ui]
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: ../intent/disease-risk/disease-risk-design.md
@@ -119,8 +142,8 @@ arrows:
     status: OK
     parent: disease-risk
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: disease-risk/risk-models.md
@@ -130,8 +153,8 @@ arrows:
     status: OK
     parent: disease-risk
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: disease-risk/management.md
@@ -141,8 +164,8 @@ arrows:
     status: OK
     parent: disease-risk
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: disease-risk/disease-ui.md
@@ -152,100 +175,111 @@ arrows:
     status: OK
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: seasonal-plan.md
-    next: null
+    next: "Annotate the code behind PLAN-CROSS-016."
     drift: null
   soil-tests:
     status: OK
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: soil-tests.md
-    next: null
+    next: "Annotate the code behind SOIL-DATA-001, SOIL-DATA-002, SOIL-DATA-004, SOIL-API-006, SOIL-API-007, SOIL-API-010, SOIL-API-011."
     drift: null
   recommendation-feed:
-    status: OK
+    status: PARTIAL
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: recommendation-feed.md
-    next: null
-    drift: null
+    next: "Confirm FEED-PIPE-015, FEED-PIPE-016 against the code and set their markers."
+    drift: "2 spec(s) marked [ ] are already cited in code"
   applications:
-    status: OK
+    status: PARTIAL
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: applications.md
-    next: null
+    next: "Build or defer APP-PROF-018."
     drift: null
   product-inventory:
     status: OK
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: product-inventory.md
     next: null
     drift: null
   landscape-plants:
-    status: OK
+    status: PARTIAL
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: landscape-plants.md
-    next: null
-    drift: null
+    next: "Confirm PLANT-WATER-001, PLANT-WATER-002, PLANT-WATER-003 against the code and set their markers."
+    drift: "3 spec(s) marked [ ] are already cited in code"
   mcp-server:
     status: OK
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: mcp-server.md
     next: null
     drift: null
   web-ui:
-    status: OK
+    status: PARTIAL
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: web-ui.md
-    next: null
-    drift: null
+    next: "Confirm UI-NAV-003, UI-ERR-002, UI-ERR-003 against the code and set their markers."
+    drift: "3 spec(s) marked [ ] are already cited in code"
+  setup-sources:
+    status: PARTIAL
+    parent: null
+    sampled: 2026-11-27
+    audited: 2026-11-27
+    audited_sha: 44031e1
+    blocks: []
+    blockedBy: []
+    detail: setup-sources.md
+    next: "Confirm SETUP-API-010, SETUP-CRED-001, SETUP-FAIL-001, SETUP-FAIL-002, SETUP-FAIL-004 against the code and set their markers."
+    drift: "5 spec(s) marked [ ] are already cited in code"
   deployment:
     status: OK
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-29
-    audited_sha: d35c15d
+    audited: 2026-11-27
+    audited_sha: 44031e1
     blocks: []
     blockedBy: []
     detail: deployment.md
-    next: null
+    next: "Add a test citing DEPLOY-CONFIG-016, DEPLOY-HTTP-013, DEPLOY-LOG-004, DEPLOY-CI-001, DEPLOY-CI-002, DEPLOY-CI-003, DEPLOY-CI-004, DEPLOY-CI-005, DEPLOY-CI-006, DEPLOY-CI-007, DEPLOY-CI-008, DEPLOY-CI-011, DEPLOY-CI-012."
     drift: null
 
 unmapped:

@@ -1,25 +1,25 @@
 # Arrow: product-inventory
 
-Product Inventory (the Shelf) — leaf segment `INV` under the root HLD.
+Product Inventory — leaf segment `INV` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `2bf061e`): every implemented spec was checked against the code while linking it. 72 of 72 implemented specs are linked to both code and a test.
+**OK** — audited 2026-11-27 (git SHA `44031e1`): all 72 active specs implemented, each cited in code and by a test.
 
 ## References
 
 ### HLD
-- [docs/high-level-design.md](../../docs/high-level-design.md) § System Design — component "Product inventory"
+- [docs/high-level-design.md](../high-level-design.md) § System Design — component "Product inventory"
 
 ### LLD
-- [docs/intent/product-inventory/product-inventory-design.md](../../docs/intent/product-inventory/product-inventory-design.md)
+- [docs/intent/product-inventory/product-inventory-design.md](../intent/product-inventory/product-inventory-design.md)
 
 ### EARS
-- [docs/intent/product-inventory/product-inventory-specs.md](../../docs/intent/product-inventory/product-inventory-specs.md) (73 specs, prefix `INV`)
+- [docs/intent/product-inventory/product-inventory-specs.md](../intent/product-inventory/product-inventory-specs.md) (73 specs, prefix `INV`)
 
 ### Related docs
-- [docs/agronomy-methods.md](../../docs/agronomy-methods.md)
-- [docs/plans/product-inventory.md](../../docs/plans/product-inventory.md)
+- [docs/agronomy-methods.md](../agronomy-methods.md)
+- [docs/plans/product-inventory.md](../plans/product-inventory.md)
 
 ### Tests
 - [backend/src/api/products/assistant_db_tests.rs](../../backend/src/api/products/assistant_db_tests.rs)
@@ -52,18 +52,13 @@ Product Inventory (the Shelf) — leaf segment `INV` under the root HLD.
 - Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/recommendation_feed.rs`, `backend/src/datasources/openrouter.rs`, `backend/src/datasources/openrouter/product.rs`, `backend/src/db/product_queries.rs`, `backend/src/error.rs`, `backend/src/logic/inventory.rs`, `backend/src/logic/inventory/shopping.rs`, `backend/src/models/inventory.rs`, `backend/src/models/product.rs`, `backend/src/models/product/checks.rs`, `backend/src/models/product/enums.rs`
 
 ### Code
-- [backend/src/api/applications/product_link.rs](../../backend/src/api/applications/product_link.rs)
 - [backend/src/api/inventory.rs](../../backend/src/api/inventory.rs)
 - [backend/src/api/products.rs](../../backend/src/api/products.rs)
 - [backend/src/api/products/checks.rs](../../backend/src/api/products/checks.rs)
 - [backend/src/api/products/link.rs](../../backend/src/api/products/link.rs)
 - [backend/src/api/products/refresh.rs](../../backend/src/api/products/refresh.rs)
 - [backend/src/api/recommendation_feed.rs](../../backend/src/api/recommendation_feed.rs)
-- [backend/src/datasources/openrouter.rs](../../backend/src/datasources/openrouter.rs)
 - [backend/src/datasources/openrouter/product.rs](../../backend/src/datasources/openrouter/product.rs)
-- [backend/src/db/migrations/20260922000000_products.sql](../../backend/src/db/migrations/20260922000000_products.sql)
-- [backend/src/db/migrations/20260922000100_application_product.sql](../../backend/src/db/migrations/20260922000100_application_product.sql)
-- [backend/src/db/migrations/20260923000000_product_facts_scoped.sql](../../backend/src/db/migrations/20260923000000_product_facts_scoped.sql)
 - [backend/src/db/product_queries.rs](../../backend/src/db/product_queries.rs)
 - [backend/src/error.rs](../../backend/src/error.rs)
 - [backend/src/logic/inventory.rs](../../backend/src/logic/inventory.rs)
@@ -73,7 +68,6 @@ Product Inventory (the Shelf) — leaf segment `INV` under the root HLD.
 - [backend/src/models/product/checks.rs](../../backend/src/models/product/checks.rs)
 - [backend/src/models/product/enums.rs](../../backend/src/models/product/enums.rs)
 - [backend/src/models/product/profile.rs](../../backend/src/models/product/profile.rs)
-- [backend/src/models/shopping.rs](../../backend/src/models/shopping.rs)
 - [frontend/src/api/client.ts](../../frontend/src/api/client.ts)
 - [frontend/src/components/InventoryBadge.tsx](../../frontend/src/components/InventoryBadge.tsx)
 - [frontend/src/components/inventory/AddProductForm.tsx](../../frontend/src/components/inventory/AddProductForm.tsx)
@@ -95,16 +89,16 @@ Product Inventory (the Shelf) — leaf segment `INV` under the root HLD.
 
 **Purpose:** see the LLD's Context and Design Philosophy; this page carries pointers and coverage only.
 
-**Spec facets:**
-1. `INV-SHELF` — the product record, vocabularies, category rules and scoping
-2. `INV-API` — product endpoints and their errors
-3. `INV-LLM` — assistant profile, precedence and refresh diff
-4. `INV-RATE` — the product label-rate rule
-5. `INV-LOG` — log suggestions and linking past applications
-6. `INV-NEED` — product needs and matching
-7. `INV-ENRICH` — inventory status and the feed's inventory pass
-8. `INV-SHOP` — shopping list
-9. `INV-UI` — Inventory page, stock pill, inventory badge, shopping panel
+**Spec facets** (named by their section in the spec file):
+1. `INV-SHELF` — The shelf
+2. `INV-API` — Product endpoints
+3. `INV-LLM` — Assistant profile
+4. `INV-RATE` — Label rate
+5. `INV-LOG` — Log and shelf
+6. `INV-NEED` — Needs and matching
+7. `INV-ENRICH` — Inventory status and the feed's inventory pass
+8. `INV-SHOP` — Shopping list
+9. `INV-UI` — Inventory UI
 
 ## Spec Coverage
 
@@ -123,7 +117,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | UI | INV-UI-001 – INV-UI-013 | 13 | 0 | 0 | 13 | 13 |
 | **Total** | | **72** | **1** | **0** | **72** | **72** |
 
-**Summary:** 72 of 72 active specs implemented; 1 deferred; 72 implemented specs cited by a test, 0 cited nowhere.
+**Summary:** 72 of 72 active specs implemented; 1 deferred; 72 implemented specs cited by a test.
 
 ## Key Findings
 
