@@ -54,7 +54,7 @@ pub(super) const INTERNAL_ERROR: &str =
     "TurfOps hit an internal error answering this; details are in the server log.";
 
 /// A failed handler as a tool-level error the model can read and relay. Only messages
-/// written for users pass through; anything else (SQL, lake internals) stays in the log.
+/// written for users pass through; anything else (SQL, upstream detail) stays in the log.
 // @spec MCP-ERR-001
 fn tool_error(err: TurfOpsError) -> CallToolResult {
     CallToolResult::error(vec![ContentBlock::text(error_message(err))])
@@ -62,7 +62,7 @@ fn tool_error(err: TurfOpsError) -> CallToolResult {
 
 const MISSING_DATA_HINT: &str = "Tell the user this data is missing rather than estimating it.";
 
-// @spec MCP-ERR-002, MCP-ERR-003, MCP-ERR-004, MCP-ERR-005
+// @spec MCP-ERR-002, MCP-ERR-004, MCP-ERR-005
 fn error_message(err: TurfOpsError) -> String {
     match err {
         TurfOpsError::NotFound(msg) | TurfOpsError::InvalidData(msg) => msg,
@@ -72,13 +72,6 @@ fn error_message(err: TurfOpsError) -> String {
             format!(
                 "Data source unavailable: {} {MISSING_DATA_HINT}",
                 err.owner_message()
-            )
-        }
-        TurfOpsError::DataLake(err) => {
-            tracing::warn!(error = %err, "MCP tool: weather data lake unreadable");
-            format!(
-                "The NOAA weather data lake could not be read, so station soil readings, \
-                 timing windows and disease risk are unavailable. {MISSING_DATA_HINT}"
             )
         }
         TurfOpsError::Http(err) => {
@@ -156,15 +149,6 @@ mod tests {
         assert!(msg.contains("forecast"), "{msg}");
         assert!(!msg.contains("openweathermap.org"), "{msg}");
         assert!(msg.ends_with(MISSING_DATA_HINT), "{msg}");
-    }
-
-    // @spec MCP-ERR-003
-    #[test]
-    fn lake_errors_say_what_is_missing_without_the_path() {
-        let err = duckdb::Error::InvalidPath("/data/silver/weather/x.parquet".into());
-        let msg = error_message(TurfOpsError::DataLake(err));
-        assert!(msg.contains("weather data lake could not be read"));
-        assert!(!msg.contains("/data/"));
     }
 
     /// A body whose serialization fails, as a map with non-string keys does.

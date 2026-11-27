@@ -9,7 +9,11 @@ use chrono::{Duration, Utc};
 use sqlx::PgPool;
 
 fn state(pool: &PgPool) -> AppState {
-    let sync = DataSyncService::with_lake_only(pool.clone(), None, Clock::System);
+    let sync = DataSyncService::for_tests(
+        pool.clone(),
+        Clock::System,
+        crate::logic::data_sync::test_support::Fixed::NoWeather,
+    );
     AppState::new(pool.clone(), sync, None, false, Clock::System)
 }
 

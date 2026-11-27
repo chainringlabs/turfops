@@ -14,15 +14,14 @@ use sqlx::PgPool;
 /// The record's lawn with six years of climate, a forecast, eight logged applications
 /// (three of different types with a follow-up due today, so the feed is longer than the
 /// dashboard's three) and its snapshot.
-async fn snapshot(pool: PgPool, name: &str) -> (crate::state::AppState, Lake, Value) {
+async fn snapshot(pool: PgPool) -> (crate::state::AppState, Value) {
     let today = crate::clock::Clock::System.today();
     crate::api::timing::db_harness::climate(&pool, 6, today - Duration::days(1)).await;
     let lawn = crate::api::timing::db_harness::lawn(&pool)
         .await
         .id
         .unwrap();
-    let lake = Lake::with_days(name, 40, &[]);
-    let state = state_with_forecast(pool.clone(), &lake).await;
+    let state = state_with_forecast(pool.clone()).await;
     let today = state.clock.today();
     for i in 0..8 {
         // The feed keeps one follow-up per type: the three due today differ.
@@ -50,7 +49,7 @@ async fn snapshot(pool: PgPool, name: &str) -> (crate::state::AppState, Lake, Va
     }
     let reply = call_tool(&state, "lawn_snapshot", json!({})).await;
     assert!(!reply.is_error);
-    (state, lake, reply.json())
+    (state, reply.json())
 }
 
 // @spec MCP-SNAP-001
@@ -80,7 +79,7 @@ fn the_parts_are_fetched_together_from_the_handlers_never_the_dashboard() {
 // @spec MCP-SNAP-001, MCP-SNAP-002
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_snapshot_carries_each_part_shaped_as_its_tool_would(pool: PgPool) {
-    let (state, _lake, snap) = snapshot(pool, "snap-parts").await;
+    let (state, snap) = snapshot(pool).await;
     let s = || State(state.clone());
 
     let mut profile = body(api::profile::get_profile(s()).await);
@@ -118,7 +117,7 @@ async fn the_snapshot_carries_each_part_shaped_as_its_tool_would(pool: PgPool) {
 // @spec MCP-SNAP-003
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_disease_part_is_one_headline_per_disease(pool: PgPool) {
-    let (state, _lake, snap) = snapshot(pool, "snap-disease").await;
+    let (state, snap) = snapshot(pool).await;
     let full = body(api::disease_risk::get_disease_risk(State(state.clone())).await);
     let part = &snap["disease_risk"];
     let mut keys: Vec<&str> = part
@@ -161,7 +160,7 @@ async fn the_disease_part_is_one_headline_per_disease(pool: PgPool) {
 // @spec MCP-SNAP-004
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_nitrogen_part_is_this_years_totals_without_the_feedings(pool: PgPool) {
-    let (state, _lake, snap) = snapshot(pool, "snap-nitrogen").await;
+    let (state, snap) = snapshot(pool).await;
     let budget = body(
         api::nitrogen_budget::get_nitrogen_budget(
             State(state.clone()),
@@ -185,7 +184,7 @@ async fn the_nitrogen_part_is_this_years_totals_without_the_feedings(pool: PgPoo
 // @spec MCP-SNAP-005, SYNC-CONN-005, SYNC-CONN-008
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_snapshot_reports_source_status_under_data_syncs_names(pool: PgPool) {
-    let (state, _lake, snap) = snapshot(pool, "snap-sources").await;
+    let (state, snap) = snapshot(pool).await;
     let sources = state.sync_service.read().await.sources().await.unwrap();
     let expected = trim::source_status(serde_json::to_value(&sources).unwrap());
     assert_eq!(snap["data_sources"], expected);
@@ -202,9 +201,11 @@ async fn the_snapshot_reports_source_status_under_data_syncs_names(pool: PgPool)
 
 // @spec MCP-SNAP-006, MCP-SNAP-007
 #[sqlx::test(migrations = "src/db/migrations")]
-async fn a_lake_outage_nulls_its_parts_with_notes_and_keeps_the_rest(pool: PgPool) {
+async fn a_lawn_with_no_location_nulls_its_weather_parts_with_notes_and_keeps_the_rest(
+    pool: PgPool,
+) {
     lawn(&pool).await;
-    let state = state(pool, &Lake::missing("snap-outage")).await;
+    let state = state(pool).await;
     let reply = call_tool(&state, "lawn_snapshot", json!({})).await;
     assert!(!reply.is_error, "the snapshot itself succeeds");
     let snap = reply.json();
@@ -235,14 +236,14 @@ async fn a_lake_outage_nulls_its_parts_with_notes_and_keeps_the_rest(pool: PgPoo
 // @spec MCP-SNAP-007
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn a_whole_snapshot_has_an_empty_notes_list(pool: PgPool) {
-    let (_state, _lake, snap) = snapshot(pool, "snap-whole").await;
+    let (_state, snap) = snapshot(pool).await;
     assert_eq!(snap["notes"], json!([]));
 }
 
 // @spec MCP-SNAP-006, MCP-SNAP-007
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn with_no_lawn_every_part_explains_its_absence(pool: PgPool) {
-    let state = state(pool, &Lake::missing("snap-empty")).await;
+    let state = state(pool).await;
     let reply = call_tool(&state, "lawn_snapshot", json!({})).await;
     assert!(!reply.is_error);
     let snap = reply.json();

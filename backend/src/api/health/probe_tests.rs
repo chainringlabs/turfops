@@ -9,9 +9,9 @@ use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use std::time::Instant;
 use tower::ServiceExt;
 
-/// State whose database never answers (nothing listens on port 1) and whose lake is absent.
+/// State whose database never answers (nothing listens on port 1) and that has no weather sources.
 async fn state(mcp_enabled: bool) -> AppState {
-    let config = test_config(&[("DATALAKE_ROOT", "/nonexistent/turfops-health")]);
+    let config = test_config(&[]);
     let pool = PgPoolOptions::new()
         .acquire_timeout(Duration::from_secs(60))
         .connect_lazy_with(PgConnectOptions::new().host("127.0.0.1").port(1));

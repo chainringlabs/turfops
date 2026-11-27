@@ -23,8 +23,8 @@ pub struct Season<'a> {
     /// Station soil data reaches close enough to today to judge what has happened.
     /// When false, boundaries fall back to the calendar.
     pub data_fresh: bool,
-    /// Last day of station soil data. The lake trails today by a day or two, and a
-    /// crossing cannot be "late" on days the station has not reported yet.
+    /// Last day of soil data. It can trail today by a day or two, and a crossing
+    /// cannot be "late" on days the source has not reported yet.
     pub last_observed: Option<NaiveDate>,
     /// The stored 5 cm soil estimate's calibration, which decides what an estimated run
     /// may date; `None` when there is no stored estimate (no estimated run is datable).

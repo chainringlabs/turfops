@@ -1,7 +1,7 @@
 //! Weather gate for landscape-plant Watering tasks. A plant's care plan says "water
 //! during dry spells" across a calendar window; this decides whether today is one.
-//! Same signals as the lawn's irrigation rule: station soil moisture, the lake's
-//! 7-day rain total, and the OpenWeatherMap forecast (whose first slot is the current
+//! Same signals as the lawn's irrigation rule: soil moisture, the summary's
+//! 7-day rain total, and the forecast (whose first slot is the current
 //! weather, so rain falling now counts). Pure — no IO.
 
 // @spec PLANT-WATER-004
@@ -17,7 +17,7 @@ pub const RAIN_FORECAST_HOURS: u32 = 48;
 /// What the weather is doing for the plants right now.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct WaterSignals {
-    /// Lake 7-day rain total (mm); lags about a day.
+    /// The summary's 7-day rain total (mm).
     pub recent_rain_mm: Option<f64>,
     /// Forecast rain (mm) over the next [`RAIN_FORECAST_HOURS`], including the current slot.
     pub forecast_rain_mm: Option<f64>,

@@ -13,10 +13,9 @@ RUN npm run build
 FROM rust:1.100-slim-trixie@sha256:6f14b2b4b278ec0d50aa1d69541c304ce0f95e0f6268487aa9924af1c2e9aebe AS backend-build
 WORKDIR /app
 
-# g++ is required to compile DuckDB's bundled C++ amalgamation (duckdb crate, `bundled`).
 # tzdata is only here to be copied into the runtime stage (see below).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends g++ tzdata \
+    && apt-get install -y --no-install-recommends tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy manifests first for dependency caching
@@ -37,8 +36,8 @@ RUN cargo build --release
 
 # Stage 3: Runtime
 # @spec DEPLOY-IMAGE-002, DEPLOY-IMAGE-003, DEPLOY-IMAGE-005, DEPLOY-IMAGE-006
-# glibc-dynamic ships glibc, libstdc++.so.6 and libgcc_s.so.1, which the binary loads
-# (the bundled DuckDB C++ build links the C++ runtime dynamically); nothing else is copied.
+# glibc-dynamic ships glibc and libgcc_s.so.1, which the binary loads; nothing else is
+# copied.
 # @spec DEPLOY-TZ-002 (the image sets no TZ; the clock follows the lawn's location)
 FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:a96ba3c8d5ffc646e1092c03d72000b5e2ccd9f6cda695d6342a0e31ce4d52ee
 

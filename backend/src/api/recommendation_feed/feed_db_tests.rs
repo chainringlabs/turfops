@@ -1,7 +1,8 @@
-//! The feed end to end over PostgreSQL, with the weather lake missing (an outage): the
-//! rules, landscape plants and follow-ups still contribute; disease and timing do not.
+//! The feed end to end over PostgreSQL for a lawn the weather record cannot answer for
+//! (no location): the rules, landscape plants and follow-ups still contribute; disease and
+//! timing do not.
 
-use super::fixtures::{application, plant_fertilizing_on, state_without_lake};
+use super::fixtures::{application, fixed_state, plant_fertilizing_on};
 use crate::api::recommendations::{list_recommendations, ListRecommendationsQuery};
 use crate::clock::Clock;
 use crate::db::{plant_queries, product_queries, queries, soil_test_queries};
@@ -55,8 +56,8 @@ fn position(feed: &[Recommendation], id: &str) -> usize {
 
 // @spec FEED-PIPE-002, FEED-PIPE-015, FEED-PIPE-016
 #[sqlx::test(migrations = "src/db/migrations")]
-async fn sources_contribute_in_order_and_a_lake_outage_costs_only_its_own(pool: PgPool) {
-    let state = state_without_lake(pool.clone(), Clock::System).await;
+async fn sources_contribute_in_order_and_a_weather_outage_costs_only_its_own(pool: PgPool) {
+    let state = fixed_state(pool.clone(), Clock::System).await;
     let profile = lawn(&pool).await;
     let pid = profile.id.unwrap();
     let today = state.clock.today();
@@ -90,7 +91,7 @@ async fn sources_contribute_in_order_and_a_lake_outage_costs_only_its_own(pool: 
             assert!(position(&feed, &rule.id) < plant_pos, "{}", rule.id);
         }
     }
-    // The lake is down: no disease, timing-window or aeration advice; the rest stands.
+    // The record cannot answer: no disease, timing-window or aeration advice; the rest stands.
     assert!(!feed.iter().any(|r| r.id.starts_with("disease_")
         || r.id.starts_with("timing_")
         || r.id == "aeration"));
@@ -106,12 +107,12 @@ async fn follow_ups_are_judged_on_the_lawn_clock(pool: PgPool) {
     let due = ahead.today();
     let id = follow_up(&pool, profile.id.unwrap(), due, 0).await;
 
-    let on_the_day = feed(&state_without_lake(pool.clone(), ahead).await, &profile).await;
+    let on_the_day = feed(&fixed_state(pool.clone(), ahead).await, &profile).await;
     assert_eq!(
         on_the_day[position(&on_the_day, &id)].severity,
         Severity::Warning
     );
-    let day_before = feed(&state_without_lake(pool.clone(), behind).await, &profile).await;
+    let day_before = feed(&fixed_state(pool.clone(), behind).await, &profile).await;
     assert_eq!(
         day_before[position(&day_before, &id)].severity,
         Severity::Advisory
@@ -139,7 +140,7 @@ fn product(profile_id: i64, name: &str, category: ProductCategory) -> Product {
 // @spec FEED-PIPE-014
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_shelf_is_every_product_not_archived(pool: PgPool) {
-    let state = state_without_lake(pool.clone(), Clock::System).await;
+    let state = fixed_state(pool.clone(), Clock::System).await;
     let profile = lawn(&pool).await;
     let pid = profile.id.unwrap();
     let plant = plant_fertilizing_on(pid, state.clock.today());
@@ -179,7 +180,7 @@ async fn the_shelf_is_every_product_not_archived(pool: PgPool) {
 // @spec FEED-PIPE-018
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn soil_test_advice_never_enters_the_feed(pool: PgPool) {
-    let state = state_without_lake(pool.clone(), Clock::System).await;
+    let state = fixed_state(pool.clone(), Clock::System).await;
     let profile = lawn(&pool).await;
     let test = SoilTest {
         id: None,
@@ -216,7 +217,7 @@ async fn soil_test_advice_never_enters_the_feed(pool: PgPool) {
 // @spec FEED-PIPE-017
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn without_a_lawn_profile_the_feed_endpoints_are_not_found(pool: PgPool) {
-    let state = state_without_lake(pool, Clock::System).await;
+    let state = fixed_state(pool, Clock::System).await;
     let query = ListRecommendationsQuery {
         include_inactive: false,
     };

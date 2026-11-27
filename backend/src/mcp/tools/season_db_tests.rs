@@ -16,8 +16,7 @@ use sqlx::PgPool;
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn current_conditions_is_the_environmental_body_without_the_hourly_forecast(pool: PgPool) {
     lawn(&pool).await;
-    let lake = Lake::with_days("conditions", 10, &[]);
-    let state = state_with_forecast(pool, &lake).await;
+    let state = state_with_forecast(pool).await;
     let reply = call_tool(&state, "current_conditions", json!({}))
         .await
         .json();
@@ -38,10 +37,7 @@ async fn current_conditions_is_the_environmental_body_without_the_hourly_forecas
     let mut expected = full;
     trim::drop_hourly_forecast(&mut expected);
     assert_eq!(timeless(reply.clone()), timeless(expected));
-    assert!(
-        reply["current"].is_object(),
-        "the lake's reading is relayed"
-    );
+    assert!(reply["current"].is_object(), "the reading is relayed");
 }
 
 // @spec MCP-TOOL-007
@@ -49,7 +45,7 @@ async fn current_conditions_is_the_environmental_body_without_the_hourly_forecas
 async fn timing_windows_drop_the_soil_series_unless_detail_is_asked(pool: PgPool) {
     let today = crate::clock::Clock::System.today();
     crate::api::timing::db_harness::climate(&pool, 6, today - chrono::Duration::days(1)).await;
-    let state = state(pool, &Lake::missing("timing")).await;
+    let state = state(pool).await;
     let full = timeless(body(
         api::timing::get_timing_windows(State(state.clone())).await,
     ));
@@ -68,7 +64,7 @@ async fn timing_windows_drop_the_soil_series_unless_detail_is_asked(pool: PgPool
 // @spec MCP-TOOL-008
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn seasonal_plan_is_the_plan_body_for_the_year_asked(pool: PgPool) {
-    let (state, _lake, _) = lawn_with_lake(pool, "plan", 10).await;
+    let (state, _) = lawn_with_state(pool).await;
     let this_year = call_tool(&state, "seasonal_plan", json!({})).await.json();
     let handler = body(
         api::seasonal_plan::get_seasonal_plan(
@@ -158,7 +154,7 @@ async fn soil_temp_outlook_is_the_soil_forecast_body(pool: PgPool) {
 // @spec MCP-TOOL-011
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn nitrogen_budget_is_the_budget_body_with_each_feeding(pool: PgPool) {
-    let (state, _lake, lawn) = lawn_with_lake(pool.clone(), "nitrogen", 2).await;
+    let (state, lawn) = lawn_with_state(pool.clone()).await;
     log(
         &pool,
         lawn,

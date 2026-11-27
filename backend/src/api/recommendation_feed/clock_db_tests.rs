@@ -1,6 +1,6 @@
 //! The feed on a stopped clock (`--features db-tests`).
 
-use super::fixtures::{application, state_without_lake};
+use super::fixtures::{application, fixed_state};
 use crate::api::timing::db_harness::{app_state_on, climate, lawn};
 use crate::clock::Clock;
 use crate::db::queries;
@@ -46,13 +46,13 @@ async fn the_feed_judges_every_date_on_the_clocks_one_reading(pool: PgPool) {
     let id = queries::create_application(&pool, &logged).await.unwrap();
     let reminder = format!("application_followup_{id}");
 
-    let on_the_day = state_without_lake(pool.clone(), stopped_on(due)).await;
+    let on_the_day = fixed_state(pool.clone(), stopped_on(due)).await;
     assert!(feed(&on_the_day, &profile)
         .await
         .iter()
         .any(|r| r.id == reminder));
 
-    let month_before = state_without_lake(pool, stopped_on(due - Duration::days(30))).await;
+    let month_before = fixed_state(pool, stopped_on(due - Duration::days(30))).await;
     assert!(!feed(&month_before, &profile)
         .await
         .iter()

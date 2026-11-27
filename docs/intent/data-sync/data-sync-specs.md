@@ -68,7 +68,7 @@ Design: [data-sync-design.md](data-sync-design.md). Prefix `SYNC`. Facets: `SCHE
 - [x] **SYNC-CONN-004**: `GET /api/v1/health` shall report `status` `ok` and `database` true when the database answers `SELECT 1` within 2 seconds, and `degraded` and false otherwise, and shall not let an external source's outage change `status`.
 - [x] **SYNC-CONN-005**: `GET /api/v1/dashboard` (as `sources`, with the forecast status as `forecast_status`) and the MCP `lawn_snapshot` tool (as `data_sources`, an object holding `sources` and `forecast`) shall include the source status.
 - [x] **SYNC-CONN-007**: The forecast status shall give the chosen provider, when the forecast held was fetched (empty when none is held), and, while the latest forecast fetch failed or the chosen provider cannot be used, the owner sentence saying why (empty otherwise), and reporting it shall make no outside request.
-- [x] **SYNC-CONN-008**: `GET /api/v1/health`, `GET /api/v1/dashboard` and the MCP `lawn_snapshot` tool shall report the forecast status beside the source status (SYNC-CONN-003, SYNC-CONN-005), and none of them shall carry an OpenWeatherMap, weather-lake or Home Assistant flag or probe a source; while the database does not answer, `GET /api/v1/health` shall report `forecast` as empty.
+- [x] **SYNC-CONN-008**: `GET /api/v1/health`, `GET /api/v1/dashboard` and the MCP `lawn_snapshot` tool shall report the forecast status beside the source status (SYNC-CONN-003, SYNC-CONN-005), and none of them shall carry an OpenWeatherMap or Home Assistant flag or probe a source; while the database does not answer, `GET /api/v1/health` shall report `forecast` as empty.
 
 ## Climate-record slot
 

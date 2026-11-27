@@ -28,7 +28,7 @@ async fn each_error_kind_has_its_status_and_a_json_error_body() {
             400,
         ),
         (TurfOpsError::not_configured(Source::Forecast), 503),
-        (TurfOpsError::unavailable(Source::WeatherLake, "io"), 503),
+        (TurfOpsError::unavailable(Source::WeatherRecord, "io"), 503),
         (TurfOpsError::Conflict("Already on the shelf.".into()), 409),
         (TurfOpsError::Config("bad".into()), 500),
         (TurfOpsError::Internal("profile row without id".into()), 500),

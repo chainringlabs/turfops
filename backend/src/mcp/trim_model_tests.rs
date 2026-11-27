@@ -189,7 +189,7 @@ fn disease_body() -> Value {
         basis: Default::default(),
         approximate: false,
         diseases: disease::assess_all(&series, today(), &ctx),
-        data_notes: vec!["The lake lags a day.".into()],
+        data_notes: vec!["The the record lags a day.".into()],
     };
     serde_json::to_value(&response).unwrap()
 }

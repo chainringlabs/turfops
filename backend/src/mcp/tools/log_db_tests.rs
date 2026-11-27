@@ -37,7 +37,7 @@ fn dates(reply: &serde_json::Value) -> Vec<&str> {
 // @spec MCP-TOOL-015
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn without_a_range_it_is_the_list_endpoint_newest_first_and_clamped(pool: PgPool) {
-    let (state, _lake, lawn) = lawn_with_lake(pool.clone(), "apps", 2).await;
+    let (state, lawn) = lawn_with_state(pool.clone()).await;
     season_log(&pool, lawn).await;
     let list = |app_type: Option<&str>, limit: i64| {
         let state = state.clone();
@@ -92,7 +92,7 @@ async fn without_a_range_it_is_the_list_endpoint_newest_first_and_clamped(pool: 
 // @spec MCP-TOOL-016
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn a_date_range_is_inclusive_typed_newest_first_and_limited(pool: PgPool) {
-    let (state, _lake, lawn) = lawn_with_lake(pool.clone(), "range", 2).await;
+    let (state, lawn) = lawn_with_state(pool.clone()).await;
     season_log(&pool, lawn).await;
 
     let week = call_tool(

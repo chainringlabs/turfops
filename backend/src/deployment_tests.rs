@@ -6,7 +6,6 @@ const DENY: &str = include_str!("../deny.toml");
 const OSV: &str = include_str!("../osv-scanner.toml");
 const LOCK: &str = include_str!("../Cargo.lock");
 
-mod binary;
 mod compose;
 mod image;
 #[cfg(unix)]

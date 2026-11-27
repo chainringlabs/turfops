@@ -5,7 +5,7 @@ use super::{
     list_recommendations, patch_recommendation, ListRecommendationsQuery,
     PatchRecommendationRequest,
 };
-use crate::api::recommendation_feed::fixtures::{application, state_without_lake};
+use crate::api::recommendation_feed::fixtures::{application, fixed_state};
 use crate::clock::Clock;
 use crate::db::queries;
 use crate::models::{
@@ -50,7 +50,7 @@ fn ids(recs: &[Recommendation]) -> Vec<&str> {
 // @spec FEED-API-001, FEED-STATE-009
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_list_hides_answered_advice_unless_asked_for_it(pool: PgPool) {
-    let state = state_without_lake(pool.clone(), Clock::System).await;
+    let state = fixed_state(pool.clone(), Clock::System).await;
     let pid = lawn(&pool).await;
     let today = state.clock.today();
     let overdue = follow_up(&pool, pid, today - Duration::days(1), 0).await; // Warning
@@ -89,7 +89,7 @@ async fn the_list_hides_answered_advice_unless_asked_for_it(pool: PgPool) {
 // @spec FEED-API-006, FEED-PIPE-001, FEED-UI-009
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn the_dashboard_shows_the_first_three_of_the_page(pool: PgPool) {
-    let state = state_without_lake(pool.clone(), Clock::System).await;
+    let state = fixed_state(pool.clone(), Clock::System).await;
     let pid = lawn(&pool).await;
     let today = state.clock.today();
     for n in 0..6 {
@@ -149,7 +149,7 @@ async fn age_answer(pool: &PgPool, id: &str, days: i64) {
 // @spec FEED-API-002, FEED-API-005, FEED-STATE-001, FEED-STATE-007
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn an_answer_is_one_row_per_id_and_each_click_restarts_its_episode(pool: PgPool) {
-    let state = state_without_lake(pool.clone(), Clock::System).await;
+    let state = fixed_state(pool.clone(), Clock::System).await;
     let out = patch(&state, "aeration", Some(true), None, Some(Severity::Info)).await;
     assert_eq!(
         out,
@@ -191,7 +191,7 @@ async fn an_answer_is_one_row_per_id_and_each_click_restarts_its_episode(pool: P
 // @spec FEED-API-003, FEED-API-004
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn omitted_fields_keep_their_stored_values_and_two_falses_restore(pool: PgPool) {
-    let state = state_without_lake(pool.clone(), Clock::System).await;
+    let state = fixed_state(pool.clone(), Clock::System).await;
     patch(
         &state,
         "grub_control_2026",

@@ -27,9 +27,6 @@ pub(super) async fn state(pool: PgPool, openrouter: Option<OpenRouterClient>) ->
     let config: Config = serde_json::from_value(json!({
         "lawn": { "name": "Lawn", "grass_type": "TallFescue", "usda_zone": "7a",
                   "soil_type": null, "lawn_size_sqft": null, "irrigation_type": null },
-        "noaa": { "station_wbanno": 3761 },
-        "datalake": { "silver_weather_path": "/nonexistent/silver.parquet",
-                      "gold_weather_path": "/nonexistent/gold.parquet" },
         "homeassistant": { "url": "http://127.0.0.1:9", "token": "",
                            "temperature_entity": "t", "humidity_entity": "h" },
         "openweathermap": null,

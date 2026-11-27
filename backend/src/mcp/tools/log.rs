@@ -263,7 +263,7 @@ mod tests {
     #[tokio::test]
     async fn the_tool_reports_a_bad_range_as_a_tool_error() {
         use crate::mcp::test_support::*;
-        let state = state(unreachable_pool(), &Lake::missing("range")).await;
+        let state = state(unreachable_pool()).await;
         let reply = call_tool(&state, "applications", serde_json::json!({"until": "soon"})).await;
         assert!(reply.is_error);
         assert_eq!(reply.text, "`until` must be a date as YYYY-MM-DD, got soon");

@@ -1,4 +1,5 @@
-//! Builds the daily weather series the disease models run on: observed lake days,
+//! Builds the daily weather series the disease models run on: observed days from the
+//! weather record,
 //! with today's remainder and the coming days filled in from the forecast.
 
 use crate::clock::Clock;
@@ -22,7 +23,7 @@ fn fahrenheit_to_celsius(f: f64) -> f64 {
 /// Aggregate forecast points into the lawn's local calendar days, each point on the local
 /// date (and hour) of its own time and counted as its slot's length.
 // @spec DIS-MODEL-DAY-003
-/// Points at or before `after` (the newest lake observation) are dropped: those hours
+/// Points at or before `after` (the record's newest hour) are dropped: those hours
 /// are already observed.
 pub fn forecast_days(
     points: &[ForecastPoint],
@@ -117,7 +118,7 @@ fn merge_day(a: &DailyWeather, b: &DailyWeather) -> DailyWeather {
 
 // @spec DIS-MODEL-DAY-006
 /// Merge observed and forecast days into one ascending series. A fully observed day
-/// wins outright; a partly observed day (the lake lags, so usually today) is topped up
+/// wins outright; a partly observed day (usually today) is topped up
 /// with whatever forecast points remain for it.
 pub fn build_series(observed: Vec<DailyWeather>, forecast: Vec<DailyWeather>) -> Vec<DailyWeather> {
     let mut by_day: BTreeMap<NaiveDate, DailyWeather> =

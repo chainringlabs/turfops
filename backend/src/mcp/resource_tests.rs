@@ -7,7 +7,7 @@ const AGRONOMY: &str = include_str!("../../../docs/agronomy-methods.md");
 const TIMING: &str = include_str!("../../../docs/timing-windows.md");
 
 async fn lazy_state() -> crate::state::AppState {
-    state(unreachable_pool(), &Lake::missing("resources")).await
+    state(unreachable_pool()).await
 }
 
 // @spec MCP-RES-001

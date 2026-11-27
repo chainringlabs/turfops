@@ -1,5 +1,5 @@
 //! Per-disease turf risk models. Every model is a pure function over a daily weather
-//! series (observed lake days + forecast days) — no IO, mirroring the rules engine.
+//! series (observed days + forecast days) — no IO, mirroring the rules engine.
 //! Each disease keeps its own published/native score; only the Low/Moderate/High/Severe
 //! tier is comparable across diseases, so no blended score is ever computed.
 
@@ -289,7 +289,7 @@ mod tests {
 
     #[test]
     fn an_afternoon_only_today_is_not_the_headline() {
-        // 10:30 am: the lake has nothing for today yet and the forecast has 13:00-22:00
+        // 10:30 am: the record has nothing for today yet and the forecast has 13:00-22:00
         // left — 12 hours, but no dawn low and none of the humid night.
         let today = date(9, 20);
         let mut series = run_of(today, 3, |d| day(d, 20.0, 15.0, 25.0, 80.0));

@@ -321,8 +321,8 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
 // @spec FEED-PIPE-016, TIME-FEED-007
 /// What the timing windows contribute to the feed/dashboard: one recommendation per
 /// actionable window, core aeration (same window as seeding), and the fall herbicide
-/// reconciled with the seeding decision. Like disease risk this is additive: a lake
-/// outage leaves the feed as the rules produced it rather than failing it.
+/// reconciled with the seeding decision. Like disease risk this is additive: a weather
+/// record outage leaves the feed as the rules produced it rather than failing it.
 pub(crate) async fn apply_to_feed(
     state: &AppState,
     profile: &LawnProfile,

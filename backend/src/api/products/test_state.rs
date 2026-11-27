@@ -25,13 +25,6 @@ fn config() -> Config {
             irrigation_type: None,
             location: Default::default(),
         },
-        noaa: NoaaConfig {
-            station_wbanno: 3761,
-        },
-        datalake: DataLakeConfig {
-            silver_weather_path: "/nonexistent/silver.parquet".into(),
-            gold_weather_path: "/nonexistent/gold.parquet".into(),
-        },
         homeassistant: HomeAssistantConfig {
             url: String::new(),
             token: String::new(),

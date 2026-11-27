@@ -1,5 +1,5 @@
-//! Shared fixtures for the feed's tests: an app state whose weather lake is missing (an
-//! outage), a lawn, log entries and a landscape plant.
+//! Shared fixtures for the feed's tests: an app state with a fixed reading and no weather
+//! sources, a lawn, log entries and a landscape plant.
 
 use crate::clock::Clock;
 use crate::config::load::from_vars;
@@ -13,18 +13,17 @@ use crate::state::AppState;
 use chrono::{Duration, NaiveDate, Utc};
 use sqlx::PgPool;
 
-/// App state over `pool` with the weather lake pointed at a directory that does not
-/// exist and no Home Assistant, forecast or OpenRouter: every lake read fails.
-pub(crate) async fn state_without_lake(pool: PgPool, clock: Clock) -> AppState {
+/// App state over `pool` answering with a fixed reading, with no Home Assistant, forecast
+/// or OpenRouter, and no location for the weather record.
+pub(crate) async fn fixed_state(pool: PgPool, clock: Clock) -> AppState {
     let (config, _) = from_vars(&|key| match key {
         "DATABASE_PASSWORD" => Some("unused".into()),
-        "DATALAKE_ROOT" => Some("/nonexistent/turfops-feed-tests".into()),
         _ => None,
     })
     .expect("test configuration");
     let sync = DataSyncService::initialize(&config, pool.clone())
         .await
-        .summary_from_lake();
+        .fixed_reading();
     AppState::new(pool, sync, None, false, clock)
 }
 

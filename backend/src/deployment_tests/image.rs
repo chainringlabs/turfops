@@ -66,7 +66,7 @@ fn the_runtime_holds_only_the_binary_the_spa_and_the_zone_database() {
         "no shell or package manager to run anything with"
     );
     assert!(
-        stages()[1].contains("--no-install-recommends g++ tzdata"),
+        stages()[1].contains("--no-install-recommends tzdata"),
         "the zone database comes from the build stage's tzdata"
     );
 }
@@ -77,7 +77,7 @@ fn the_runtime_base_supplies_the_shared_libraries() {
     let from = runtime().lines().next().unwrap();
     assert!(
         from.starts_with("FROM cgr.dev/chainguard/glibc-dynamic:"),
-        "glibc-dynamic ships glibc, libstdc++.so.6 and libgcc_s.so.1: {from}"
+        "glibc-dynamic ships glibc and libgcc_s.so.1: {from}"
     );
     let copied_libraries: Vec<&str> = instructions(runtime())
         .into_iter()

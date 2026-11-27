@@ -20,7 +20,7 @@ Guiding principles:
 |---|---|
 | Window constants, usable-day rule, trailing mean, headline scoring, amplifier, `assess_all` | `backend/src/logic/disease/mod.rs` |
 | The five models | `logic/disease/brown_patch.rs`, `dollar_spot.rs`, `pythium.rs`, `gray_leaf_spot.rs`, `red_thread.rs` |
-| Forecast days and the lake + forecast join | `logic/disease/weather_days.rs` |
+| Forecast days and the observed + forecast join | `logic/disease/weather_days.rs` |
 | History fields of `DiseaseContext` (days since overseeding / fertilizer) | `logic/disease/history.rs` |
 | Data types (`DailyWeather`, `DailyRisk`, `DiseaseRisk`, `RiskScale`, `RiskFactor`, `Methodology`, `DiseaseRiskResponse`) | `backend/src/models/disease.rs` |
 | `GET /disease-risk` assembly: `compute`, `data_notes` | `backend/src/api/disease_risk.rs` |

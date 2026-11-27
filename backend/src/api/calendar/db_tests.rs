@@ -15,7 +15,7 @@ async fn calendar(
     month: Option<u32>,
 ) -> Result<CalendarResponse, StatusCode> {
     get_calendar(
-        State(state(pool, None)),
+        State(state(pool, Fixed::NoWeather)),
         Query(CalendarQuery { year, month }),
     )
     .await
@@ -111,7 +111,11 @@ async fn the_default_month_comes_from_the_app_clock(pool: PgPool) {
         at: Utc.with_ymd_and_hms(2024, 3, 1, 2, 0, 0).unwrap(),
         zone: chrono_tz::America::New_York,
     };
-    let sync = DataSyncService::with_lake_only(pool.clone(), None, clock);
+    let sync = DataSyncService::for_tests(
+        pool.clone(),
+        clock,
+        crate::logic::data_sync::test_support::Fixed::NoWeather,
+    );
     let state = AppState::new(pool, sync, None, false, clock);
     let Json(feb) = get_calendar(
         State(state),

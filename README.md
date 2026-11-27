@@ -43,7 +43,7 @@ A containerized web application for tracking lawn care activities and providing 
 │  │  │ React SPA   │   │ Axum API Server        │  │  │
 │  │  │ (static)    │◄──│  /api/v1/* endpoints   │  │  │
 │  │  └─────────────┘   │  10 rules + disease    │  │  │
-│  │                     │  3 datasource clients  │  │  │
+│  │                     │  weather fetch sched.  │  │  │
 │  │                     └───────────┬────────────┘  │  │
 │  └─────────────────────────────────┼───────────────┘  │
 │                                    │                   │
@@ -53,8 +53,9 @@ A containerized web application for tracking lawn care activities and providing 
 │  └─────────────────┘                                   │
 └───────────────────────────────────────────────────────┘
         │                    │                │
-  Weather data lake    Home Assistant    OpenWeatherMap
-  (NOAA USCRN parquet) (patio sensors)    (forecast)
+  Weather services     Home Assistant    Forecast provider
+  (USCRN, SCAN, PRISM, (your sensors)    (Open-Meteo, NWS
+   NRCC, Open-Meteo)                      or OpenWeatherMap)
 ```
 
 ## Tech Stack
@@ -62,7 +63,7 @@ A containerized web application for tracking lawn care activities and providing 
 - **Backend**: Rust + Axum + sqlx (PostgreSQL)
 - **Frontend**: React 19 + TypeScript + Vite
 - **Database**: PostgreSQL 18 (app data)
-- **Weather data**: NOAA USCRN data lake (parquet) read in-process with embedded DuckDB
+- **Weather data**: fetched by the app from public weather services into PostgreSQL
 - **Deployment**: Docker Compose
 
 ## Docker Image
@@ -80,9 +81,8 @@ Tagged releases are also available by version (e.g., `ghcr.io/chainringlabs/turf
 ### Prerequisites
 
 - Docker and Docker Compose
-- (Optional) NOAA USCRN weather data lake (silver/gold parquet) mounted read-only — soil data, GDD, seasonal plan, and disease risk all depend on it
 - (Optional) Home Assistant instance with temperature/humidity sensors
-- (Optional) OpenWeatherMap API key for forecast-based rules and the disease-risk outlook
+- (Optional) OpenWeatherMap API key, only if you choose it as the forecast provider (Open-Meteo and the National Weather Service need none)
 - (Optional) [OpenRouter](https://openrouter.ai) API key to enable the Landscape Maintenance feature
 
 ### 1. Configure
@@ -304,7 +304,7 @@ RUST_LOG=info
 
 | Source | Data Provided | Connection |
 |--------|--------------|------------|
-| **Weather data lake** | NOAA USCRN hourly soil temperature (5/10/20/50/100cm), soil moisture, air temperature, relative humidity, precipitation; daily aggregates + GDD | Parquet on a read-only mount via `DATALAKE_ROOT`, read with embedded DuckDB |
+| **Weather record** | Hourly soil temperature (5/10/20/50/100 cm) and moisture from NOAA USCRN and USDA SCAN stations; daily air and rain from the PRISM and NRCC grids; hourly air, humidity and rain from Open-Meteo's analysis; a soil-temperature estimate where no station measures | Fetched by the app for the lawn's location and kept in PostgreSQL |
 | **Home Assistant** | Ambient temperature, humidity (patio sensor) | REST API via `HA_URL` + `HA_TOKEN` |
 | **Forecast** (Open-Meteo, National Weather Service or OpenWeatherMap) | Hourly or 3-hourly forecast (temp, rain, humidity, wind) — also fills in today and the outlook for disease risk | Provider chosen in setup; OpenWeatherMap's key stored in the app |
 
@@ -425,8 +425,8 @@ docker compose logs -f app  # Follow app logs
 
 The Dockerfile uses a multi-stage build:
 1. **Node (Alpine)** — builds the React frontend
-2. **Rust (slim)** — compiles the backend binary with embedded DuckDB and its parquet reader linked in
-3. **Chainguard `glibc-dynamic`** — minimal distroless runtime image (glibc plus the C++ runtime the binary loads), runs as non-root
+2. **Rust (slim)** — compiles the backend binary
+3. **Chainguard `glibc-dynamic`** — minimal distroless runtime image (glibc for the binary), runs as non-root
 
 ## Agronomic Rules
 
@@ -558,7 +558,7 @@ Identifies the best days for chemical applications based on forecast (dry weathe
 
 ## Seeding & Pre-Emergent Timing
 
-`GET /api/v1/timing-windows` times the start- and end-of-season jobs from the station's record instead of the calendar. Soil thresholds are 5-day means of the **measured 5 cm** soil temperature (the lake's hourly silver layer), and a crossing only counts once it has held for 5 days.
+`GET /api/v1/timing-windows` times the start- and end-of-season jobs from the station's record instead of the calendar. Soil thresholds are 5-day means of the **5 cm** soil temperature from the weather record (a station's measurement, or the soil estimate where the station has none, marked as estimated), and a crossing only counts once it has held for 5 days.
 
 | Window | Opens | Ideal | Closes |
 |--------|-------|-------|--------|
@@ -572,7 +572,7 @@ Each boundary is found in every historical year (up to 15) and reported as a med
 
 Seed and pre-emergent never share a season: a logged `Overseed` blocks that season's pre-emergent and a logged `PreEmergent` blocks seeding. Establishment buffers depend on grass type (Kentucky bluegrass 60/45 days, fescues 45/30, perennial ryegrass 35/21). No application rates are given — the label governs.
 
-**In the feed, plan and calendar.** The same windows drive the pre-emergent and seeding recommendations (Opening soon → Info; Open/Ideal → Advisory; Closing → Warning; a just-missed spring pre-emergent → Warning for 3 weeks; fall pre-emergent stays at Info/Advisory because it is the alternative to seeding) and the Seasonal Plan's Spring Pre-Emergent, Fall Pre-Emergent, Fall Seeding and Core Aeration activities, which the Calendar overlays. A window ruled out by your log is left off the plan. If the lake is unavailable the plan falls back to its 10 cm soil windows and the feed simply has no timing recommendations.
+**In the feed, plan and calendar.** The same windows drive the pre-emergent and seeding recommendations (Opening soon → Info; Open/Ideal → Advisory; Closing → Warning; a just-missed spring pre-emergent → Warning for 3 weeks; fall pre-emergent stays at Info/Advisory because it is the alternative to seeding) and the Seasonal Plan's Spring Pre-Emergent, Fall Pre-Emergent, Fall Seeding and Core Aeration activities, which the Calendar overlays. A window ruled out by your log is left off the plan. If the weather record cannot answer (no location yet) the plan falls back to its 10 cm soil windows and the feed simply has no timing recommendations.
 
 Full method, thresholds and how it differs from the lawn-answers.com tools it was modeled on: [docs/timing-windows.md](docs/timing-windows.md).
 
@@ -592,7 +592,7 @@ Brown patch and dollar spot are peer-reviewed, field-validated models. Pythium u
 
 **Lawn history modifies risk.** Overseeding within 60 days raises gray leaf spot one tier (seedlings are highly susceptible); no fertilizer in 60 days raises red thread one tier (it is a low-nitrogen disease). Only the headline tier is raised, never from Low, and the page says why. The daily chart stays weather-only.
 
-**Where the data comes from.** Observed days are aggregated per local day from the lake's hourly silver layer (air temp, RH, precipitation). Leaf wetness is estimated as hours with RH ≥ 90% or measurable precipitation; dew point uses the Magnus formula. The lake trails real time by up to a day, so today's remaining hours and the outlook come from the forecast. When too little of today is covered (under 12 hours), the headline reflects the most recent complete day and the page shows a note saying so. While no forecast is held there is no outlook.
+**Where the data comes from.** Observed days are aggregated per local day from the weather record's hourly air, RH and precipitation, one source per day (your sensor, a station within 10 miles, or the hourly analysis, whose days are marked approximate). Leaf wetness is estimated as hours with RH ≥ 90% or measurable precipitation; dew point uses the Magnus formula. Today's remaining hours and the outlook come from the forecast. When too little of today is covered (under 12 hours), the headline reflects the most recent complete day and the page shows a note saying so. While no forecast is held there is no outlook.
 
 ### What to do: preventative and curative guidance
 

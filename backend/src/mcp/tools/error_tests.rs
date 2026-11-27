@@ -5,13 +5,10 @@ use crate::error::TurfOpsError;
 use crate::mcp::test_support::*;
 use serde_json::json;
 
-const LAKE_TEXT: &str = "The NOAA weather data lake could not be read, so station soil \
-                         readings, timing windows and disease risk are unavailable.";
-
 // @spec MCP-ERR-001, MCP-ERR-005
 #[tokio::test]
 async fn a_failing_handler_is_a_tool_error_not_a_protocol_error() {
-    let state = state(unreachable_pool(), &Lake::missing("err")).await;
+    let state = state(unreachable_pool()).await;
     for tool in ["lawn_profile", "applications", "products", "soil_tests"] {
         let reply = call_tool(&state, tool, json!({})).await;
         assert!(reply.is_error, "{tool}");
@@ -38,23 +35,6 @@ fn not_found_and_invalid_data_messages_reach_the_model_verbatim() {
         ]
     );
     assert!(logged.is_empty(), "{logged}");
-}
-
-// @spec MCP-ERR-003
-#[test]
-fn an_unreadable_lake_names_what_is_missing_without_path_or_sql() {
-    let err = duckdb::Connection::open_in_memory()
-        .unwrap()
-        .execute_batch("SELECT * FROM read_parquet('/data/silver/weather/x.parquet')")
-        .unwrap_err();
-    let (msg, logged) = logs_of(|| error_message(TurfOpsError::DataLake(err)));
-    assert_eq!(msg, format!("{LAKE_TEXT} {MISSING_DATA_HINT}"));
-    assert!(!msg.contains("/data/") && !msg.contains("SELECT"), "{msg}");
-    assert!(logged.contains("WARN"), "{logged}");
-    assert!(
-        logged.contains("/data/silver/weather/x.parquet"),
-        "{logged}"
-    );
 }
 
 // @spec MCP-ERR-004

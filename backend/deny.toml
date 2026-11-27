@@ -18,13 +18,13 @@ yanked = "deny"
 # @spec DEPLOY-CI-009, DEPLOY-CI-012
 #
 # RUSTSEC-2026-0543 (crate chrono): an "unmaintained" notice, not a vulnerability: no flaw
-# is reported and there is no fixed version. rmcp and arrow (through duckdb) depend on
-# chrono unconditionally, so moving this code to another date library would not take it out
-# of Cargo.lock. Drop this, and plan the move off chrono, once rmcp and arrow no longer
-# require it; reassess at once if a vulnerability is filed against chrono.
+# is reported and there is no fixed version. rmcp, schemars and sqlx depend on chrono
+# unconditionally, so moving this code to another date library would not take it out of
+# Cargo.lock. Drop this, and plan the move off chrono, once they no longer require it;
+# reassess at once if a vulnerability is filed against chrono.
 #
 # RUSTSEC-2026-0555 (crate chrono-tz): an "unmaintained" notice, not a vulnerability. Used
-# only to resolve `TZ` into the clock's zone; it leaves together with chrono. Reassess at
+# to resolve the lawn's zone for the clock; it leaves together with chrono. Reassess at
 # once if a vulnerability is filed against chrono-tz.
 ignore = ["RUSTSEC-2026-0543", "RUSTSEC-2026-0555"]
 

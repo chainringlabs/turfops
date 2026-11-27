@@ -20,11 +20,6 @@ pub mod scan;
 pub mod sensor_units;
 #[allow(dead_code)]
 pub mod uscrn;
-// The weather lake reader: no page reads the lake any longer; it goes with the DuckDB
-// dependency.
-#[allow(dead_code)]
-pub mod weather;
 
 pub use openrouter::OpenRouterClient;
 pub use openweathermap::OpenWeatherMapClient;
-pub use weather::WeatherLakeClient;

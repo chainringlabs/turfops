@@ -85,8 +85,9 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Clock: {}", clock.describe(chrono::Utc::now()));
 
     import_connections(&pool, &config).await?;
+    log_integrations(&pool).await?;
 
-    // Initialize data sync service (connects to external datasources)
+    // Data sync: assembles the summary from the weather record; contacts nothing outside.
     let sync_service = DataSyncService::initialize(&config, pool.clone()).await;
 
     // Initialize OpenRouter client (optional, used for plant maintenance plans)
@@ -379,6 +380,17 @@ async fn import_connections(pool: &sqlx::PgPool, config: &Config) -> anyhow::Res
             "Sensor mapped from the environment; it is now managed in the app"
         );
     }
+    Ok(())
+}
+
+/// The integrations this start runs with: whether a Home Assistant connection is stored
+/// (never its token) and the forecast provider chosen.
+// @spec DEPLOY-LOG-002
+async fn log_integrations(pool: &sqlx::PgPool) -> anyhow::Result<()> {
+    use db::setup_queries::{credential, forecast_provider, Service};
+    let home_assistant = credential(pool, Service::HomeAssistant).await?.is_some();
+    let forecast = forecast_provider(pool).await?;
+    tracing::info!(home_assistant, ?forecast, "Integrations configured");
     Ok(())
 }
 

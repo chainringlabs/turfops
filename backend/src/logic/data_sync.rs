@@ -9,10 +9,6 @@ mod memo_slot_tests;
 #[cfg(all(test, feature = "db-tests"))]
 pub(crate) mod record_db_tests;
 #[cfg(test)]
-mod refresh_callers_tests;
-#[cfg(all(test, feature = "db-tests"))]
-mod test_double;
-#[cfg(test)]
 pub(crate) mod test_env;
 #[cfg(test)]
 pub(crate) mod test_support;
@@ -21,7 +17,6 @@ use self::assemble::{assemble, Gathered};
 use self::memo::Kept;
 use crate::clock::{Clock, Moment};
 use crate::config::Config;
-use crate::datasources::WeatherLakeClient;
 use crate::db::weather_queries::plan;
 use crate::logic::weather_record::record::{AgeLimits, Asked, WeatherRecord};
 use crate::logic::weather_sync::forecast::{self, ForecastSlot, ForecastStatus};
@@ -51,9 +46,6 @@ const ANY_AGE: AgeLimits = AgeLimits {
 /// outside request of its own.
 pub struct DataSyncService {
     pool: PgPool,
-    /// The weather lake. No page reads it; it goes with the lake reader.
-    #[allow(dead_code)]
-    weather_client: Option<WeatherLakeClient>,
     /// The forecast the fetch schedule keeps.
     forecast: ForecastSlot,
     /// Asks the fetch schedule for a refresh pass; absent where none runs.
@@ -61,35 +53,25 @@ pub struct DataSyncService {
     kept: Kept,
     refreshed_at: Option<DateTime<Utc>>,
     clock: Clock,
-    /// Tests of pages that still read the lake: answer with this summary (or an empty
-    /// one) and the forecast held, without the record.
+    /// Tests that fix the summary: answer with it and the forecast held, without the
+    /// record.
     #[cfg(test)]
-    lake_summary: bool,
-    #[cfg(test)]
-    pinned: Option<EnvironmentalSummary>,
+    fixed: Option<test_support::Fixed>,
 }
 
 impl DataSyncService {
     /// Builds the service; nothing outside is contacted.
     // @spec SYNC-REFRESH-007, DEPLOY-START-004
     pub async fn initialize(config: &Config, pool: PgPool) -> Self {
-        let weather_client = Some(WeatherLakeClient::new(
-            &config.datalake,
-            config.noaa.station_wbanno,
-        ));
-        tracing::info!("Weather data lake client configured (parquet read on first fetch)");
         Self {
             pool,
-            weather_client,
             forecast: ForecastSlot::new(),
             waker: None,
             kept: Kept::default(),
             refreshed_at: None,
             clock: config.clock,
             #[cfg(test)]
-            lake_summary: false,
-            #[cfg(test)]
-            pinned: None,
+            fixed: None,
         }
     }
 
@@ -111,8 +93,8 @@ impl DataSyncService {
     // @spec SYNC-FAIL-011, SYNC-REFRESH-009
     pub async fn get_or_refresh(&mut self) -> crate::error::Result<EnvironmentalSummary> {
         #[cfg(test)]
-        if self.lake_summary {
-            return self.lake_for_tests().await;
+        if let Some(fixed) = &self.fixed {
+            return Ok(self.fixed_summary(fixed));
         }
         let now = self.clock.now();
         let changes = self.waker.as_ref().map_or(0, Waker::changes);
@@ -259,40 +241,6 @@ impl DataSyncService {
     // @spec SYNC-CONN-007
     pub async fn forecast_status(&self) -> crate::error::Result<ForecastStatus> {
         forecast::status(&self.pool, &self.forecast).await
-    }
-
-    /// The weather lake client, when one is configured.
-    #[allow(dead_code)]
-    pub fn weather_client(&self) -> Option<&WeatherLakeClient> {
-        self.weather_client.as_ref()
-    }
-
-    /// An empty reading and the forecast held (tests of pages that still read the lake).
-    #[cfg(test)]
-    async fn lake_for_tests(&self) -> crate::error::Result<EnvironmentalSummary> {
-        let now = self.clock.now();
-        let Some(client) = &self.weather_client else {
-            return Ok(EnvironmentalSummary {
-                last_updated: Some(now),
-                forecast: self.forecast.forecast(),
-                ..Default::default()
-            });
-        };
-        let _ = client;
-        let mut summary = self.pinned.clone().unwrap_or_else(|| EnvironmentalSummary {
-            // A fixed stamp, so two calls compare equal.
-            current: Some(crate::models::EnvironmentalReading {
-                timestamp: DateTime::UNIX_EPOCH,
-                ..Default::default()
-            }),
-            ..Default::default()
-        });
-        summary.forecast = self
-            .forecast
-            .forecast()
-            .filter(|f| now - f.fetched_at < assemble::FORECAST_MAX_AGE);
-        summary.last_updated = Some(now);
-        Ok(summary)
     }
 }
 

@@ -84,8 +84,8 @@ pub async fn get_seasonal_plan(
     // Pre-emergent, seeding and aeration come from the timing windows (5 cm soil +
     // freeze dates) so the plan agrees with the Timing page. The plan's own 10 cm version
     // of every activity the windows answer for is dropped — also one the log has ruled out
-    // (seed vs. pre-emergent), which must not come back. With the lake unavailable the
-    // originals stay.
+    // (seed vs. pre-emergent), which must not come back. When the weather record cannot
+    // answer the originals stay.
     if let Some(timing) = super::timing::plan_activities(&state, &profile, year).await {
         let owned = crate::logic::timing::plan::owned_ids(profile.grass_type);
         plan.activities.retain(|a| !owned.contains(&a.id.as_str()));
@@ -181,7 +181,7 @@ async fn find_crossings(state: &AppState) -> Result<Arc<RecordCrossings>, TurfOp
 /// The current season's rule states, judged on the same feed, conditions and log as the
 /// recommendations. `None` when the feed cannot be assembled (the plan then marks the
 /// covered activities as estimates).
-// @spec PLAN-ACT-021, PLAN-ACT-022, SYNC-REFRESH-005
+// @spec PLAN-ACT-021, PLAN-ACT-022
 async fn rule_states(
     state: &AppState,
     profile: &LawnProfile,

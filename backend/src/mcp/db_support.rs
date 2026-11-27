@@ -1,6 +1,6 @@
 //! Fixtures for the MCP tests that need PostgreSQL (`--features db-tests`).
 
-use super::test_support::{config, state, Lake};
+use super::test_support::{config, state};
 use crate::clock::Clock;
 use crate::db::{plant_queries, queries, soil_test_queries};
 use crate::logic::data_sync::DataSyncService;
@@ -18,12 +18,11 @@ pub async fn lawn(pool: &PgPool) -> i64 {
     queries::create_lawn_profile(pool, &profile).await.unwrap()
 }
 
-/// A lawn, a lake of `days` days ending yesterday and the state over both.
-pub async fn lawn_with_lake(pool: PgPool, name: &str, days: i64) -> (AppState, Lake, i64) {
+/// A lawn and the state over it; the lawn's id.
+pub async fn lawn_with_state(pool: PgPool) -> (AppState, i64) {
     let id = lawn(&pool).await;
-    let lake = Lake::with_days(name, days, &[]);
-    let state = state(pool, &lake).await;
-    (state, lake, id)
+    let state = state(pool).await;
+    (state, id)
 }
 
 pub fn date(s: &str) -> NaiveDate {
@@ -174,8 +173,8 @@ pub fn names<'a>(items: &'a Value, key: &str) -> Vec<&'a str> {
 
 /// App state whose forecast comes from a local stand-in for OpenWeatherMap that answers
 /// every request with six days of 3-hourly points from today's UTC midnight.
-pub async fn state_with_forecast(pool: PgPool, lake: &Lake) -> AppState {
-    let config = config(&lake.silver, &lake.gold);
+pub async fn state_with_forecast(pool: PgPool) -> AppState {
+    let config = config();
     // The forecast as the schedule would hold it after fetching it from the stand-in.
     let fetched = crate::datasources::OpenWeatherMapClient::new()
         .with_base_url(&forecast_stub().await)
@@ -184,7 +183,7 @@ pub async fn state_with_forecast(pool: PgPool, lake: &Lake) -> AppState {
         .unwrap();
     let sync = DataSyncService::initialize(&config, pool.clone())
         .await
-        .summary_from_lake()
+        .fixed_reading()
         .with_forecast(crate::logic::weather_sync::forecast::ForecastSlot::holding(
             fetched,
         ));
@@ -238,8 +237,7 @@ pub async fn lab_state(pool: PgPool) -> AppState {
         at: chrono::TimeZone::with_ymd_and_hms(&Utc, 2026, 7, 20, 16, 0, 0).unwrap(),
         zone: chrono_tz::America::New_York,
     };
-    let lake = Lake::missing("lab-state");
-    let mut config = config(&lake.silver, &lake.gold);
+    let mut config = config();
     config.clock = clock;
     let sync = DataSyncService::initialize(&config, pool.clone()).await;
     AppState::new(pool, sync, None, true, clock)

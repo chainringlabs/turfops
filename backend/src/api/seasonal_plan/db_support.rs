@@ -1,11 +1,10 @@
 //! Fixtures for the PostgreSQL-backed seasonal plan and calendar tests: an `AppState` with
-//! or without a weather lake, and crossings held as if found in the weather record.
+//! or without a current reading, and crossings held as if found in the weather record.
 
 use crate::clock::Clock;
-use crate::config::DataLakeConfig;
-use crate::datasources::WeatherLakeClient;
 use crate::db::queries;
 use crate::error::TurfOpsError;
+pub(crate) use crate::logic::data_sync::test_support::Fixed;
 use crate::logic::data_sync::DataSyncService;
 use crate::logic::seasonal_plan::RecordCrossings;
 use crate::models::seasonal_plan::{SeasonalPlan, ThresholdCrossing};
@@ -15,11 +14,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use chrono::{Datelike, NaiveDate};
 use sqlx::PgPool;
-use std::path::PathBuf;
 use std::sync::Arc;
-
-/// The station the test lake is configured for.
-pub(crate) const STATION: i32 = 3761;
 
 pub(crate) fn d(year: i32, month: u32, day: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(year, month, day).unwrap()
@@ -33,33 +28,10 @@ pub(crate) fn this_year() -> i32 {
     clock().today().year()
 }
 
-/// App state on `pool` with the lake client given, or none (lake not configured).
-pub(crate) fn state(pool: &PgPool, lake: Option<WeatherLakeClient>) -> AppState {
-    let sync = DataSyncService::with_lake_only(pool.clone(), lake, clock());
+/// App state on `pool` whose data sync answers with `fixed`.
+pub(crate) fn state(pool: &PgPool, fixed: Fixed) -> AppState {
+    let sync = DataSyncService::for_tests(pool.clone(), clock(), fixed);
     AppState::new(pool.clone(), sync, None, false, clock())
-}
-
-/// A unique scratch directory for one test's parquet files.
-pub(crate) fn scratch(name: &str) -> PathBuf {
-    let nanos = chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default();
-    let dir = std::env::temp_dir().join(format!(
-        "turfops-plan-{name}-{}-{nanos}",
-        std::process::id()
-    ));
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
-}
-
-/// A lake client for `STATION` whose gold layer is `gold` (silver is never present).
-pub(crate) fn lake(gold: &std::path::Path) -> WeatherLakeClient {
-    let config = DataLakeConfig {
-        silver_weather_path: gold
-            .with_file_name("no_silver.parquet")
-            .display()
-            .to_string(),
-        gold_weather_path: gold.display().to_string(),
-    };
-    WeatherLakeClient::new(&config, STATION)
 }
 
 /// Three settled years (`plan_year` − 3 … − 1) of every threshold the 10 cm activities use,

@@ -34,15 +34,6 @@ fn the_database_password_is_the_only_setting_without_a_default() {
         ("0.0.0.0", 3000)
     );
     assert_eq!(config.server.cors_allowed_origin, None);
-    assert_eq!(config.noaa.station_wbanno, 3761);
-    assert_eq!(
-        config.datalake.silver_weather_path,
-        "/data/silver/weather/silver_weather.parquet"
-    );
-    assert_eq!(
-        config.datalake.gold_weather_path,
-        "/data/gold/weather/daily_weather.parquet"
-    );
     assert_eq!(
         config.homeassistant.url, "",
         "no Home Assistant unless one is given"

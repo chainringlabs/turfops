@@ -11,8 +11,8 @@ pub const MAX_AIR_GAP_DAYS: i64 = 7;
 
 /// One daily mean air series: station values, then the forecast, with any hole of up to
 /// `MAX_AIR_GAP_DAYS` between or inside them filled by linear interpolation. Station
-/// values win over the forecast for the same day. The lake trails real time by a day or
-/// more while the forecast starts today, and the soil model reads air from `lag` days
+/// values win over the forecast for the same day. The record's daily air trails real time by a
+/// day or more while the forecast starts today, and the soil model reads air from `lag` days
 /// back — without the fill, the outlook loses every day whose driver falls in that hole.
 // @spec WX-OUTLOOK-MODEL-008
 pub fn continuous_air(

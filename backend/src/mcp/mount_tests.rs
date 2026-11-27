@@ -79,7 +79,7 @@ async fn without_a_token_mcp_is_just_another_spa_path() {
 async fn a_long_enough_token_mounts_mcp_behind_its_trimmed_value() {
     let token = parse_token(Some(format!("  {TOKEN}\n"))).unwrap().unwrap();
     assert_eq!(token, TOKEN);
-    let state = state(unreachable_pool(), &Lake::missing("mount")).await;
+    let state = state(unreachable_pool()).await;
     let app = web::with_frontend(api().merge(router(state, &token)), &spa_dir());
     let list = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}});
     let (status, _, text) = send(
@@ -113,7 +113,7 @@ fn main_merges_mcp_after_the_api_cors_layer() {
 // @spec MCP-CFG-005
 #[tokio::test]
 async fn the_browser_cors_policy_does_not_apply_to_mcp() {
-    let state = state(unreachable_pool(), &Lake::missing("cors")).await;
+    let state = state(unreachable_pool()).await;
     let app = api().merge(router(state, TOKEN));
     let preflight = |uri: &str| {
         Request::builder()
@@ -144,7 +144,7 @@ async fn the_browser_cors_policy_does_not_apply_to_mcp() {
 #[tokio::test]
 async fn health_reports_whether_mcp_is_mounted() {
     for (mounted, expected) in [(true, "enabled"), (false, "disabled")] {
-        let mut state = state(unreachable_pool(), &Lake::missing("health")).await;
+        let mut state = state(unreachable_pool()).await;
         state.mcp_enabled = mounted;
         let health = crate::api::health::health_check(axum::extract::State(state)).await;
         assert_eq!(serde_json::to_value(&health.0).unwrap()["mcp"], expected);
@@ -163,7 +163,7 @@ async fn the_token_reaches_no_log_line_and_no_response() {
         assert!(!line.contains("token") || !line.contains('{'), "{line}");
     }
     let logs = Logs::capture();
-    let state = state(unreachable_pool(), &Lake::missing("token")).await;
+    let state = state(unreachable_pool()).await;
     let profile = call_tool(&state, "lawn_profile", json!({})).await;
     let snapshot = call_tool(&state, "lawn_snapshot", json!({})).await;
     let init = rpc(

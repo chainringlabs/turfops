@@ -153,7 +153,7 @@ async fn the_lawn_settings_seed_the_first_profile_only(pool: PgPool) {
 // @spec DEPLOY-HEALTH-002
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn health_is_ok_when_the_database_answers(pool: PgPool) {
-    let config = test_config(&[("DATALAKE_ROOT", "/nonexistent/turfops-health")]);
+    let config = test_config(&[]);
     let sync = DataSyncService::initialize(&config, pool.clone()).await;
     let state = AppState::new(pool, sync, None, false, config.clock);
     let health = crate::api::health::health_check(axum::extract::State(state))

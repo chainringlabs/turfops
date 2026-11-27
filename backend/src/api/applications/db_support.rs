@@ -21,11 +21,6 @@ use sqlx::PgPool;
 pub(crate) fn config(lawn: serde_json::Value) -> Config {
     serde_json::from_value(json!({
         "lawn": lawn,
-        "noaa": { "station_wbanno": 3761 },
-        "datalake": {
-            "silver_weather_path": "/nonexistent/silver.parquet",
-            "gold_weather_path": "/nonexistent/gold.parquet"
-        },
         "homeassistant": {
             "url": "", "token": "", "temperature_entity": "", "humidity_entity": ""
         },

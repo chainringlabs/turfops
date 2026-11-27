@@ -222,7 +222,7 @@ Details consumers rely on:
   newest day stands as the current value. A day's rain total does not: an earlier day's rain
   is not falling now. The day in progress takes its rain from a sensor or the hourly analysis.
 - **A disease day's rain total is zero where the rain basis has nothing for it.** The models
-  read it as a number, and the lake they were built on did the same.
+  read it as a number and were calibrated on station days that do the same.
 - **The last day of a daily contract is usually partial** on an hourly basis. Whether a day is
   usable stays with the consumer, as does `hours_covered`.
 - **No contract publishes a "today".** Callers pass the lawn's date from the app's `Clock`.
