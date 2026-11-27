@@ -1,7 +1,9 @@
 //! A whole forecast fetch against a stubbed OpenWeatherMap response.
 
 use super::*;
+use crate::datasources::outside::{Outside, USER_AGENT};
 use chrono::{NaiveDate, TimeZone};
+use std::sync::Arc;
 
 /// Three slots on Sep 22 (8 am, 11 am and 2 pm EDT).
 const RESPONSE: &str = r#"{
@@ -25,7 +27,7 @@ const RESPONSE: &str = r#"{
 const EASTERN: Clock = Clock::Zone(chrono_tz::America::New_York);
 
 fn client(base: &str) -> OpenWeatherMapClient {
-    OpenWeatherMapClient::new().with_base_url(base)
+    OpenWeatherMapClient::at(base)
 }
 
 // @spec WX-SRC-OWM-001
@@ -108,4 +110,53 @@ async fn a_fetch_asks_for_the_point_and_with_the_key_it_is_given() {
     }
     assert_eq!(forecast.fetched_at, now, "stamped with the schedule's now");
     assert_eq!(forecast.provider, ForecastProvider::OpenWeatherMap);
+}
+
+// @spec WX-SRC-REQ-001
+#[tokio::test]
+async fn a_fetch_names_turfops_and_its_version_and_nothing_else() {
+    let (base, seen) = crate::test_support::stub_http_seeing(200, RESPONSE, "").await;
+    client(&base)
+        .forecast(39.8, -75.8, "test_key", &EASTERN, Utc::now())
+        .await
+        .unwrap();
+    let request = seen.await.unwrap().to_lowercase();
+    let agent = format!("user-agent: {}", USER_AGENT.to_lowercase());
+    assert!(request.contains(&agent), "{request}");
+}
+
+// @spec WX-SRC-REQ-003
+#[tokio::test]
+async fn fetches_to_openweathermap_wait_their_turn() {
+    let (base, _seen) =
+        crate::test_support::stub_http_sequence(vec![(200, RESPONSE), (200, RESPONSE)]).await;
+    let paced = OpenWeatherMapClient::new(Arc::new(Outside::new())).with_base_url(&base);
+    let started = std::time::Instant::now();
+    for _ in 0..2 {
+        paced
+            .forecast(39.8, -75.8, "test_key", &EASTERN, Utc::now())
+            .await
+            .unwrap();
+    }
+    assert!(
+        started.elapsed() >= std::time::Duration::from_secs(1),
+        "a second request to the host waits a second"
+    );
+}
+
+// @spec WX-SRC-OWM-005, WX-SRC-OWM-006
+#[tokio::test]
+async fn a_refused_fetch_never_carries_the_key() {
+    let key = "owm-secret-key-0123456789";
+    let base = crate::test_support::stub_http(401, r#"{"cod":401}"#).await;
+    let err = client(&base)
+        .forecast(39.8, -75.8, key, &EASTERN, Utc::now())
+        .await
+        .unwrap_err();
+    let text = format!("{err} {err:?}");
+    assert!(!text.contains(key), "API key leaked: {text}");
+    assert!(
+        text.contains("401"),
+        "the status stays in the detail: {text}"
+    );
 }

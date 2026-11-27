@@ -83,6 +83,7 @@ struct Series {
 
 /// The hourly points of a grid forecast whose hour has not ended by `now`.
 // @spec WX-SRC-FC-002, WX-SRC-FC-003, WX-SRC-FC-006, WX-SRC-FC-009, WX-SRC-NORM-001
+// @spec WX-SRC-NORM-002
 pub fn parse(json: &str, now: DateTime<Utc>) -> Result<Vec<ForecastPoint>, String> {
     let layers = serde_json::from_str::<Body>(json)
         .map_err(|e| format!("NWS forecast did not parse: {e}"))?
@@ -130,7 +131,7 @@ impl Series {
             timestamp: start,
             slot_hours: 1,
             temp_f: at(&self.temperature).and_then(|v| within(v, TEMPERATURE_F))?,
-            feels_like_f: at(&self.feels_like),
+            feels_like_f: at(&self.feels_like).and_then(|v| within(v, TEMPERATURE_F)),
             humidity_percent: at(&self.humidity).and_then(|v| within(v, PERCENT))?,
             precipitation_mm: at(&self.amount).and_then(|v| within(v, HOURLY_PRECIP_MM)),
             precipitation_prob: at(&self.probability).and_then(|v| within(v, (0.0, 1.0))),

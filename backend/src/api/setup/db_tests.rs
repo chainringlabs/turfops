@@ -27,7 +27,7 @@ pub(crate) fn searching(pool: &PgPool, base: &str) -> Fetcher {
             grid: GridClient::new(outside.clone()).with_url(NOWHERE),
             open_meteo: OpenMeteoClient::new(outside.clone()).with_urls(NOWHERE, base),
             nws: crate::datasources::nws::NwsClient::new(outside).with_base_url(NOWHERE),
-            owm: crate::datasources::OpenWeatherMapClient::new().with_base_url(NOWHERE),
+            owm: crate::datasources::OpenWeatherMapClient::at(NOWHERE),
         },
     )
 }

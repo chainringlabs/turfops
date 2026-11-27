@@ -4,7 +4,7 @@ Timing Windows — leaf segment `TIME` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-11-27 (git SHA `357e2d3`): all 80 active specs implemented, each cited in code and by a test.
+**OK** — audited 2026-11-27 (git SHA `24a3baf`): all 80 active specs implemented, each cited in code and by a test.
 
 ## References
 

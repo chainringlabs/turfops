@@ -38,8 +38,8 @@ impl Clients {
             scan: ScanClient::new(outside.clone()),
             grid: GridClient::new(outside.clone()),
             open_meteo: OpenMeteoClient::new(outside.clone()),
-            nws: NwsClient::new(outside),
-            owm: OpenWeatherMapClient::new(),
+            nws: NwsClient::new(outside.clone()),
+            owm: OpenWeatherMapClient::new(outside),
         }
     }
 }

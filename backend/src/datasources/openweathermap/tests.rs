@@ -84,7 +84,10 @@ const FAKE_KEY: &str = "owm-secret-key-0123456789";
 /// A client whose requests fail at the network level (nothing listens on port 1), the
 /// failure whose reqwest error carries the request URL.
 fn unreachable_client() -> OpenWeatherMapClient {
-    OpenWeatherMapClient::new().with_base_url("http://127.0.0.1:1")
+    OpenWeatherMapClient::new(std::sync::Arc::new(
+        crate::datasources::outside::Outside::unpaced(),
+    ))
+    .with_base_url("http://127.0.0.1:1")
 }
 
 async fn fetch(client: &OpenWeatherMapClient, key: &str) -> Result<WeatherForecast> {
@@ -107,7 +110,10 @@ async fn a_rejected_forecast_request_keeps_the_upstream_body_out_of_the_owner_me
     let base =
         crate::test_support::stub_http(401, r#"{"cod":401,"message":"Invalid API key secret"}"#)
             .await;
-    let client = OpenWeatherMapClient::new().with_base_url(&base);
+    let client = OpenWeatherMapClient::new(std::sync::Arc::new(
+        crate::datasources::outside::Outside::unpaced(),
+    ))
+    .with_base_url(&base);
     let msg = fetch(&client, "test_key")
         .await
         .unwrap_err()

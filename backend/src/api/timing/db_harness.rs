@@ -89,8 +89,7 @@ pub(super) async fn app_state(pool: &PgPool, forecast_base: Option<&str>) -> App
     if let Some(base) = forecast_base {
         // The forecast as the schedule would hold it after fetching from `base`: none
         // when that fetch fails.
-        let fetched = OpenWeatherMapClient::new()
-            .with_base_url(base)
+        let fetched = OpenWeatherMapClient::at(base)
             .forecast(39.86, -75.79, "test-key", &ZONE, chrono::Utc::now())
             .await;
         if let Ok(forecast) = fetched {

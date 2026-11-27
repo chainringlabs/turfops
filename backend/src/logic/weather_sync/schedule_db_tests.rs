@@ -26,7 +26,7 @@ pub(super) fn unreachable() -> Clients {
         grid: GridClient::new(outside.clone()).with_url(NOWHERE),
         open_meteo: OpenMeteoClient::new(outside.clone()).with_urls(NOWHERE, NOWHERE),
         nws: crate::datasources::nws::NwsClient::new(outside).with_base_url(NOWHERE),
-        owm: crate::datasources::OpenWeatherMapClient::new().with_base_url(NOWHERE),
+        owm: crate::datasources::OpenWeatherMapClient::at(NOWHERE),
     }
 }
 

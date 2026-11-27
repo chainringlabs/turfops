@@ -4,7 +4,7 @@ Web UI — leaf segment `UI` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `357e2d3`): 63 of 65 active specs implemented; 2 marked `[ ]` (2 of them already cited in code).
+**PARTIAL** — audited 2026-11-27 (git SHA `24a3baf`): 63 of 65 active specs implemented; 2 marked `[ ]` (2 of them already cited in code).
 
 ## References
 

@@ -40,7 +40,7 @@ fn with_open_meteo_at(base: &str) -> Clients {
 
 fn with_owm_at(base: &str) -> Clients {
     let mut clients = unreachable();
-    clients.owm = OpenWeatherMapClient::new().with_base_url(base);
+    clients.owm = OpenWeatherMapClient::at(base);
     clients
 }
 

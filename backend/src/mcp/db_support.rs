@@ -176,8 +176,7 @@ pub fn names<'a>(items: &'a Value, key: &str) -> Vec<&'a str> {
 pub async fn state_with_forecast(pool: PgPool) -> AppState {
     let config = config();
     // The forecast as the schedule would hold it after fetching it from the stand-in.
-    let fetched = crate::datasources::OpenWeatherMapClient::new()
-        .with_base_url(&forecast_stub().await)
+    let fetched = crate::datasources::OpenWeatherMapClient::at(&forecast_stub().await)
         .forecast(39.8, -75.8, "test-key", &Clock::System, chrono::Utc::now())
         .await
         .unwrap();
