@@ -27,7 +27,7 @@ pub fn today_at(clock: &Clock, now: DateTime<Utc>) -> TodayResponse {
 }
 
 pub async fn get_today(State(state): State<AppState>) -> Json<TodayResponse> {
-    Json(today_at(&state.clock, state.clock.now()))
+    Json(today_at(&state.clock.get(), state.clock.now()))
 }
 
 #[cfg(test)]

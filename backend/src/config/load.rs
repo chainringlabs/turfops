@@ -191,8 +191,8 @@ pub fn from_vars(get: Lookup) -> Result<(Config, Vec<String>)> {
             password: required(get, "DATABASE_PASSWORD")?,
             max_connections: parsed(get, "DB_MAX_CONNECTIONS", 10, "10", w),
         },
-        clock: crate::clock::Clock::from_tz(var(get, "TZ").as_deref())
-            .map_err(TurfOpsError::Config)?,
+        // The app's clock comes from the lawn's location once the database is read.
+        clock: crate::clock::Clock::System,
         mcp: McpConfig {
             token: crate::mcp::parse_token(var(get, "MCP_TOKEN"))?,
         },

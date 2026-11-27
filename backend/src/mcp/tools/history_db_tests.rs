@@ -100,6 +100,22 @@ async fn each_row_carries_air_humidity_rain_hours_soil_and_gdd(pool: PgPool) {
             "hours_observed": 24.0,
             "soil_5cm_f": 64.0,
             "gdd50": 11.0,
+            "soil_basis": "measured",
+            "air_basis": "approximate",
+        })
+    );
+}
+
+// @spec MCP-HIST-008
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn the_sources_behind_the_basis_words_are_named_once(pool: PgPool) {
+    let history = week(pool).await;
+    assert_eq!(
+        history["basis"],
+        json!({
+            "approximate": ["Open-Meteo hourly analysis"],
+            "estimated": ["PRISM daily grid"],
+            "measured": ["Avondale 2 N, PA (USCRN) (20 mi)"],
         })
     );
 }
@@ -120,6 +136,8 @@ async fn a_day_without_hourly_air_takes_the_daily_air_and_leaves_the_rest_null(p
             "hours_observed": null,
             "soil_5cm_f": null,
             "gdd50": 11.0,
+            "soil_basis": null,
+            "air_basis": "estimated",
         })
     );
 }

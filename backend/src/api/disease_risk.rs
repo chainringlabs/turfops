@@ -55,7 +55,7 @@ async fn compute(
     profile: &LawnProfile,
 ) -> Result<(DiseaseRiskResponse, DiseaseContext), TurfOpsError> {
     // @spec DIS-MODEL-DAY-001
-    let asked = record_asked(&state.pool, &state.clock).await?;
+    let asked = record_asked(&state.pool, &state.clock.get()).await?;
     let today = asked.at.today;
     let fetch_start = today - Duration::days(disease::LOOKBACK_DAYS);
     // @spec DIS-MODEL-DAY-002
@@ -70,7 +70,9 @@ async fn compute(
     // @spec DIS-MODEL-DAY-003, DIS-MODEL-DAY-007
     let forecast_days = forecast
         .as_ref()
-        .map(|f| weather_days::forecast_days(&f.hourly, &state.clock, observed.latest_observed))
+        .map(|f| {
+            weather_days::forecast_days(&f.hourly, &state.clock.get(), observed.latest_observed)
+        })
         .unwrap_or_default();
     let series = weather_days::build_series(observed.days, forecast_days);
 

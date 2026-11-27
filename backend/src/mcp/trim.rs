@@ -148,6 +148,71 @@ pub fn data_sources(status: Result<Value, serde_json::Error>, notes: &mut Vec<St
     })
 }
 
+// @spec MCP-TOOL-029
+/// Removes every `latitude` and `longitude`, at any depth: the lawn's coordinates never
+/// leave the app through a tool. Place names, timezones and distances stay.
+pub fn without_coordinates(value: &mut Value) {
+    match value {
+        Value::Object(map) => {
+            map.remove("latitude");
+            map.remove("longitude");
+            map.values_mut().for_each(without_coordinates);
+        }
+        Value::Array(items) => items.iter_mut().for_each(without_coordinates),
+        _ => {}
+    }
+}
+
+// @spec MCP-TOOL-028
+/// The Sources page's answer for the model: per input the basis in use, what stands
+/// behind it, the newest observation and the estimate's accuracy; per source its status,
+/// history and attribution; the forecast provider and its status. Connections, which
+/// credentials are stored, pins and ids are dropped (coordinates go in `json_result`).
+pub fn sources(mut view: Value) -> Value {
+    if let Some(map) = view.as_object_mut() {
+        map.remove("connections");
+    }
+    for input in view["inputs"].as_array_mut().into_iter().flatten() {
+        if let Some(map) = input.as_object_mut() {
+            map.remove("pinned_station_ref");
+        }
+    }
+    for source in view["sources"].as_array_mut().into_iter().flatten() {
+        if let Some(map) = source.as_object_mut() {
+            map.remove("id");
+        }
+    }
+    view
+}
+
+// @spec MCP-SNAP-005
+/// Data sync's source status as the snapshot carries it: per source in use its name,
+/// kind, whether its last scheduled fetch succeeded and when, and its inputs.
+pub fn source_status(sources: Value) -> Value {
+    let newest = |a: &Value, b: &Value| match (a.as_str(), b.as_str()) {
+        (Some(x), Some(y)) => Value::from(x.max(y)),
+        (Some(x), None) => Value::from(x),
+        (None, Some(y)) => Value::from(y),
+        (None, None) => Value::Null,
+    };
+    Value::Array(
+        sources
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|s| {
+                serde_json::json!({
+                    "name": s["name"],
+                    "kind": s["kind"],
+                    "ok": s["ok"],
+                    "fetched_at": newest(&s["last_success"], &s["last_failure"]),
+                    "inputs": s["inputs"],
+                })
+            })
+            .collect(),
+    )
+}
+
 /// Build an object from named parts.
 pub fn object(parts: Vec<(&str, Value)>) -> Value {
     Value::Object(
@@ -161,6 +226,39 @@ pub fn object(parts: Vec<(&str, Value)>) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // @spec MCP-SNAP-010
+    #[test]
+    fn source_status_that_will_not_serialize_is_null_with_a_note() {
+        let mut notes = Vec::new();
+        let err = serde_json::from_str::<Value>("{").unwrap_err();
+        assert_eq!(data_sources(Err(err), &mut notes), Value::Null);
+        assert_eq!(
+            notes,
+            vec![format!(
+                "data_sources unavailable: {}",
+                crate::mcp::tools::INTERNAL_ERROR
+            )]
+        );
+    }
+
+    // @spec MCP-SNAP-005
+    #[test]
+    fn source_status_is_name_kind_ok_when_and_inputs() {
+        let status = serde_json::json!([{
+            "id": 4, "name": "Avondale 2 N", "kind": "Station", "ok": true,
+            "last_success": "2026-11-25T12:00:00Z", "last_failure": "2026-11-24T12:00:00Z",
+            "last_error": null, "inputs": ["soil_temp_5"], "held_from": "2011-01-01",
+            "held_through": "2026-11-24", "wanted_from": "2011-01-01"
+        }]);
+        assert_eq!(
+            source_status(status),
+            serde_json::json!([{
+                "name": "Avondale 2 N", "kind": "Station", "ok": true,
+                "fetched_at": "2026-11-25T12:00:00Z", "inputs": ["soil_temp_5"]
+            }])
+        );
+    }
 
     #[test]
     fn summary_drops_only_the_hourly_forecast() {

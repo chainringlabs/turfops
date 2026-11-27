@@ -157,7 +157,7 @@ fn the_image_sets_no_timezone_of_its_own() {
         assert!(!line.starts_with("ENV TZ"), "{line}");
     }
     assert!(
-        super::COMPOSE.contains("TZ: ${TZ:-"),
-        "the example deployment supplies one"
+        !super::COMPOSE.contains("TZ:"),
+        "nor does the example deployment: the zone comes from the location"
     );
 }

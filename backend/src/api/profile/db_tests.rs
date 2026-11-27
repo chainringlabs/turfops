@@ -316,3 +316,22 @@ async fn a_profile_created_by_a_save_can_carry_its_location(pool: PgPool) {
     assert_eq!(created.location.unwrap().timezone, "America/Chicago");
     assert_eq!(profiles(&pool).await, 1);
 }
+
+// @spec DEPLOY-TZ-008
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn a_new_location_puts_its_zone_on_the_apps_clock(pool: PgPool) {
+    lawn(&pool).await;
+    let state = state(&pool).await;
+    state.clock.replace(crate::clock::Clock::System);
+    // Denver, CO.
+    put(
+        &state,
+        json!({"location": {"latitude": 39.74, "longitude": -104.99}}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        state.clock.get(),
+        crate::clock::Clock::Zone(chrono_tz::America::Denver)
+    );
+}

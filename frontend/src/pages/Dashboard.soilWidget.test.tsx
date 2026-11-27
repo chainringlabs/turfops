@@ -34,7 +34,12 @@ const dashboard: DashboardResponse = {
 		soil_type: null,
 		lawn_size_sqft: null,
 		irrigation_type: null,
-		location: null,
+		location: {
+			latitude: 39.86,
+			longitude: -75.79,
+			place_name: "Avondale, PA",
+			timezone: "America/New_York",
+		},
 		created_at: "2026-01-01T00:00:00Z",
 		updated_at: "2026-01-01T00:00:00Z",
 	},

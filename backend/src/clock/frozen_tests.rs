@@ -29,7 +29,6 @@ fn a_frozen_clock_reads_its_instant_and_that_instants_local_date() {
         }
     );
     assert_eq!(stopped.now(), stopped.now(), "a frozen clock does not move");
-    assert!(!stopped.is_system());
 }
 
 // @spec DEPLOY-TZ-007
@@ -44,9 +43,17 @@ fn a_running_clock_reads_the_real_time_and_one_moment_agrees_with_itself() {
 
 // @spec DEPLOY-TZ-007
 #[test]
-fn configuration_never_produces_a_frozen_clock() {
-    for tz in [None, Some(""), Some("UTC"), Some("America/New_York")] {
-        assert!(!matches!(Clock::from_tz(tz).unwrap(), Clock::Frozen { .. }));
+fn neither_a_location_nor_the_host_default_produces_a_frozen_clock() {
+    let placed = crate::models::LawnProfile {
+        location: Some(crate::models::LawnLocation::at(39.86, -75.79, None).unwrap()),
+        ..Default::default()
+    };
+    for profile in [
+        None,
+        Some(&placed),
+        Some(&crate::models::LawnProfile::default()),
+    ] {
+        assert!(!matches!(Clock::of_lawn(profile), Clock::Frozen { .. }));
     }
 }
 

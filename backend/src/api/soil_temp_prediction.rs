@@ -30,7 +30,7 @@ pub async fn get_soil_temp_forecast(
         let mut service = state.sync_service.write().await;
         service.get_or_refresh().await?
     };
-    let asked = record_asked(&state.pool, &state.clock).await?;
+    let asked = record_asked(&state.pool, &state.clock.get()).await?;
     let today = asked.at.today;
     let record = WeatherRecord::new(state.pool.clone());
     let pairs = record

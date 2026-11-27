@@ -39,16 +39,16 @@ RUN cargo build --release
 # @spec DEPLOY-IMAGE-002, DEPLOY-IMAGE-003, DEPLOY-IMAGE-005, DEPLOY-IMAGE-006
 # glibc-dynamic ships glibc, libstdc++.so.6 and libgcc_s.so.1, which the binary loads
 # (the bundled DuckDB C++ build links the C++ runtime dynamically); nothing else is copied.
-# @spec DEPLOY-TZ-002 (the image sets no TZ; the deployment supplies the lawn's zone)
-FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:838b58dceeba88a5dc8b088bca1a2e1e8e26ebe88d5e23a87137de09cc910e61
+# @spec DEPLOY-TZ-002 (the image sets no TZ; the clock follows the lawn's location)
+FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:eaa0c377a38e4c67f4192fd5fe9d24d39d51c4531613d97731537f9d33460ae4
 
 WORKDIR /app
 
 COPY --from=backend-build --chown=65532:65532 /app/target/release/turfops-backend ./turfops-backend
 COPY --from=frontend-build --chown=65532:65532 /app/frontend/dist ./static
 # @spec DEPLOY-TZ-001
-# The distroless runtime has no timezone database; without it chrono's `Local` silently
-# stays on UTC whatever TZ says, and every date-gated rule flips a day early each evening.
+# The distroless runtime has no timezone database; the host-default clock (before the lawn
+# has a location) reads chrono's `Local`, which needs it.
 COPY --from=backend-build /usr/share/zoneinfo /usr/share/zoneinfo
 
 ENV STATIC_DIR=/app/static

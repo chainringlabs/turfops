@@ -154,7 +154,6 @@ All configuration is done through environment variables. When running with Docke
 | `DATABASE_USER` | App database user | `turfops` |
 | `DATABASE_PASSWORD` | App database password | **required** |
 | `DB_PASSWORD` | Password used by the PostgreSQL container (Docker Compose). **Required** — compose refuses to start without it | — |
-| `TZ` | The lawn's timezone; "today" for the rules, nitrogen budget, plan and calendar | `America/New_York` |
 | `DB_MAX_CONNECTIONS` | Maximum database connection pool size | `10` |
 
 > **Note**: When using Docker Compose, `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, and `DATABASE_USER` are pre-configured in `docker-compose.yml`. You only need to set `DB_PASSWORD` in your `.env` to change the database password (it flows to both the PostgreSQL container and the app's `DATABASE_PASSWORD`).

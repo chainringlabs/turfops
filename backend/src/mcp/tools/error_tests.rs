@@ -69,7 +69,7 @@ async fn a_failed_upstream_request_says_a_source_did_not_respond() {
     assert_eq!(
         msg,
         format!(
-            "An external data source (forecast or Home Assistant) did not respond. \
+            "An outside service TurfOps relies on did not respond. \
              {MISSING_DATA_HINT}"
         )
     );
