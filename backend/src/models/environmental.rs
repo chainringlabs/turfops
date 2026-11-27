@@ -88,7 +88,7 @@ impl EnvironmentalReading {
         }
     }
 
-    // @spec WX-SRC-MODEL-002
+    // @spec WX-SRC-MODEL-004
     pub fn primary_soil_moisture(&self) -> Option<f64> {
         self.soil_moisture_10
             .or(self.soil_moisture_5)
@@ -102,7 +102,6 @@ impl Default for EnvironmentalReading {
     }
 }
 
-// @spec WX-SRC-MODEL-001
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EnvironmentalSummary {
     pub current: Option<EnvironmentalReading>,
@@ -112,8 +111,8 @@ pub struct EnvironmentalSummary {
     pub precipitation_7day_total_mm: Option<f64>,
     pub soil_temp_trend: Trend,
     pub last_updated: Option<DateTime<Utc>>,
-    /// When the station actually measured the soil values in `current`. The lake normally
-    /// trails by about a day; `last_updated` only says when the app last looked.
+    /// When the station actually measured the soil values in `current`. It can trail by
+    /// hours; `last_updated` only says when the app last looked.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub soil_observed_at: Option<DateTime<Utc>>,
     /// Weather forecast data (5-day/3-hour) from OpenWeatherMap
@@ -228,7 +227,7 @@ mod tests {
         assert!((celsius_to_fahrenheit(29.4) - 84.9).abs() < 0.2);
     }
 
-    // @spec WX-SRC-MODEL-002
+    // @spec WX-SRC-MODEL-004
     #[test]
     fn environmental_reading_primary_soil_moisture() {
         let mut reading = EnvironmentalReading::new(DataSource::SoilData);

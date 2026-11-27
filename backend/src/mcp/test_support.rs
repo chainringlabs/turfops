@@ -1,5 +1,5 @@
-//! Shared helpers for the MCP tests: an `AppState` over a given pool and lake, JSON-RPC
-//! over the real `/mcp` router, a small silver/gold lake, and log capture.
+//! Shared helpers for the MCP tests: an `AppState` over a given pool, JSON-RPC over the
+//! real `/mcp` router, and log capture.
 
 use crate::clock::Clock;
 use crate::config::Config;
@@ -16,13 +16,11 @@ use tower::ServiceExt;
 pub const TOKEN: &str = "0123456789abcdef0123456789abcdef";
 pub const PROTOCOL: &str = "2025-06-18";
 
-/// A configuration with no Home Assistant, no forecast and the lake at `silver` / `gold`.
-pub fn config(silver: &str, gold: &str) -> Config {
+/// A configuration with no Home Assistant and no forecast.
+pub fn config() -> Config {
     serde_json::from_value(json!({
         "lawn": {"name": "Test lawn", "grass_type": "TallFescue", "usda_zone": "7a",
                  "soil_type": null, "lawn_size_sqft": null, "irrigation_type": null},
-        "noaa": {"station_wbanno": 3761},
-        "datalake": {"silver_weather_path": silver, "gold_weather_path": gold},
         "homeassistant": {"url": "http://127.0.0.1:1", "token": "",
                           "temperature_entity": "sensor.t", "humidity_entity": "sensor.h"},
         "openweathermap": null,
@@ -43,103 +41,12 @@ pub fn unreachable_pool() -> PgPool {
         .expect("lazy pool")
 }
 
-/// App state over `pool`, with the lake at `lake` (paths that need not exist).
-pub async fn state(pool: PgPool, lake: &Lake) -> AppState {
-    let config = config(&lake.silver, &lake.gold);
-    let sync = DataSyncService::initialize(&config, pool.clone())
+/// App state over `pool`, answering with a fixed reading for current conditions.
+pub async fn state(pool: PgPool) -> AppState {
+    let sync = DataSyncService::initialize(&config(), pool.clone())
         .await
-        .summary_from_lake();
+        .fixed_reading();
     AppState::new(pool, sync, None, true, Clock::System)
-}
-
-/// Silver and gold parquet paths, removed on drop.
-pub struct Lake {
-    pub silver: String,
-    pub gold: String,
-}
-
-impl Lake {
-    /// Paths that do not exist: every lake read fails.
-    pub fn missing(name: &str) -> Self {
-        Self {
-            silver: format!("/nonexistent/turfops-{name}/silver.parquet"),
-            gold: format!("/nonexistent/turfops-{name}/gold.parquet"),
-        }
-    }
-
-    /// A lake holding `days` complete days ending yesterday (the lawn's clock): silver
-    /// hours at 20 °C, 70 % RH and 0.5 mm of rain in the 06:00 hour, soil at 18 °C; gold
-    /// rows with air min 50 °F, 10 GDD, and a varying air mean and 10 cm soil mean (so
-    /// the air-to-soil regression has something to fit). `gold_only` dates exist in gold
-    /// alone (air min 41 °F, mean 51 °F, 1 GDD).
-    #[cfg(feature = "db-tests")]
-    pub fn with_days(name: &str, days: i64, gold_only: &[chrono::NaiveDate]) -> Self {
-        let dir = std::env::temp_dir();
-        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let tag = format!("{name}_{}_{n}", std::process::id());
-        let lake = Self {
-            silver: dir
-                .join(format!("turfops_mcp_silver_{tag}.parquet"))
-                .display()
-                .to_string(),
-            gold: dir
-                .join(format!("turfops_mcp_gold_{tag}.parquet"))
-                .display()
-                .to_string(),
-        };
-        let first = Clock::System.today() - chrono::Duration::days(days);
-        let extra: Vec<String> = gold_only
-            .iter()
-            .map(|d| format!("(DATE '{d}', 41.0, 51.0, 61.0, 1.0, 24, 55.0)"))
-            .collect();
-        let extra = if extra.is_empty() {
-            String::new()
-        } else {
-            format!(" UNION ALL SELECT * FROM (VALUES {}) v", extra.join(", "))
-        };
-        duckdb::Connection::open_in_memory()
-            .unwrap()
-            .execute_batch(&format!(
-                "COPY (
-                    SELECT '03761' AS wbanno,
-                           ts AS obs_ts_utc, ts AS obs_ts_local,
-                           CAST(ts AS DATE) AS obs_date_local,
-                           20.0 AS air_temp_c, 19.0 AS air_temp_min_c, 21.0 AS air_temp_max_c,
-                           70.0 AS rh_pct,
-                           CASE WHEN hour(ts) = 6 THEN 0.5 ELSE 0.0 END AS precip_mm,
-                           18.0 AS soil_temp_5, 18.0 AS soil_temp_10, 18.0 AS soil_temp_20,
-                           18.0 AS soil_temp_50, 18.0 AS soil_temp_100,
-                           0.25 AS soil_moisture_5, 0.25 AS soil_moisture_10,
-                           0.25 AS soil_moisture_20, 0.25 AS soil_moisture_50,
-                           0.25 AS soil_moisture_100
-                    FROM (SELECT TIMESTAMP '{first} 00:00:00' + h * INTERVAL 1 HOUR AS ts
-                          FROM range({hours}) t(h))
-                 ) TO '{silver}' (FORMAT PARQUET);
-                 COPY (
-                    SELECT * FROM (
-                        SELECT DATE '{first}' + CAST(d AS INTEGER) AS day,
-                               50.0 AS air_temp_min_f, 55.0 + (d * 7) % 11 AS air_temp_avg_f,
-                               70.0 AS air_temp_max_f, 10.0 AS gdd50,
-                               24 AS hours_observed,
-                               58.0 + ((d * 7) % 11) * 0.6 + (d % 3) * 0.4
-                                   AS soil_temp_10_f_mean
-                        FROM range({days}) t(d)){extra}
-                 ) TO '{gold}' (FORMAT PARQUET);",
-                hours = days * 24,
-                silver = lake.silver,
-                gold = lake.gold,
-            ))
-            .expect("lake fixture");
-        lake
-    }
-}
-
-impl Drop for Lake {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.silver);
-        let _ = std::fs::remove_file(&self.gold);
-    }
 }
 
 /// A POST to `/mcp` carrying the bearer token and the headers an MCP client sends.

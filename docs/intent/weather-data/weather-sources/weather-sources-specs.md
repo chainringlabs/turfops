@@ -113,6 +113,7 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 ## Shared units
 
 - [x] **WX-SRC-MODEL-003**: Every backend weather contract shall carry precipitation in millimetres; only the UI converts to inches.
+- [x] **WX-SRC-MODEL-004**: A reading's primary soil moisture shall be its 10 cm value, else its 5 cm value, else its 20 cm value.
 
 ## Settings
 

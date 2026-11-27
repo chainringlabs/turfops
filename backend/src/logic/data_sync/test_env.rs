@@ -16,8 +16,6 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 #[cfg(feature = "db-tests")]
 use tokio::net::TcpListener;
 
-/// A lake mount that does not exist: every lake read fails, as when the lake is unmounted.
-pub(crate) const NO_LAKE: &str = "/nonexistent/turfops-test-lake";
 /// A Home Assistant entity state that parses as a number.
 #[cfg(feature = "db-tests")]
 pub(crate) const HA_STATE: &str = r#"{"state":"72.0","entity_id":"sensor.patio"}"#;
@@ -90,12 +88,10 @@ fn summarize(head: &str) -> String {
     format!("{request_line} | {auth}")
 }
 
-/// The configuration the variables describe, with the lake pointed at [`NO_LAKE`].
+/// The configuration the variables describe.
 pub(crate) fn config(vars: &[(&str, &str)]) -> Config {
-    let mut all: HashMap<String, String> = HashMap::from([
-        ("DATABASE_PASSWORD".to_string(), "test".to_string()),
-        ("DATALAKE_ROOT".to_string(), NO_LAKE.to_string()),
-    ]);
+    let mut all: HashMap<String, String> =
+        HashMap::from([("DATABASE_PASSWORD".to_string(), "test".to_string())]);
     for (key, value) in vars {
         all.insert(key.to_string(), value.to_string());
     }

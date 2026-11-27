@@ -136,10 +136,9 @@ impl Logs {
 
 // @spec DEPLOY-LOG-002
 #[tokio::test]
-async fn startup_logs_paths_integrations_cors_and_the_server_lines() {
+async fn startup_logs_integrations_cors_and_the_server_lines() {
     let start = || async {
         let config = test_config(&[
-            ("DATALAKE_ROOT", "/lake"),
             ("HA_URL", "http://ha.example:8123"),
             ("HA_TOKEN", "ha-token"),
             ("OWM_API_KEY", "owm-key"),
@@ -154,18 +153,17 @@ async fn startup_logs_paths_integrations_cors_and_the_server_lines() {
     let (logs, _guard) = Logs::capture();
     start().await;
     let info = logs.info_lines();
-    for expected in [
-        "/lake/silver/weather/silver_weather.parquet",
-        "/lake/gold/weather/daily_weather.parquet",
-        "Weather data lake client configured",
-        "https://lawn.example.com",
-    ] {
-        assert!(
-            info.iter().any(|l| l.contains(expected)),
-            "{expected}: {info:#?}"
-        );
-    }
+    assert!(
+        info.iter().any(|l| l.contains("https://lawn.example.com")),
+        "{info:#?}"
+    );
+    assert!(
+        !info.iter().any(|l| l.to_lowercase().contains("lake")),
+        "{info:#?}"
+    );
     for line in [
+        "tracing::info!(\"Clock: {}\"",
+        "log_integrations(&pool).await?",
         "tracing::info!(model = %c.model",
         "tracing::info!(\"MCP server mounted at /mcp",
         "tracing::info!(\"MCP_TOKEN not set — /mcp not mounted\")",
@@ -180,9 +178,7 @@ async fn startup_logs_paths_integrations_cors_and_the_server_lines() {
 async fn constructing_the_clients_touches_no_integration() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
-    let lake = "/nonexistent/turfops-startup-lake";
     let config = test_config(&[
-        ("DATALAKE_ROOT", lake),
         ("HA_URL", &url),
         ("HA_TOKEN", "ha-token"),
         ("OWM_API_KEY", "owm-key"),
@@ -190,18 +186,13 @@ async fn constructing_the_clients_touches_no_integration() {
         ("OPENROUTER_BASE_URL", &url),
     ]);
     let started = std::time::Instant::now();
-    let sync = DataSyncService::initialize(&config, idle_pool()).await;
+    let _sync = DataSyncService::initialize(&config, idle_pool()).await;
     let _openrouter = crate::datasources::OpenRouterClient::new(config.openrouter.unwrap());
     assert!(started.elapsed() < Duration::from_secs(1));
-    assert!(sync.weather_client().is_some());
     assert!(
         tokio::time::timeout(Duration::from_millis(300), listener.accept())
             .await
             .is_err(),
         "nothing connected to Home Assistant or OpenRouter"
-    );
-    assert!(
-        !std::path::Path::new(lake).exists(),
-        "the lake was not touched"
     );
 }

@@ -1,6 +1,9 @@
-use crate::datasources::weather::DailyGddRow;
 use crate::models::{CrabgrassModel, CrabgrassStatus, DailyGdd, GddSummary};
-use chrono::Datelike;
+use chrono::{Datelike, NaiveDate};
+
+/// One day of the weather record's resolved daily air, before accumulation:
+/// `(date, air_temp_max_f, air_temp_min_f, gdd50)`.
+pub type DailyGddRow = (NaiveDate, f64, f64, f64);
 
 /// Crabgrass germination GDD threshold (base 50°F).
 pub const CRABGRASS_GDD_THRESHOLD: f64 = 200.0;
@@ -9,9 +12,9 @@ pub const CRABGRASS_GDD_THRESHOLD: f64 = 200.0;
 pub const CRABGRASS_GDD_WARNING: f64 = 150.0;
 
 // @spec RULE-GDD-001, RULE-GDD-003
-/// Accumulate cumulative GDD from the gold layer's daily rows
-/// `(date, high_f, low_f, gdd50)`. The lake precomputes `gdd50` with the identical
-/// base-50°F formula, so we trust it directly and only run the running sum here.
+/// Accumulate cumulative GDD from the weather record's daily rows
+/// `(date, high_f, low_f, gdd50)`. The record computes `gdd50` with the base-50°F
+/// formula, so only the running sum is done here.
 /// Resets accumulation at the start of each year. Rows must be sorted by date ascending.
 pub fn accumulate_daily_gdd(daily_data: &[DailyGddRow]) -> Vec<DailyGdd> {
     let mut result = Vec::with_capacity(daily_data.len());
@@ -95,7 +98,7 @@ mod tests {
 
     #[test]
     fn gdd_accumulation_running_sum() {
-        // Rows carry the gold layer's precomputed gdd50 directly.
+        // Rows carry the record's gdd50 directly.
         let data = vec![
             (
                 NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),

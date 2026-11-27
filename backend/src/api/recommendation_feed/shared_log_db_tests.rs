@@ -1,6 +1,6 @@
 //! The feed's one read of the application log (`--features db-tests`).
 
-use super::fixtures::state_without_lake;
+use super::fixtures::fixed_state;
 use crate::clock::Clock;
 use crate::db::queries;
 use crate::models::{ApplicationType, GrassType, LawnProfile};
@@ -16,7 +16,7 @@ async fn the_sources_share_one_read_of_the_newest_thousand_entries(pool: PgPool)
         .await
         .unwrap()
         .unwrap();
-    let state = state_without_lake(pool.clone(), Clock::System).await;
+    let state = fixed_state(pool.clone(), Clock::System).await;
     let today = state.clock.today();
 
     // A fungicide whose follow-up is due today, then a thousand newer mowings.

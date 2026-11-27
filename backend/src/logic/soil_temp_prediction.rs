@@ -320,7 +320,7 @@ pub fn build_forecast(
         return None;
     }
 
-    // The live reading is today's soil; estimates for days the lake has not reported
+    // The live reading is today's soil; estimates for days the record does not hold
     // yet are history to it.
     let ahead: Vec<SoilTempPrediction> = predictions
         .iter()

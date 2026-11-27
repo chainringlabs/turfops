@@ -57,7 +57,7 @@ async fn plant_activities_are_appended_as_built_over_the_plant_log_range(pool: P
     pruned.plant_id = plant.id;
     queries::create_application(&pool, &pruned).await.unwrap();
 
-    let state = state(&pool, None);
+    let state = state(&pool, Fixed::NoWeather);
     settled_history(&state, year).await;
     let plan = get_plan(&state, Some(year)).await.unwrap();
     let overlay: Vec<_> = plan

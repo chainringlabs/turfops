@@ -47,7 +47,7 @@ fn the_pass_records_the_status_and_one_data_point_per_match_and_gap() {
     let mut recs = vec![rec("seed", Severity::Advisory, needs)];
     recs[0]
         .data_points
-        .push(DataPoint::new("Soil temp", "68°F", "Lake"));
+        .push(DataPoint::new("Soil temp", "68°F", "Station"));
     enrich(&mut recs, &shelf);
 
     let r = &recs[0];
@@ -60,7 +60,7 @@ fn the_pass_records_the_status_and_one_data_point_per_match_and_gap() {
     assert_eq!(
         points,
         [
-            ("Soil temp", "68°F", "Lake"),
+            ("Soil temp", "68°F", "Station"),
             ("On hand", "TTTF blend (grass seed)", "Inventory"),
             ("On hand", "Starter (grass seed)", "Inventory"),
             ("Not on shelf", "starter fertilizer", "Inventory"),

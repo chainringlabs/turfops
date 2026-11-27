@@ -1,5 +1,5 @@
 //! The MCP server over its real `/mcp` router: transport, server info, the tool list and
-//! the resources. No tool here reaches a database or lake.
+//! the resources. No tool here reaches a database.
 
 use super::test_support::*;
 use super::{instructions, router};
@@ -8,7 +8,7 @@ use axum::http::{header, Method, Request, StatusCode};
 use serde_json::{json, Value};
 
 async fn lazy_state() -> crate::state::AppState {
-    state(unreachable_pool(), &Lake::missing("server")).await
+    state(unreachable_pool()).await
 }
 
 async fn tool_list() -> Vec<Value> {

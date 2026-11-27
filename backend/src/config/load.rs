@@ -82,7 +82,7 @@ fn forecast_config(get: Lookup, w: &mut Vec<String>) -> Option<OpenWeatherMapCon
         .map(|api_key| OpenWeatherMapConfig { api_key })
 }
 
-/// Settings the lake and the old Home Assistant reading took, which nothing reads now.
+/// Settings the retired weather lake and Home Assistant reading took; nothing reads them.
 const RETIRED: [&str; 5] = [
     "DATALAKE_ROOT",
     "WEATHER_SILVER_PATH",
@@ -111,7 +111,7 @@ fn flag(get: Lookup, key: &str) -> bool {
 }
 
 /// The configuration the variables describe, and a warning for each value it could not use.
-// @spec WX-SRC-CFG-001, DEPLOY-CONFIG-001, DEPLOY-CONFIG-003, DEPLOY-CONFIG-008
+// @spec DEPLOY-CONFIG-001, DEPLOY-CONFIG-003, DEPLOY-CONFIG-008
 pub fn from_vars(get: Lookup) -> Result<(Config, Vec<String>)> {
     let mut warnings: Vec<String> = Vec::new();
     let w = &mut warnings;
@@ -125,27 +125,6 @@ pub fn from_vars(get: Lookup) -> Result<(Config, Vec<String>)> {
             lawn_size_sqft: var(get, "LAWN_SIZE_SQFT"),
             irrigation_type: var(get, "LAWN_IRRIGATION_TYPE"),
             location: super::location_seed::LocationSettings::from_vars(get),
-        },
-        noaa: NoaaConfig {
-            station_wbanno: parsed(get, "NOAA_STATION_WBANNO", 3761, "3761", w),
-        },
-        datalake: {
-            // Either set the two full paths explicitly, or set DATALAKE_ROOT and
-            // derive the conventional weather parquet locations beneath it.
-            let root = env_or(get, "DATALAKE_ROOT", "/data");
-            let silver_weather_path = var(get, "WEATHER_SILVER_PATH")
-                .unwrap_or_else(|| format!("{root}/silver/weather/silver_weather.parquet"));
-            let gold_weather_path = var(get, "WEATHER_GOLD_PATH")
-                .unwrap_or_else(|| format!("{root}/gold/weather/daily_weather.parquet"));
-            tracing::info!(
-                silver = %silver_weather_path,
-                gold = %gold_weather_path,
-                "Weather data lake paths configured"
-            );
-            DataLakeConfig {
-                silver_weather_path,
-                gold_weather_path,
-            }
         },
         // @spec DEPLOY-CONFIG-003, DEPLOY-CONFIG-016
         // Read only to seed the app's stored connection on a first run; blank is not set.

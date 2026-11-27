@@ -56,16 +56,3 @@ fn internal_failures_are_logged_at_error_and_answer_the_server_sentence() {
         assert!(!message.contains("secret"));
     }
 }
-
-// @spec UI-ERR-002, DEPLOY-HTTP-007
-#[test]
-fn a_lake_failure_is_logged_at_warn_and_answers_the_lakes_503() {
-    let (status, message, logs) = respond(TurfOpsError::DataLake(duckdb::Error::InvalidPath(
-        "/data/secret/silver_weather.parquet".into(),
-    )));
-    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
-    assert!(message.contains("weather data lake"), "{message}");
-    assert!(!message.contains("secret"), "{message}");
-    assert!(logs.contains("WARN") && logs.contains("secret"), "{logs}");
-    assert!(!logs.contains("ERROR"), "{logs}");
-}

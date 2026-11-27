@@ -56,8 +56,8 @@ with a note.
    |--------|---------|-------------------|
    | `Observed` | Seen in station data and held 5 days | yes |
    | `Tentative` | Seen in station data, run still in progress (< 5 days) | yes — the detail text says "held N of 5 days". On a **closing** boundary it makes the window `Closing`, never `Closed` (see State) |
-   | `Forecast` | Only the soil forecast crosses it. The outlook starts the day after the last station day, so a crossing inside the lake's lag is dated *today*, never in the past | no → `OpeningSoon` |
-   | `Typical` | Not seen: the historical median is used | only when the median is still ahead it is an estimate; if the median has passed **and the station has reported past it** with no crossing, the boundary is **overdue** and carries *no date* ("later than usual"). Inside the lake's 1–2 day lag the median stays the estimate. The detail text only says "running behind" past the 90th percentile — the median alone is passed in half of all years |
+   | `Forecast` | Only the soil forecast crosses it. The outlook starts the day after the last station day, so a crossing inside the station's reporting lag is dated *today*, never in the past | no → `OpeningSoon` |
+   | `Typical` | Not seen: the historical median is used | only when the median is still ahead it is an estimate; if the median has passed **and the station has reported past it** with no crossing, the boundary is **overdue** and carries *no date* ("later than usual"). Inside the station's reporting lag the median stays the estimate. The detail text only says "running behind" past the 90th percentile — the median alone is passed in half of all years |
 
    When station soil data is more than 5 days old, or a boundary's scan range has
    ended, typical dates are trusted by the calendar instead, and a data note says so.

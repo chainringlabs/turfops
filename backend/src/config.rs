@@ -7,8 +7,6 @@ use sqlx::postgres::PgConnectOptions;
 mod cors_origin_tests;
 #[cfg(test)]
 mod defaults_tests;
-#[cfg(test)]
-mod lake_config_tests;
 pub(crate) mod load;
 #[cfg(test)]
 pub(crate) use load::test_config;
@@ -23,8 +21,6 @@ mod startup_profile_db_tests;
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub lawn: LawnConfig,
-    pub noaa: NoaaConfig,
-    pub datalake: DataLakeConfig,
     pub homeassistant: HomeAssistantConfig,
     pub openweathermap: Option<OpenWeatherMapConfig>,
     pub openrouter: Option<OpenRouterConfig>,
@@ -51,23 +47,6 @@ pub struct LawnConfig {
     /// `LAWN_LATITUDE` / `LAWN_LONGITUDE` as given.
     #[serde(skip)]
     pub location: location_seed::LocationSettings,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct NoaaConfig {
-    pub station_wbanno: i32,
-}
-
-/// Filesystem paths to the NOAA weather data lake (parquet, produced by the
-/// Dagster bronze/silver/gold pipeline and mounted into this container).
-#[derive(Debug, Clone, Deserialize)]
-pub struct DataLakeConfig {
-    /// Silver hourly weather parquet (cleaned, deduped, one row per hourly observation).
-    pub silver_weather_path: String,
-    /// Gold daily weather parquet. Accepted but no longer read: every daily series comes
-    /// from the weather record.
-    #[allow(dead_code)]
-    pub gold_weather_path: String,
 }
 
 #[derive(Clone, Deserialize)]

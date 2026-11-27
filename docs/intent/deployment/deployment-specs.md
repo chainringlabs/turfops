@@ -89,7 +89,7 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 ## Logging
 
 - [x] **DEPLOY-LOG-001**: The backend shall write text logs to stdout, filtered by `RUST_LOG` (default `info`; an invalid filter falls back to `info`), with logging initialized before configuration is read so configuration warnings are logged.
-- [ ] **DEPLOY-LOG-002**: When the backend starts, it shall log at INFO whether the lawn has a location, which integrations are configured, any credential it imported from the environment on this start (never its value), the OpenRouter model, whether `/mcp` and `/api/v1/sensor-readings` are mounted, the CORS origin and the bind address.
+- [x] **DEPLOY-LOG-002**: When the backend starts, it shall log at INFO whether the lawn has a location, which integrations are configured, any credential it imported from the environment on this start (never its value), the OpenRouter model, whether `/mcp` and `/api/v1/sensor-readings` are mounted, the CORS origin and the bind address.
 - [x] **DEPLOY-LOG-003**: No log line and no HTTP response body produced by the backend shall contain a credential.
 - [x] **DEPLOY-LOG-004**: The fetch schedule shall log each failed fetch at WARN with the client's detail and each completed backfill year at INFO.
 

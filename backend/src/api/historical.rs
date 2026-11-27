@@ -29,7 +29,7 @@ pub async fn get_historical(
     let range_str = params.range.as_deref().unwrap_or("7d");
     let now = state.clock.now();
 
-    // Silver is hourly; longer ranges group hours into buckets to keep point counts
+    // The record is hourly; longer ranges group hours into buckets to keep point counts
     // reasonable without dropping any hour's rain.
     let (start, bucket_hours) = match range_str {
         "7d" => (now - Duration::days(7), 1),    // ~168 hourly points

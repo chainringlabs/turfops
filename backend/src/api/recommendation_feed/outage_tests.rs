@@ -1,13 +1,13 @@
 //! A weather outage costs the feed its weather-backed sources, never the feed.
 
-use super::fixtures::{profile, state_without_lake, unconnected_pool};
+use super::fixtures::{fixed_state, profile, unconnected_pool};
 use crate::clock::Clock;
 use crate::models::{Recommendation, RecommendationCategory, Severity};
 
 // @spec FEED-PIPE-015
 #[tokio::test]
 async fn a_weather_record_outage_leaves_the_feed_without_disease_advice() {
-    let state = state_without_lake(unconnected_pool(), Clock::System).await;
+    let state = fixed_state(unconnected_pool(), Clock::System).await;
     let recs = crate::api::disease_risk::recommendations(&state, &profile()).await;
     assert!(
         recs.is_empty(),
@@ -17,8 +17,8 @@ async fn a_weather_record_outage_leaves_the_feed_without_disease_advice() {
 
 // @spec FEED-PIPE-016
 #[tokio::test]
-async fn a_lake_outage_adds_no_timing_advice_and_leaves_the_fall_herbicide_alone() {
-    let state = state_without_lake(unconnected_pool(), Clock::System).await;
+async fn a_weather_record_outage_adds_no_timing_advice_and_leaves_the_fall_herbicide_alone() {
+    let state = fixed_state(unconnected_pool(), Clock::System).await;
     let broadleaf = Recommendation::new(
         "broadleaf_fall",
         RecommendationCategory::Herbicide,

@@ -250,6 +250,6 @@ pub struct DiseaseRiskResponse {
     /// The headline day's hours come from the hourly analysis.
     pub approximate: bool,
     pub diseases: Vec<DiseaseRisk>,
-    /// Caveats about the inputs (lake lag, missing forecast, ...).
+    /// Caveats about the inputs (approximate days, missing forecast, ...).
     pub data_notes: Vec<String>,
 }

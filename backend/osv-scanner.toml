@@ -22,19 +22,19 @@ reason = "libsqlite3-sys is an optional sqlx-sqlite dependency this build never 
 
 # RUSTSEC-2026-0543 (crate chrono): an "unmaintained" notice, not a vulnerability: no flaw
 # is reported in any version and there is no fixed version to move to. Moving this code to
-# another date library would not take chrono out of Cargo.lock, because rmcp and arrow
-# (through duckdb) depend on it unconditionally. Drop this, and plan the move off chrono,
-# once rmcp and arrow no longer require it; reassess at once if a vulnerability is filed
-# against chrono (it gets its own ID, which this entry does not cover).
+# another date library would not take chrono out of Cargo.lock, because rmcp, schemars and
+# sqlx depend on it unconditionally. Drop this, and plan the move off chrono, once they no
+# longer require it; reassess at once if a vulnerability is filed against chrono (it gets
+# its own ID, which this entry does not cover).
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0543"
-reason = "Unmaintained notice with no known vulnerability; rmcp and arrow (via duckdb) hard-depend on chrono, so it cannot leave the lockfile yet"
+reason = "Unmaintained notice with no known vulnerability; rmcp, schemars and sqlx hard-depend on chrono, so it cannot leave the lockfile yet"
 
 # RUSTSEC-2026-0555 (crate chrono-tz): an "unmaintained" notice, not a vulnerability: no
-# flaw is reported in any version and there is no fixed version. The app uses it only to
-# resolve `TZ` into the clock's zone, from the zone database compiled into the binary.
+# flaw is reported in any version and there is no fixed version. The app uses it to
+# resolve the lawn's zone for the clock, from the zone database compiled into the binary.
 # It leaves together with chrono (see RUSTSEC-2026-0543); reassess at once if a
 # vulnerability is filed against chrono-tz.
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0555"
-reason = "Unmaintained notice with no known vulnerability; resolves TZ for the app clock and leaves together with chrono"
+reason = "Unmaintained notice with no known vulnerability; resolves the lawn's zone for the app clock and leaves together with chrono"

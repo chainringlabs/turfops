@@ -5,7 +5,7 @@ on a decision. The research behind the design is in
 [standalone-weather-sources.md](standalone-weather-sources.md); the design and specs are under
 `docs/intent/`. This file is the place to start when picking the work up.
 
-Status as of 2026-11-25: slice 7 is complete (#374 to #380); slice 8 is under way: the forecast on the schedule (#381) is merged, and the summary from the record is in review.
+Status as of 2026-11-27: slices 7 and 8 are complete and deployed (#374 to #394); every page, rule and MCP tool reads the weather record. Slice 9 removes the lake: the reader, DuckDB, its settings and its documents are deleted in the PR that carries this line. An arrow-maintenance pass over `docs/arrows/` follows it.
 
 ## The goal
 
@@ -15,8 +15,7 @@ every value says which. No data service needs a key or a payment.
 
 ## What is built
 
-Everything below is merged to `main`. None of it changes what a page shows: the pages, rules
-and MCP tools still read the lake through the old path until the cutover (slice 8).
+Everything below is merged to `main` and deployed.
 
 | Slice | What | PRs |
 |---|---|---|
@@ -81,8 +80,9 @@ The first slice that changes what the owner sees. Five PRs:
    estimated-soil rules — after it nothing reads the lake (#389, merged); (c2) the Timing
    page's basis labels, estimated dates and chart, with gap fills summarized rather than
    noted change by change (#390, merged).
-5. The clock follows the location (5a, in review), the no-location notice, MCP results
-   without coordinates, MCP tools on the record, and the retired-settings lines.
+5. The clock follows the location (#391), the no-location notice (#392), MCP results
+   without coordinates and MCP tools on the record (#393), and the retired-settings lines
+   (#394). All merged.
 
 What each covers:
 
@@ -103,9 +103,11 @@ What each covers:
 
 ### Slice 9, removal
 
-DuckDB, the lake reader, the cache tables, the Compose mount, and the documents that describe
-them: `CLAUDE.md`, the README, `docs/agronomy-methods.md`, `docs/timing-windows.md`,
-`docs/arrows/index.yaml`.
+DuckDB, the lake reader, its configuration and error, the build's C++ toolchain, and the
+documents that describe them: `CLAUDE.md`, the README, `docs/timing-windows.md` and the intent
+docs. The cache tables and the Compose mount went earlier (#383, #394). `docs/arrows/` is
+refreshed by an arrow-maintenance pass in its own PR, since its overlays predate every
+standalone segment.
 
 ## Waiting on a decision
 
@@ -138,11 +140,10 @@ Nothing.
 - **Renovate PR #366 (lock file maintenance) must not be merged before 2026-11-27.** It moves
   `url` back to 2.5.8, which has RUSTSEC-2026-0592, because 2.5.9 is inside the 7-day release
   wait. Renovate rebuilds it once 2.5.9 is old enough.
-- **The deployment's `TZ`.** The TurfOps container had none, so the app's clock was on UTC and
-  date-gated advice rolled over in the early evening. `TZ: "{{ timezone }}"` was added
-  to it in the home-builder repo on 2026-11-23 (PR #413 there); once that is deployed the
-  startup log reads `Clock: TZ=America/New_York`. It stays until the cutover makes the clock follow
-  the location, after which `TZ` is not read.
+- **Leftover deployment settings.** Since #391 and #394 the app reads no `TZ`, mounts no
+  lake and ignores `DATALAKE_ROOT` and `NOAA_STATION_WBANNO` (each named once in the startup
+  log). The home-builder repo still sets them and the `/data` mount; they can be removed
+  there.
 - **Confirming the backfill** on a running install: the startup log line, or
 
   ```sql

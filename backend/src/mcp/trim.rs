@@ -298,7 +298,7 @@ mod tests {
         let risk = json!({
             "today": "2026-09-22",
             "station": "PA Avondale",
-            "data_notes": ["lake lags a day"],
+            "data_notes": ["the record lags a day"],
             "diseases": [{
                 "slug": "brown-patch", "name": "Brown patch", "tier": "High",
                 "tier_note": null, "score": 5.4, "score_label": "E-index 5.4",
@@ -320,7 +320,7 @@ mod tests {
         assert!(d.get("daily").is_none());
         assert!(d.get("methodology").is_none());
         assert!(d.get("cultural").is_none());
-        assert_eq!(trimmed["data_notes"][0], "lake lags a day");
+        assert_eq!(trimmed["data_notes"][0], "the record lags a day");
     }
 
     #[test]
@@ -344,10 +344,10 @@ mod tests {
     fn failed_part_is_null_with_a_note() {
         let mut notes = Vec::new();
         let ok = part(Ok(json!(1)), "timing", &mut notes);
-        let failed = part(Err("lake down".into()), "disease_risk", &mut notes);
+        let failed = part(Err("record down".into()), "disease_risk", &mut notes);
         assert_eq!(ok, json!(1));
         assert_eq!(failed, Value::Null);
-        assert_eq!(notes, vec!["disease_risk unavailable: lake down"]);
+        assert_eq!(notes, vec!["disease_risk unavailable: record down"]);
     }
 
     fn full_risk() -> Value {

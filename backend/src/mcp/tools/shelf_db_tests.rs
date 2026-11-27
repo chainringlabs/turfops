@@ -17,7 +17,7 @@ use sqlx::PgPool;
 // @spec MCP-TOOL-004
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn lawn_profile_is_the_profile_body_without_coordinates(pool: PgPool) {
-    let (state, _lake, _) = lawn_with_lake(pool, "profile", 2).await;
+    let (state, _) = lawn_with_state(pool).await;
     let mut profile = body(api::profile::get_profile(State(state.clone())).await);
     profile["location"] = json!({
         "latitude": 39.86, "longitude": -75.79,
@@ -46,7 +46,7 @@ async fn lawn_profile_is_the_profile_body_without_coordinates(pool: PgPool) {
 async fn sources_is_the_sources_body_without_connections_pins_ids_or_coordinates(pool: PgPool) {
     let today = crate::clock::Clock::System.today();
     crate::api::timing::db_harness::climate(&pool, 1, today - chrono::Duration::days(1)).await;
-    let state = state(pool, &Lake::missing("sources")).await;
+    let state = state(pool).await;
     let full = body(api::sources::read::get_sources(State(state.clone())).await);
     assert!(full["location"]["latitude"].is_number());
     assert!(full.get("connections").is_some());
@@ -117,7 +117,7 @@ async fn follow_ups(pool: &PgPool, lawn: i64, today: chrono::NaiveDate) {
 // @spec MCP-TOOL-006
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn recommendations_relay_the_feed_unchanged_and_in_order(pool: PgPool) {
-    let (state, _lake, lawn) = lawn_with_lake(pool.clone(), "feed", 20).await;
+    let (state, lawn) = lawn_with_state(pool.clone()).await;
     follow_ups(&pool, lawn, state.clock.today()).await;
     let active = feed(&state, false).await;
     assert!(active.as_array().unwrap().len() >= 3, "{active}");
@@ -145,7 +145,7 @@ async fn recommendations_relay_the_feed_unchanged_and_in_order(pool: PgPool) {
 // @spec MCP-TOOL-019
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn soil_tests_are_newest_first_five_by_default_and_clamped(pool: PgPool) {
-    let (state, _lake, lawn) = lawn_with_lake(pool.clone(), "soil", 2).await;
+    let (state, lawn) = lawn_with_state(pool.clone()).await;
     for month in 1..=7 {
         soil_test(
             &pool,
@@ -196,7 +196,7 @@ async fn soil_tests_are_newest_first_five_by_default_and_clamped(pool: PgPool) {
 // @spec MCP-TOOL-020
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn soil_test_advice_is_the_advice_body(pool: PgPool) {
-    let (state, _lake, lawn) = lawn_with_lake(pool.clone(), "advice", 2).await;
+    let (state, lawn) = lawn_with_state(pool.clone()).await;
     soil_test(&pool, lawn, date("2026-04-01"), 5.6).await;
     let reply = call_tool(&state, "soil_test_advice", json!({}))
         .await
@@ -243,7 +243,7 @@ async fn shelf(
 // @spec MCP-TOOL-021
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn products_filter_by_category_ignoring_case_and_hide_archived_by_default(pool: PgPool) {
-    let (state, _lake, lawn) = lawn_with_lake(pool.clone(), "products", 2).await;
+    let (state, lawn) = lawn_with_state(pool.clone()).await;
     product(&pool, lawn, "Heritage G", "Fungicide", false).await;
     product(&pool, lawn, "Old Daconil", "Fungicide", true).await;
     product(&pool, lawn, "Milorganite", "Fertilizer", false).await;
@@ -280,7 +280,7 @@ async fn products_filter_by_category_ignoring_case_and_hide_archived_by_default(
 // @spec MCP-TOOL-024
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn shopping_list_is_the_shopping_list_body(pool: PgPool) {
-    let (state, _lake, lawn) = lawn_with_lake(pool.clone(), "shopping", 20).await;
+    let (state, lawn) = lawn_with_state(pool.clone()).await;
     product(&pool, lawn, "Heritage G", "Fungicide", false).await;
     let reply = call_tool(&state, "shopping_list", json!({})).await.json();
     let handler = body(api::inventory::get_shopping_list(State(state.clone())).await);
@@ -290,7 +290,7 @@ async fn shopping_list_is_the_shopping_list_body(pool: PgPool) {
 // @spec MCP-TOOL-025
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn plants_are_the_plant_list_with_full_care_plans(pool: PgPool) {
-    let (state, _lake, lawn) = lawn_with_lake(pool.clone(), "plants", 2).await;
+    let (state, lawn) = lawn_with_state(pool.clone()).await;
     plant(&pool, lawn, "Bigleaf hydrangea").await;
     let reply = call_tool(&state, "plants", json!({})).await.json();
     assert_eq!(
