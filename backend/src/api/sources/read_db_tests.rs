@@ -130,3 +130,72 @@ async fn the_sources_read_gives_the_forecast_status(pool: PgPool) {
         "{json}"
     );
 }
+
+// @spec SETUP-FAIL-003
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn a_mapped_entity_home_assistant_no_longer_has_is_flagged_on_its_source(pool: PgPool) {
+    use crate::db::setup_queries::{self, NewSensor};
+    use crate::logic::weather_sync::sensor_reading::Problem;
+    use crate::logic::weather_sync::sensor_store::PRODUCT;
+    let state = located(&pool).await;
+    let map = |name: &str, entity: &str, input: Input| NewSensor {
+        name: name.into(),
+        entity_id: Some(entity.into()),
+        input,
+        rain_kind: None,
+    };
+    let gone = setup_queries::map_sensor(&pool, &map("Patio", "sensor.patio", Input::AirTemp))
+        .await
+        .unwrap();
+    let offline = setup_queries::map_sensor(&pool, &map("Porch", "sensor.porch", Input::Humidity))
+        .await
+        .unwrap();
+    crate::logic::weather_sync::planning::rebuild(&pool)
+        .await
+        .unwrap();
+    let all = sources::all(&pool).await.unwrap();
+    let source_of = |sensor: &setup_queries::Sensor| {
+        all.iter()
+            .find(|s| s.key == sensor.source_key())
+            .unwrap()
+            .id
+    };
+    let today = Utc::now().date_naive();
+    for (sensor, problem) in [(&gone, Problem::NotFound), (&offline, Problem::NotANumber)] {
+        let id = source_of(sensor);
+        fetch_state::want(&pool, id, PRODUCT, today).await.unwrap();
+        let entity = sensor.entity_id.as_deref().unwrap();
+        let said = problem.sentence(sensor.input, entity);
+        fetch_state::failed(&pool, id, PRODUCT, &said, Utc::now())
+            .await
+            .unwrap();
+    }
+
+    let view = get_sources(State(state.clone())).await.unwrap().0;
+    let row = |name: &str| view.sources.iter().find(|s| s.name == name).unwrap();
+    assert_eq!(row("Patio").missing_sensor, Some(gone.id));
+    assert!(row("Patio")
+        .last_error
+        .as_deref()
+        .unwrap()
+        .contains("not found in Home Assistant"));
+    assert_eq!(
+        row("Porch").missing_sensor,
+        None,
+        "unavailable is not missing"
+    );
+
+    // Once it reads again the flag goes with the error.
+    let id = source_of(&gone);
+    fetch_state::checked(
+        &pool,
+        id,
+        PRODUCT,
+        Utc::now() + chrono::Duration::seconds(1),
+    )
+    .await
+    .unwrap();
+    let view = get_sources(State(state)).await.unwrap().0;
+    let patio = view.sources.iter().find(|s| s.name == "Patio").unwrap();
+    assert_eq!(patio.missing_sensor, None);
+}

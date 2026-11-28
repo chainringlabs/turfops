@@ -1,6 +1,6 @@
 # TurfOps
 
-A containerized web application for tracking lawn care activities and providing data-driven agronomic recommendations. Built with a Rust/Axum backend serving a React SPA frontend, deployed via Docker Compose.
+A containerized web application for tracking lawn care activities and providing data-driven agronomic recommendations. Built with a Rust/Axum backend serving a React SPA frontend. It ships as a container image; `docker-compose.yml` is an example stack (app + PostgreSQL).
 
 ## Screenshots
 
@@ -14,17 +14,18 @@ A containerized web application for tracking lawn care activities and providing 
   </tr>
   <tr>
     <td align="center"><em>Disease Risk — 11-day dollar spot trend and outlook with FRAC-rotation-aware fungicide programs</em></td>
-    <td align="center"><em>Seed &amp; Pre-Em Timing — windows from the station's own soil temperature and freeze record</em></td>
+    <td align="center"><em>Seed &amp; Pre-Em Timing — windows from the lawn's own 5 cm soil temperature and freeze record</em></td>
   </tr>
 </table>
 
 ## Features
 
 - **Application Tracking**: Log fertilizer, pre-emergent, fungicide, mowing, and other lawn treatments
-- **Environmental Data**: Real-time soil temperature, moisture, and ambient conditions from multiple sources
+- **Environmental Data**: Soil temperature and moisture, air, humidity and rain for the lawn's location, from nearby stations, daily grids, an hourly analysis, a soil-temperature estimate and your own sensors; every value says what it rests on (Station / Sensor / Estimate)
+- **Setup and Sources**: Set the lawn's location, see which stations and sources it gets, pin a different station, choose the forecast provider and map your own sensors, all in the app
 - **Smart Recommendations**: 10 agronomic rules, plus the disease-risk models and the seeding/pre-emergent timing windows, provide data-driven alerts for optimal treatment timing
 - **Disease Risk**: Per-disease risk from published models (brown patch, dollar spot, Pythium blight, gray leaf spot, red thread) — each with a Low/Moderate/High/Severe tier, an 11-day trend and outlook, contributing factors, a "how this is calculated" breakdown, and preventative/curative guidance that knows what you've already sprayed
-- **Seeding & Pre-Emergent Timing**: Fall/spring/dormant seeding and spring/fall pre-emergent windows from the station's measured 5 cm soil temperature, its own freeze dates and GDD — typical dates with their year-to-year spread, where this season actually stands, and seed-vs-pre-emergent conflicts from your application log. See [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing).
+- **Seeding & Pre-Emergent Timing**: Fall/spring/dormant seeding and spring/fall pre-emergent windows from the lawn's 5 cm soil temperature (a nearby station, your sensor, or the soil estimate), its freeze dates and GDD — typical dates with their year-to-year spread, where this season actually stands, and seed-vs-pre-emergent conflicts from your application log. See [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing).
 - **Calendar View**: Visualize application history and seasonal plan activity windows with colored indicators
 - **Seasonal Plan Integration**: Calendar overlays predicted activity windows from the seasonal plan alongside actual applications
 - **Landscape Maintenance** *(optional)*: Track shrubs, trees, and perennials alongside turf. Enter a plant by common or scientific name and get a homeowner-level care plan (pruning windows, fertilizing, mulching) that overlays Calendar, Seasonal Plan, and Recommendations. Powered by an LLM through OpenRouter and cached per plant.
@@ -64,7 +65,7 @@ A containerized web application for tracking lawn care activities and providing 
 - **Frontend**: React 19 + TypeScript + Vite
 - **Database**: PostgreSQL 18 (app data)
 - **Weather data**: fetched by the app from public weather services into PostgreSQL
-- **Deployment**: Docker Compose
+- **Deployment**: container image; example Docker Compose stack
 
 ## Docker Image
 
@@ -81,7 +82,7 @@ Tagged releases are also available by version (e.g., `ghcr.io/chainringlabs/turf
 ### Prerequisites
 
 - Docker and Docker Compose
-- (Optional) Home Assistant instance with temperature/humidity sensors
+- (Optional) Home Assistant, for your own sensors (air, humidity, rain, soil temperature or moisture)
 - (Optional) OpenWeatherMap API key, only if you choose it as the forecast provider (Open-Meteo and the National Weather Service need none)
 - (Optional) [OpenRouter](https://openrouter.ai) API key to enable the Landscape Maintenance feature
 
@@ -126,7 +127,7 @@ This starts two containers:
 
 ### 3. Open in Browser
 
-Navigate to `http://localhost:3000`. The dashboard will load with live environmental data from your configured sources.
+Navigate to `http://localhost:3000`. On first open TurfOps asks where the lawn is. Setup then walks through **Location → What we found** (the stations and sources the location gets, and the forecast provider) **→ Your sensors → Your lawn → Loading history**. Weather history downloads in the background; current conditions and the forecast are ready within minutes.
 
 ### 4. Stop
 
@@ -160,7 +161,7 @@ All configuration is done through environment variables. When running with Docke
 
 ### Lawn Profile
 
-These set the default lawn profile created on first startup. They can be changed later via the Settings page.
+These set the default lawn profile created on first startup. They can be changed later via the Settings page (and the location in Setup).
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -170,12 +171,15 @@ These set the default lawn profile created on first startup. They can be changed
 | `LAWN_SOIL_TYPE` | Soil type | `Loam` |
 | `LAWN_SIZE_SQFT` | Lawn area in square feet | `5000` |
 | `LAWN_IRRIGATION_TYPE` | Irrigation system type | `InGround` |
+| `LAWN_LATITUDE`, `LAWN_LONGITUDE` | The lawn's location (contiguous United States). Also gives a location to an existing profile that has none; otherwise set it in Setup | *(empty)* |
 
-Valid grass types: `KentuckyBluegrass`, `TallFescue`, `PerennialRyegrass`, `FineFescue`, `Bermuda`, `Zoysia`, `StAugustine`
+Valid grass types: `KentuckyBluegrass`, `TallFescue`, `PerennialRyegrass`, `FineFescue`, `Mixed` (a cool-season blend), `Bermuda`, `Zoysia`, `StAugustine`
 
-Valid soil types: `Clay`, `ClayLoam`, `Loam`, `SandyLoam`, `Sand`
+Valid soil types: `Clay`, `ClayLoam`, `Loam`, `SiltLoam`, `SandyLoam`, `Sandy`
 
-Valid irrigation types: `InGround`, `Hose`, `Manual`, `None`
+Valid irrigation types: `InGround`, `Hose`, `None`
+
+The defaults shown are the example `docker-compose.yml`'s; the app itself sets no lawn size.
 
 ### Weather
 
@@ -183,14 +187,16 @@ TurfOps fetches its own weather into PostgreSQL for the lawn's location, set in 
 
 ### Home Assistant
 
-Connect to a Home Assistant instance to read local temperature and humidity sensors (e.g., a patio sensor).
+Connect Home Assistant in **Setup → Your sensors** (or **Connect** on the Sources page) and map any of its numeric sensors to an input: air temperature, humidity, rain, soil temperature at 5–100 cm, or soil moisture. The address and token are stored in the app; the Sources page shows each sensor's status, and a sensor Home Assistant no longer has can be unmapped or remapped there. The variables below only seed a fresh database: they are copied in once, on a first run that finds no connection (or no sensor) ever stored, and the app's settings win after that.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `HA_URL` | Home Assistant base URL | *(empty — disabled if not set)* |
-| `HA_TOKEN` | Long-lived access token | *(empty)* |
-| `HA_TEMPERATURE_ENTITY` | Entity ID for temperature sensor | `sensor.temp_humidity_sensor_temperature` |
-| `HA_HUMIDITY_ENTITY` | Entity ID for humidity sensor | `sensor.temp_humidity_sensor_humidity` |
+| `HA_URL` | Home Assistant base URL, copied into the app once | *(empty)* |
+| `HA_TOKEN` | Long-lived access token, copied into the app once | *(empty)* |
+| `HA_TEMPERATURE_ENTITY` | Mapped once as "Patio temperature" (air) on a first run with no sensors | `sensor.temp_humidity_sensor_temperature` |
+| `HA_HUMIDITY_ENTITY` | Mapped once as "Patio humidity" on a first run with no sensors | `sensor.temp_humidity_sensor_humidity` |
+
+A token or key entered in the app is stored in TurfOps's database, so backups of that database contain it.
 
 To generate a long-lived access token: Home Assistant → Profile → Long-Lived Access Tokens → Create Token.
 
@@ -230,7 +236,7 @@ TurfOps can serve a read-only [Model Context Protocol](https://modelcontextproto
 |----------|-------------|---------|
 | `MCP_TOKEN` | Bearer token clients must send (`Authorization: Bearer …`); at least 32 characters (`openssl rand -hex 32`) | *(empty — `/mcp` not mounted)* |
 
-Tools: `lawn_snapshot` (call first — profile, conditions, full recommendation feed, recent applications, timing windows, disease headlines, nitrogen totals), `lawn_profile`, `current_conditions`, `weather_history`, `recommendations`, `timing_windows`, `seasonal_plan`, `gdd`, `soil_temp_outlook`, `nitrogen_budget`, `disease_risk`, `disease_detail`, `applications`, `soil_tests`, `soil_test_advice`, `products`, `shopping_list`, `plants`. Resources: `turfops://docs/agronomy` ([docs/agronomy-methods.md](docs/agronomy-methods.md)) and `turfops://docs/timing-windows`. `GET /api/v1/health` reports `mcp: "enabled" | "disabled"`. Try it with `npx @modelcontextprotocol/inspector` against `http://localhost:3000/mcp` and the bearer header.
+Tools: `lawn_snapshot` (call first — profile, conditions, full recommendation feed, recent applications, timing windows, disease headlines, nitrogen totals), `lawn_profile`, `current_conditions`, `weather_history`, `sources` (where each value comes from), `recommendations`, `timing_windows`, `seasonal_plan`, `gdd`, `soil_temp_outlook`, `nitrogen_budget`, `disease_risk`, `disease_detail`, `applications`, `soil_tests`, `soil_test_advice`, `products`, `shopping_list`, `plants`. Resources: `turfops://docs/agronomy` ([docs/agronomy-methods.md](docs/agronomy-methods.md)) and `turfops://docs/timing-windows`. `GET /api/v1/health` reports `mcp: "enabled" | "disabled"`. Try it with `npx @modelcontextprotocol/inspector` against `http://localhost:3000/mcp` and the bearer header.
 
 ### Posted sensor readings
 
@@ -305,25 +311,39 @@ RUST_LOG=info
 | Source | Data Provided | Connection |
 |--------|--------------|------------|
 | **Weather record** | Hourly soil temperature (5/10/20/50/100 cm) and moisture from NOAA USCRN and USDA SCAN stations; daily air and rain from the PRISM and NRCC grids; hourly air, humidity and rain from Open-Meteo's analysis; a soil-temperature estimate where no station measures | Fetched by the app for the lawn's location and kept in PostgreSQL |
-| **Home Assistant** | Ambient temperature, humidity (patio sensor) | REST API via `HA_URL` + `HA_TOKEN` |
+| **Your sensors** | Any input you map: air, humidity, rain, soil temperature or moisture | Home Assistant (read every 5 minutes; connection stored in the app) or posted readings (`SENSOR_TOKEN`) |
 | **Forecast** (Open-Meteo, National Weather Service or OpenWeatherMap) | Hourly or 3-hourly forecast (temp, rain, humidity, wind) — also fills in today and the outlook for disease risk | Provider chosen in setup; OpenWeatherMap's key stored in the app |
 
 ## API Endpoints
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/api/v1/health` | Connection status for all datasources |
-| `GET` | `/api/v1/dashboard` | Composite dashboard (profile, env summary, alerts, recent apps) |
+| `GET` | `/api/v1/health` | Version, database, each weather source in use, the forecast's status, and whether `/mcp` is on |
+| `GET` | `/api/v1/today` | The lawn's local date and timezone |
+| `GET` | `/api/v1/dashboard` | Composite dashboard (profile, env summary, alerts, recent apps, source status) |
 | `GET` | `/api/v1/profile` | Current lawn profile |
-| `PUT` | `/api/v1/profile` | Update lawn profile |
-| `GET` | `/api/v1/applications?type=X` | List applications (optional type filter) |
+| `PUT` | `/api/v1/profile` | Update lawn profile (a new location rebuilds the sources and starts fetching) |
+| `GET` | `/api/v1/setup/places?q=` | Candidate places for a name or postal code (the text goes to Open-Meteo's place search) |
+| `POST` | `/api/v1/setup/apply` | Save the location, station pins and forecast provider together |
+| `GET` | `/api/v1/sources` | Each input with its plan, value in use and basis; each source's status, history and credit; forecast provider; connections (never a secret); location |
+| `GET` | `/api/v1/sources/preview?lat=&lon=&pins=` | The sources a point would get; saves nothing |
+| `GET` | `/api/v1/sources/stations?input=` | Stations within 150 miles that may supply an input |
+| `PUT` / `DELETE` | `/api/v1/sources/pins/:input` | Pin a station for an input / remove the pin |
+| `PUT` | `/api/v1/sources/forecast-provider` | Choose the forecast provider (with OpenWeatherMap's key) |
+| `GET` / `PUT` / `DELETE` | `/api/v1/sources/home-assistant` | Whether a connection is stored (never the token) / store one / forget it |
+| `POST` | `/api/v1/sources/home-assistant/test` | Try a connection; says whether nothing answered or the token was refused |
+| `GET` | `/api/v1/sources/home-assistant/entities` | Home Assistant's numeric sensors, each with a suggested input |
+| `GET` / `POST` | `/api/v1/sources/sensors` | The mapped sensors / map one |
+| `POST` | `/api/v1/sources/sensors/check` | A Home Assistant sensor's reading beside the value in use; saves nothing |
+| `PUT` / `DELETE` | `/api/v1/sources/sensors/:id` | Rename or remap a sensor / unmap it (its readings are kept) |
+| `GET` | `/api/v1/applications?type=&scope=turf\|landscape&limit=&offset=` | List applications |
 | `POST` | `/api/v1/applications` | Create new application |
 | `PUT` | `/api/v1/applications/:id` | Update application |
 | `DELETE` | `/api/v1/applications/:id` | Delete application |
 | `GET` | `/api/v1/applications/calendar?year=Y&month=M` | Applications grouped by date |
-| `GET` | `/api/v1/environmental` | Environmental data with demand-driven refresh |
-| `POST` | `/api/v1/environmental/refresh` | Force immediate data refresh |
-| `GET` | `/api/v1/recommendations` | Active recommendations: rules engine + disease risk (High/Severe) + timing windows (pre-emergent, seeding) + plant maintenance, follow-ups, soil tests |
+| `GET` | `/api/v1/environmental` | Current conditions and the 7-day summary from the weather record, each value with its basis |
+| `POST` | `/api/v1/environmental/refresh` | Ask for a refresh pass now (at most once a minute); waits up to 20 s and returns the summary |
+| `GET` | `/api/v1/recommendations` | Active recommendations: rules engine + disease risk (High/Severe) + timing windows (pre-emergent, seeding) + plant maintenance and follow-ups (`?include_inactive=true` adds answered ones) |
 | `PATCH` | `/api/v1/recommendations/:id` | Mark recommendation addressed/dismissed |
 | `GET` | `/api/v1/disease-risk` | Per-disease risk: tier, score, 11-day series, contributing factors, methodology, management plan |
 | `GET` | `/api/v1/timing-windows` | Seeding and pre-emergent windows: typical dates, this season's status, freeze dates, soil chart series |
@@ -352,6 +372,7 @@ RUST_LOG=info
 | `POST` | `/api/v1/products/:id/link-applications` | Link past applications logged under this product's name |
 | `GET` | `/api/v1/inventory/suggestions` | Product names in your log that are not on the shelf |
 | `GET` | `/api/v1/inventory/shopping-list` | What to buy or restock, from the active recommendations |
+| `GET` | `/api/v1/frac-classes?product=` | FRAC class options for the application form, and the classes a product name resolves to |
 | `POST` | `/api/v1/sensor-readings` | Readings from the owner's hubs and scripts — only when `SENSOR_TOKEN` is set; requires `Authorization: Bearer $SENSOR_TOKEN` |
 | `POST` | `/mcp` | MCP server (streamable HTTP, read-only tools) — only when `MCP_TOKEN` is set; requires `Authorization: Bearer $MCP_TOKEN` |
 
@@ -364,12 +385,14 @@ RUST_LOG=info
 | **Inventory** | What's on the shelf, grouped by category (fertilizer, supplements, fungicides, herbicides, insect control, seed, amendments, surfactants). Type a product name and the assistant fills in actives, N-P-K, FRAC class, timing and targets — every fact stays editable and a suggested label rate is flagged "verify against your label". No quantities: a click on the stock pill cycles In stock → Low → Out. Products save by hand when the assistant is off. Names you have logged under Applications but never catalogued are offered for one-click adding, and "Link past applications" attaches earlier log entries to a product. A "Needs buying" list at the top collects what active recommendations call for that is not on the shelf, plus Low / Out products they need; the dashboard shows the top of it. |
 | **Calendar** | Month grid view with colored dots for applications and status-colored bars for seasonal plan activity windows. Plant-maintenance windows render as outlined bars (distinct from filled turf bars). Click any date to see details grouped into Applications, Turf Activities, and Plant Maintenance. |
 | **Landscape** | Add plants by common or scientific name to get a homeowner-level care plan (pruning, fertilizing, mulching, etc.) per plant. Each card shows the plan summary, task windows, warnings, and a "Regenerate plan" button. **Requires `OPENROUTER_API_KEY`** — see [OpenRouter](#openrouter-optional--landscape-maintenance). |
-| **Environmental** | Detailed sensor data, soil depth readings, 7-day trends and averages. |
+| **Environmental** | Current conditions, soil depth readings, 7-day trends and averages; every value labeled with its basis, and each chart's source credited. |
 | **Recommendations** | Active recommendations from the rules engine, including a new **Plant Maintenance** category when a plant's care window is open. Diseases at High or Severe risk appear here too. Mark as addressed or dismiss. Each card that calls for a product carries an inventory chip — On hand, running low, Need to buy, or Partly on hand — and the detail pane lists which shelf products cover it. |
 | **Disease Risk** | One row per disease with its score, tier meter, and Low/Moderate/High/Severe badge. Select a disease for its 11-day chart (observed + forecast), what to do now, cultural practices, preventative and curative fungicide programs, contributing factors, and how the score is calculated. See [Disease Risk](#disease-risk). |
-| **Seed & Pre-Em Timing** | A card per window (fall seeding, spring and fall pre-emergent, plus spring and dormant seeding) with its state badge, a timeline of the typical window against today, and a trigger table showing typical dates (median, earliest–latest) beside where this season stands (observed / tentative / forecast / typical). Tiles for the current 5 cm soil mean and the station's freeze dates, a soil chart of this year vs last year vs the typical year with the season's thresholds, and a "how this is calculated" panel. See [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing). |
+| **Seed & Pre-Em Timing** | A card per window (fall seeding, spring and fall pre-emergent, plus spring and dormant seeding) with its state badge, a timeline of the typical window against today, and a trigger table showing typical dates (median, earliest–latest) beside where this season stands (observed / tentative / forecast / typical). Tiles for the current 5 cm soil mean and the lawn's freeze dates, each with its basis, a soil chart of this year vs last year vs the typical year with the season's thresholds, and a "how this is calculated" panel. See [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing). |
 | **Soil Tests** | Record lab results and get pH (lime/sulfur) and nutrient recommendations. |
 | **Seasonal Plan** | Full-year timeline of predicted activity windows. When plants are configured, a **All / Turf / Plants** filter appears so you can view them separately. |
+| **Sources** | Each input (soil temperature and moisture by depth, air, humidity, rain) with the source in use and what stands behind it; every source's status, history and credit; the forecast provider; the Home Assistant connection and mapped sensors. Change the location, pin a station, or switch provider from here. |
+| **Setup** | Where the lawn is, the stations and forecast provider it gets, your sensors, the lawn profile, and history loading. Opens on first run. |
 | **Settings** | Edit lawn profile (grass type, zone, soil type, size, irrigation). |
 
 ## Development
@@ -377,7 +400,7 @@ RUST_LOG=info
 ### Prerequisites
 
 - Rust 1.88+
-- Node.js 20+
+- Node.js 20.19+ or 22.12+
 - PostgreSQL 18 (or use `docker compose up db` for just the database)
 
 ### Backend
@@ -396,7 +419,9 @@ cargo run  # migrations run automatically on startup
 
 # Development commands
 cargo build          # Build
-cargo test           # Run tests (246 tests)
+cargo test           # Run tests (no database needed)
+# All tests, including the PostgreSQL-backed ones (needs a test database):
+# DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests
 cargo fmt            # Format code
 cargo clippy         # Lint
 RUST_LOG=debug cargo run  # Run with debug logging
@@ -410,7 +435,9 @@ cd frontend
 npm install          # Install dependencies
 npm run dev          # Dev server with API proxy (port 5173 → backend 3000)
 npm run build        # Production build to dist/
-npx tsc --noEmit     # Type check
+npx tsc -b           # Type check (--noEmit checks nothing: the root tsconfig is a solution file)
+npm test             # Vitest
+npm run lint         # Biome lint + format check
 ```
 
 During development, Vite proxies `/api` requests to the backend at `http://localhost:3000`.
@@ -430,7 +457,7 @@ The Dockerfile uses a multi-stage build:
 
 ## Agronomic Rules
 
-TurfOps includes 10 rules that evaluate environmental conditions and generate actionable recommendations. Rules are divided into current-condition rules (using real-time sensor data) and forecast-based rules (using OpenWeatherMap data). Turf diseases are not handled by rules — see [Disease Risk](#disease-risk). Neither are pre-emergent and seeding timing: those recommendations come from the timing windows — see [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing).
+TurfOps includes 10 rules that evaluate environmental conditions and generate actionable recommendations. Rules are divided into current-condition rules (using the weather record's current values) and forecast-based rules (using the forecast from the provider chosen in setup). Every weather value a rule cites names its source; the source never changes a threshold. Turf diseases are not handled by rules — see [Disease Risk](#disease-risk). Neither are pre-emergent and seeding timing: those recommendations come from the timing windows — see [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing).
 
 ### Current-Condition Rules
 
@@ -458,7 +485,7 @@ No longer a rule. Spring and fall pre-emergent recommendations come from the tim
 | <14 days remaining in window | Warning | Apply soon - window closing |
 | Soil >75°F | Info | Late but may still be effective |
 
-**Active**: May 15 through July 4 | **Products**: Chlorantraniliprole (GrubEx) or imidacloprid.
+**Active**: May 15 through July 4, or from April 1 once GDD reaches 500 (until 1,000) | **Products**: Chlorantraniliprole (GrubEx) or imidacloprid.
 
 #### Fertilizer Stress Block
 **Purpose**: Prevent fertilizer burn during heat or moisture stress
@@ -476,10 +503,10 @@ No longer a rule. Spring and fall pre-emergent recommendations come from the tim
 
 | Condition | Severity | Action |
 |-----------|----------|--------|
-| March, soil 45-55°F rising | Advisory | Spring window — target winter annuals |
+| GDD 50–150 (or March), soil 45-55°F rising | Advisory | Spring window — target winter annuals |
 | Late Sept - Oct, soil 50-65°F | Warning | Fall window — best for perennial weeds |
 
-**Active**: March (spring) and September 20 - October 31 (fall). Blocked if overseeded within 60 days.
+**Active**: GDD 50–150 or March (spring) and September 20 - October 31 (fall). Blocked if overseeded within 60 days.
 
 #### Mowing Height
 **Purpose**: Seasonal mowing guidance for TTTF
@@ -506,14 +533,14 @@ Silent once you have aerated or **seeded** this fall, and when a **fall pre-emer
 ### Fall Program Rules
 
 #### Fall Overseeding
-No longer a rule. The seeding recommendation comes from the fall seeding window, which is anchored to the station's first-freeze climatology rather than a fixed Aug 15 – Oct 31 — see [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing). The recommendation still sizes the seed needed at 4 lbs per 1000 sqft for overseeding.
+No longer a rule. The seeding recommendation comes from the fall seeding window, which is anchored to the lawn's first-freeze climatology rather than a fixed Aug 15 – Oct 31 — see [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing). The recommendation still sizes the seed needed at 4 lbs per 1000 sqft for overseeding.
 
 #### Fall Fertilization Program
 **Purpose**: Build root reserves for winter survival and spring green-up
 
 | Phase | Timing | Nitrogen Rate | Purpose |
 |-------|--------|---------------|---------|
-| Early Fall | September | 0.5 lb N/1000 sqft | Recovery from summer stress |
+| Early Fall | September | 1.0 lb N/1000 sqft | Recovery from summer stress |
 | Mid Fall | October | 0.75 lb N/1000 sqft | Primary fall feeding (most important) |
 | Late Fall | November | 1.0 lb N/1000 sqft | Winterizer - stores for spring |
 
@@ -526,18 +553,24 @@ Prevents wasted chemical applications before rain.
 
 | Condition | Severity | Action |
 |-----------|----------|--------|
-| Rain >0.1" expected in 24-48h, <50% prob | Advisory | Consider timing carefully |
-| Rain in 24h, >50% probability | Warning | Delay applications if possible |
-| Rain in 12h, >70% probability | Critical | Do NOT apply any products |
+| Within 48 h: ≥ 30% chance or ≥ 0.2" | Advisory | Consider timing carefully |
+| Within 24 h: ≥ 50% chance or ≥ 0.1" | Warning | Delay applications if possible |
+| Within 12 h: ≥ 70% chance or ≥ 0.1" | Critical | Do NOT apply any products |
+
+A window with no slot at 50% or more and under 0.1 mm in total is skipped. The first level that matches wins.
 
 #### Irrigation Forecast
 Recommends irrigation when drought conditions are developing.
 
 | Condition | Severity | Action |
 |-----------|----------|--------|
-| No rain 5 days + moisture 0.15-0.20 | Advisory | Monitor and prepare to irrigate |
-| No rain 5 days + moisture 0.10-0.15 | Warning | Irrigate within 1-2 days |
-| No rain 5 days + moisture <0.10 | Critical | Water immediately |
+| Under 0.1" forecast over 5 days + moisture 0.15-0.20 | Advisory | Monitor and prepare to irrigate |
+| Under 0.1" forecast over 5 days + moisture 0.10-0.15 | Warning | Irrigate within 1-2 days |
+| Under 0.1" forecast over 5 days + moisture <0.10 | Critical | Water immediately |
+| No soil-moisture source, grass growing (7-day mean ≥ 50°F), under ½" of rain in the last 7 days | Advisory | Check the soil; plan a deep watering |
+| …and under 0.2" (5 mm) in the last 7 days | Warning | Irrigate within 1-2 days |
+
+The forecast amount counts only over days that carry one, and at least 3 of the 5 must. Without a soil-moisture source (no station within 50 miles and no probe) the rule is judged on rain and never goes past Warning; it says so.
 
 #### Heat Stress Warning
 Prepares for upcoming heat stress conditions.
@@ -549,7 +582,7 @@ Prepares for upcoming heat stress conditions.
 | >95°F in next 3 days | Critical | Accept dormancy, minimize all stress |
 
 #### Optimal Application Window
-Identifies the best days for chemical applications based on forecast (dry weather, moderate temps, low wind).
+Identifies the best day in the next five for chemical applications: a full day with a mean of at least 50°F and a high of at most 85°F, dry that day and the next, and dry the day before (for the first day, under an inch of rain in the last week). Rain that isn't known is never counted as dry. Wind and humidity add to the score.
 
 ### Cross-rule checks
 
@@ -558,7 +591,7 @@ Identifies the best days for chemical applications based on forecast (dry weathe
 
 ## Seeding & Pre-Emergent Timing
 
-`GET /api/v1/timing-windows` times the start- and end-of-season jobs from the station's record instead of the calendar. Soil thresholds are 5-day means of the **5 cm** soil temperature from the weather record (a station's measurement, or the soil estimate where the station has none, marked as estimated), and a crossing only counts once it has held for 5 days.
+`GET /api/v1/timing-windows` times the start- and end-of-season jobs from the lawn's weather record instead of the calendar. Soil thresholds are 5-day means of the **5 cm** soil temperature from the weather record (a station's or your sensor's measurement, or the soil estimate where neither has one, marked as estimated), and a crossing only counts once it has held for 5 days.
 
 | Window | Opens | Ideal | Closes |
 |--------|-------|-------|--------|
@@ -568,7 +601,7 @@ Identifies the best days for chemical applications based on forecast (dry weathe
 | **Spring seeding** *(secondary)* | Soil warms to 50°F | — | Soil warms to 65°F |
 | **Dormant seeding** *(optional)* | Soil cools to 40°F | — | Soil warms back to 45°F in spring |
 
-Each boundary is found in every historical year (up to 15) and reported as a median with its earliest/latest spread, then resolved for this season as **observed**, **tentative** (held fewer than 5 days), **forecast** (5-day soil outlook) or **typical**. A trigger that is past its usual date but has not happened is reported as running late — it is never given an invented date. First and last freeze dates come from the station's own daily minimums (≤ 32°F).
+Each boundary is found in every historical year (up to 15) and reported as a median with its earliest/latest spread, then resolved for this season as **observed**, **tentative** (held fewer than 5 days), **forecast** (the soil outlook over the forecast's first 10 full days) or **typical**. A trigger that is past its usual date but has not happened is reported as running late — it is never given an invented date. First and last freeze dates come from the lawn's daily air minimums in the weather record (≤ 32°F; your air sensor where one is mapped, else the PRISM grid at the lawn).
 
 Seed and pre-emergent never share a season: a logged `Overseed` blocks that season's pre-emergent and a logged `PreEmergent` blocks seeding. Establishment buffers depend on grass type (Kentucky bluegrass 60/45 days, fescues 45/30, perennial ryegrass 35/21). No application rates are given — the label governs.
 
@@ -633,13 +666,12 @@ TurfOps tracks fungicide application history and provides rotation-aware recomme
 | FRAC M3 | Multi-site (dithiocarbamates) | mancozeb |
 | FRAC M5 | Multi-site (chloronitriles) | chlorothalonil, Daconil — not labeled for residential lawns in the US; tracked for protection, never suggested |
 
-**Rotation**: for each disease, the suggested class is the most effective option for *that disease* that is not the single-site class you used last; the last-used class is tagged "rotate". A season-level warning appears after two consecutive applications of the same single-site class or three or more fungicide applications in a year. Multi-site fungicides (M3, M5) are excluded from rotation calculations (low resistance risk). FRAC classes are inferred from the product name on the logged application, so use a recognizable product or active-ingredient name.
+**Rotation**: for each disease, the suggested class is the most effective option for *that disease* that is not the single-site class you used last; the last-used class is tagged "rotate". A season-level warning appears after two consecutive applications of the same single-site class or three or more fungicide applications in a year. Multi-site fungicides (M3, M5) are excluded from rotation calculations (low resistance risk). FRAC classes come from the classes picked on the application form, or else from the product name, so pick them from the label or use a recognizable product or active-ingredient name.
 
 ## Lawn Profile Defaults
 
-- **Location**: Media, PA (USDA Zone 7a)
-- **Grass Type**: Turf Type Tall Fescue (TTTF)
-- **NOAA Station**: PA Avondale (WBANNO 3761)
+- **Grass Type**: Turf Type Tall Fescue (TTTF), USDA zone 7a, unless `LAWN_*` says otherwise
+- **Location**: none until you set one in Setup (or with `LAWN_LATITUDE` / `LAWN_LONGITUDE`). TurfOps then chooses the nearby stations and sources, which you can change on the Sources page.
 
 ## Agronomic Thresholds (TTTF Zone 7a)
 
@@ -650,7 +682,8 @@ TurfOps tracks fungicide application history and provides rotation-aware recomme
 | Soil temp 5cm + first fall freeze | ≤75°F from Aug 15 → 30 days before the typical freeze (or 55°F) | Fall seeding window; ideal until 45 days before the freeze |
 | Soil temp 10cm | 60-75°F | Grub control window |
 | Ambient temp | >85°F | Fertilizer stress risk |
-| Soil moisture | <0.10 | Irrigation needed |
+| Soil moisture | <0.20 / <0.15 / <0.10 | Irrigation: Advisory / Warning / Critical (with no real rain forecast) |
+| Rain, last 7 days (no soil-moisture source) | <½" / <0.2" | Irrigation: Advisory / Warning, while the grass is growing |
 | Soil moisture | >0.40 | Saturated - avoid fertilizer |
 | Humidity | >80% | Reference line on the Environmental humidity chart |
 | Brown patch E-index | ≥5 | Brown patch warning (High) |

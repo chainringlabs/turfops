@@ -2,7 +2,7 @@
 // connections and the lawn's location.
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
-import { getSources, testHaConnection } from "../api/client";
+import { getSources, testHaConnection, unmapSensor } from "../api/client";
 import { describeError } from "../api/errors";
 import { testedText } from "../components/setup/sensors";
 import {
@@ -22,9 +22,13 @@ import { FORECAST_PROVIDER_NAMES } from "../types/sources";
 export default function Sources() {
 	const [data, setData] = useState<SourcesView | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [problem, setProblem] = useState<string | null>(null);
+	const [version, setVersion] = useState(0);
 	const saved = (useLocation().state as { saved?: boolean } | null)?.saved;
 
-	// Loaded once; the owner reloads to see newer readings.
+	// Loaded once, and again after a change made here; the owner reloads to see newer
+	// readings.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `version` is the signal to read again.
 	useEffect(() => {
 		const controller = new AbortController();
 		getSources(controller.signal)
@@ -33,7 +37,19 @@ export default function Sources() {
 				if (!controller.signal.aborted) setError(describeError(e));
 			});
 		return () => controller.abort();
-	}, []);
+	}, [version]);
+
+	// Unmapping keeps the sensor's history, so it asks nothing first.
+	// @spec SETUP-FAIL-003
+	async function unmap(sensorId: number) {
+		setProblem(null);
+		try {
+			await unmapSensor(sensorId);
+			setVersion((v) => v + 1);
+		} catch (e) {
+			setProblem(describeError(e));
+		}
+	}
 
 	if (error) return <div style={sharedStyles.error}>{error}</div>;
 	if (!data) return <div style={sharedStyles.loading}>Loading sources…</div>;
@@ -94,11 +110,13 @@ export default function Sources() {
 					<h2 id="sources-heading" style={sharedStyles.sectionTitle}>
 						By source
 					</h2>
+					{problem && <div style={sharedStyles.error}>{problem}</div>}
 					<SourcesTable
 						sources={data.sources}
 						labels={labels}
 						now={now}
 						timeZone={location.timezone}
+						onUnmap={unmap}
 					/>
 				</section>
 			)}
@@ -207,6 +225,11 @@ function Connections({ data, now }: { data: SourcesView; now: Date }) {
 						: "Off — set SENSOR_TOKEN on the server to accept readings from hubs and scripts"}
 				</dd>
 			</dl>
+			{/* @spec SETUP-CRED-004 */}
+			<p style={styles.credit}>
+				A Home Assistant token or OpenWeatherMap key entered in TurfOps is
+				stored in its database, so backups of that database contain it.
+			</p>
 		</section>
 	);
 }

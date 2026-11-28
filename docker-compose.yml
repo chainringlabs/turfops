@@ -63,7 +63,8 @@ services:
       LAWN_LATITUDE: ${LAWN_LATITUDE:-}
       LAWN_LONGITUDE: ${LAWN_LONGITUDE:-}
 
-      # Home Assistant
+      # Home Assistant (optional): copied into the app once, on a first run that finds no
+      # connection or sensor stored; after that, connect and map sensors in Setup.
       HA_URL: ${HA_URL:-}
       HA_TOKEN: ${HA_TOKEN:-}
       HA_TEMPERATURE_ENTITY: ${HA_TEMPERATURE_ENTITY:-sensor.temp_humidity_sensor_temperature}
@@ -83,6 +84,8 @@ services:
       # MCP server at /mcp for LLM clients (read-only tools). Unset = not mounted.
       # When set it must be at least 32 characters; clients send it as a Bearer token.
       MCP_TOKEN: ${MCP_TOKEN:-}
+      # Bearer token for POST /api/v1/sensor-readings from your hubs and scripts. Unset =
+      # not mounted; when set it must be at least 32 characters.
       SENSOR_TOKEN: ${SENSOR_TOKEN:-}
 
       # Only needed when the SPA is served from another origin (e.g. the Vite dev server)

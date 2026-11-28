@@ -56,6 +56,65 @@ fn dry_soil_with_no_real_rain_coming_needs_water() {
     assert_eq!(irrigation(&no_forecast), None);
 }
 
+/// No soil moisture at the lawn: the week's rain and mean air, and the forecast.
+fn on_rain(
+    week_rain: Option<f64>,
+    week_air: Option<f64>,
+    rain: &[(f64, f64)],
+) -> EnvironmentalSummary {
+    EnvironmentalSummary {
+        precipitation_7day_total_mm: week_rain,
+        ambient_temp_7day_avg_f: week_air,
+        ..dry_spell(None, rain)
+    }
+}
+
+// @spec RULE-WX-009
+#[test]
+fn without_soil_moisture_a_dry_week_while_the_grass_grows_needs_water() {
+    let at = |rain: f64, air: f64| irrigation(&on_rain(Some(rain), Some(air), &DRY_WEEK));
+    assert_eq!(at(0.0, 60.0), Some(Severity::Warning), "never Critical");
+    assert_eq!(at(4.9, 60.0), Some(Severity::Warning));
+    assert_eq!(at(5.0, 60.0), Some(Severity::Advisory));
+    assert_eq!(at(12.4, 60.0), Some(Severity::Advisory));
+    assert_eq!(at(12.5, 60.0), None, "half an inch this week");
+    assert_eq!(at(0.0, 49.9), None, "the grass is not growing");
+    assert_eq!(at(0.0, 50.0), Some(Severity::Warning));
+    // Real rain coming cancels it, as it does with soil moisture.
+    let shower = [(1.0, 0.2), (0.0, 0.0), (1.6, 0.3), (0.0, 0.0), (0.0, 0.0)];
+    assert_eq!(irrigation(&on_rain(Some(0.0), Some(60.0), &shower)), None);
+    // No forecast, no advice.
+    let no_forecast = EnvironmentalSummary {
+        forecast: None,
+        ..on_rain(Some(0.0), Some(60.0), &DRY_WEEK)
+    };
+    assert_eq!(irrigation(&no_forecast), None);
+
+    let rec = IrrigationForecastRule
+        .evaluate(
+            &on_rain(Some(3.0), Some(60.0), &DRY_WEEK),
+            &fescue(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        )
+        .unwrap();
+    let words = format!("{} {}", rec.description, rec.explanation);
+    assert!(words.contains("judged on rainfall"), "{words}");
+    assert!(words.contains("nothing measures soil moisture"), "{words}");
+    assert!(words.contains("probe"), "{words}");
+    let labels: Vec<_> = rec.data_points.iter().map(|p| p.label.as_str()).collect();
+    assert!(labels.contains(&"Rain, last 7 days"), "{labels:?}");
+    assert!(!labels.contains(&"Soil Moisture"), "{labels:?}");
+}
+
+// @spec RULE-WX-010
+#[test]
+fn without_soil_moisture_a_missing_week_of_rain_or_air_says_nothing() {
+    assert_eq!(irrigation(&on_rain(None, Some(60.0), &DRY_WEEK)), None);
+    assert_eq!(irrigation(&on_rain(Some(0.0), None, &DRY_WEEK)), None);
+    assert_eq!(irrigation(&on_rain(None, None, &DRY_WEEK)), None);
+}
+
 // @spec RULE-WX-003
 #[test]
 fn a_high_chance_of_no_rain_does_not_cancel_the_alert() {
