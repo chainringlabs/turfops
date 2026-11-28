@@ -180,6 +180,7 @@ pub fn sources(mut view: Value) -> Value {
     for source in view["sources"].as_array_mut().into_iter().flatten() {
         if let Some(map) = source.as_object_mut() {
             map.remove("id");
+            map.remove("missing_sensor");
         }
     }
     view

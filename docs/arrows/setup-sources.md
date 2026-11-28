@@ -4,7 +4,7 @@ Setup and Sources — leaf segment `SETUP` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-28 (git SHA `1b12d9d`): 72 of 74 active specs implemented; 2 marked `[ ]`.
+**OK** — audited 2026-11-28 (git SHA `92f4d75`): all 74 active specs implemented, each cited in code and by a test.
 
 ## References
 
@@ -120,15 +120,15 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | MAP | SETUP-MAP-001 – SETUP-MAP-014 | 14 | 0 | 0 | 14 | 14 |
 | PAGE | SETUP-PAGE-001 – SETUP-PAGE-013 | 13 | 0 | 0 | 13 | 13 |
 | API | SETUP-API-001 – SETUP-API-015 | 14 | 0 | 0 | 14 | 14 |
-| CRED | SETUP-CRED-001 – SETUP-CRED-004 | 3 | 0 | 1 | 3 | 3 |
-| FAIL | SETUP-FAIL-001 – SETUP-FAIL-004 | 3 | 0 | 1 | 3 | 3 |
-| **Total** | | **72** | **0** | **2** | **72** | **72** |
+| CRED | SETUP-CRED-001 – SETUP-CRED-004 | 4 | 0 | 0 | 4 | 4 |
+| FAIL | SETUP-FAIL-001 – SETUP-FAIL-004 | 4 | 0 | 0 | 4 | 4 |
+| **Total** | | **74** | **0** | **0** | **74** | **74** |
 
-**Summary:** 72 of 74 active specs implemented; 0 deferred; 72 implemented specs cited by a test.
+**Summary:** 74 of 74 active specs implemented; 0 deferred; 74 implemented specs cited by a test.
 
 ## Key Findings
 
-1. **Open gaps (not yet built):** SETUP-CRED-004, SETUP-FAIL-003.
+1. No findings.
 
 ## Work Required
 
@@ -136,7 +136,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Build or defer SETUP-CRED-004, SETUP-FAIL-003.
+- None.
 
 ### Nice to Have
 - None.

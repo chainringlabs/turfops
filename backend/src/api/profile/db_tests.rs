@@ -349,7 +349,7 @@ async fn planned(pool: &PgPool) -> Vec<String> {
     keys
 }
 
-// @spec SYNC-SCHED-008
+// @spec SYNC-SCHED-008, APP-PROF-018
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn moving_the_lawn_rebuilds_its_plan_and_wakes_the_schedule(pool: PgPool) {
     lawn(&pool).await;

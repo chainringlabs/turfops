@@ -77,6 +77,9 @@ pub struct SourceView {
     pub held_through: Option<NaiveDate>,
     pub wanted_from: Option<NaiveDate>,
     pub attribution: &'static str,
+    /// For a Home Assistant sensor whose entity Home Assistant no longer has: the
+    /// sensor's id, so the page can offer to unmap or remap it.
+    pub missing_sensor: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -202,11 +205,13 @@ pub async fn sources_view(state: &AppState) -> Result<SourcesView, TurfOpsError>
         None => None,
     };
     let inputs = input_views(pool, live.as_ref()).await?;
+    let sensors = setup_queries::sensors(pool).await?;
     let mut sources: Vec<SourceView> = record
         .status()
         .await?
         .into_iter()
         .map(|status| SourceView {
+            missing_sensor: missing_sensor(&sensors, &status.key, status.last_error.as_deref()),
             attribution: attribution(status.kind, &status.key),
             id: status.source_id,
             name: status.name,
@@ -244,4 +249,28 @@ pub async fn sources_view(state: &AppState) -> Result<SourcesView, TurfOpsError>
             posted_readings: state.sensor_readings.is_some(),
         },
     })
+}
+
+/// The mapped Home Assistant sensor behind the source `key`, when its current problem is
+/// that Home Assistant no longer has its entity.
+// @spec SETUP-FAIL-003
+fn missing_sensor(
+    sensors: &[setup_queries::Sensor],
+    key: &str,
+    error: Option<&str>,
+) -> Option<i64> {
+    use crate::logic::weather_sync::sensor_reading::Problem;
+    let error = error?;
+    sensors
+        .iter()
+        .find(|sensor| {
+            sensor.source_key() == key && sensor.way_in == setup_queries::WayIn::HomeAssistant
+        })
+        .filter(|sensor| {
+            sensor
+                .entity_id
+                .as_deref()
+                .is_some_and(|entity| error == Problem::NotFound.sentence(sensor.input, entity))
+        })
+        .map(|sensor| sensor.id)
 }

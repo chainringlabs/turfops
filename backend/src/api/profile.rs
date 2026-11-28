@@ -68,7 +68,7 @@ fn requested_location(
 
 /// Update the lawn profile, or create it when none exists yet (filling omitted fields
 /// the way startup seeding does), so saving Settings always works.
-// @spec APP-PROF-009, APP-PROF-010, APP-PROF-011, APP-PROF-012, SYNC-SCHED-008
+// @spec APP-PROF-009, APP-PROF-010, APP-PROF-011, APP-PROF-012, APP-PROF-018, SYNC-SCHED-008
 pub async fn update_profile(
     State(state): State<AppState>,
     Json(req): Json<UpdateProfileRequest>,

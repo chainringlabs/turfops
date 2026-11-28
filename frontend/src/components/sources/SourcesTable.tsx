@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { sharedStyles } from "../../styles/shared";
 import type { SourceView } from "../../types/sources";
 import { SOURCE_KIND_LABELS } from "../../types/sources";
@@ -8,6 +9,8 @@ interface SourcesTableProps {
 	labels: Record<string, string>;
 	now: Date;
 	timeZone: string;
+	/** Unmap a sensor Home Assistant no longer has. */
+	onUnmap?: (sensorId: number) => void;
 }
 
 // @spec SETUP-PAGE-004, SETUP-PAGE-010
@@ -17,6 +20,7 @@ export default function SourcesTable({
 	labels,
 	now,
 	timeZone,
+	onUnmap,
 }: SourcesTableProps) {
 	const when = (at: string | null) =>
 		at ? observedText(at, now, timeZone) : "—";
@@ -54,6 +58,31 @@ export default function SourcesTable({
 										<span aria-hidden="true">⚠ </span>
 										{s.last_error}
 										<div style={styles.small}>{when(s.last_failure)}</div>
+										{/* @spec SETUP-FAIL-003 */}
+										{s.missing_sensor != null && (
+											<div style={styles.actions}>
+												{onUnmap && (
+													<button
+														type="button"
+														style={styles.action}
+														aria-label={`Unmap ${s.name}`}
+														onClick={() =>
+															s.missing_sensor != null &&
+															onUnmap(s.missing_sensor)
+														}
+													>
+														Unmap
+													</button>
+												)}
+												<Link
+													to="/setup?step=sensors"
+													style={styles.action}
+													aria-label={`Remap ${s.name}`}
+												>
+													Remap
+												</Link>
+											</div>
+										)}
 									</>
 								) : (
 									"—"
@@ -77,4 +106,15 @@ const styles: Record<string, React.CSSProperties> = {
 	scroll: { overflowX: "auto" },
 	failing: { backgroundColor: "#fff5f5" },
 	small: { fontSize: "0.75rem", color: "#718096" },
+	actions: { display: "flex", gap: "0.75rem", marginTop: "0.25rem" },
+	action: {
+		background: "none",
+		border: "none",
+		padding: 0,
+		fontSize: "0.8rem",
+		color: "#2f855a",
+		fontWeight: 600,
+		textDecoration: "none",
+		cursor: "pointer",
+	},
 };

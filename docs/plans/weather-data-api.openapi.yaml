@@ -15,7 +15,7 @@ info:
 
     This replaces in-process DuckDB `read_parquet()` reads by consuming applications.
 
-    Companion design document: `weather-data-api-spec.md`.
+    Companion design document: `weather-data-api.md` (a proposal that was not adopted).
 
     Conventions:
       * Timestamps are ISO-8601 UTC; dates are `YYYY-MM-DD`.

@@ -8,15 +8,17 @@ a threshold, tier or rule in the code changes.**
 ## The lawn and its data
 
 - Cool-season lawn (tall fescue, Kentucky bluegrass, perennial ryegrass, or a `Mixed`
-  cool-season blend) in USDA zone 7a, southeast Pennsylvania. Warm-season grass types
+  cool-season blend); thresholds are tuned for USDA zone 7a, and the lawn's location is
+  set in setup. Warm-season grass types
   exist in the model but get no cool-season program (no fall feedings or seeding).
 - **Weather record**: TurfOps fetches its own weather into a per-lawn record — the
-  owner's sensors, nearby stations (NOAA USCRN and others), the PRISM grid at the lawn,
-  the hourly analysis for the location, and a soil estimate — and resolves each input,
+  owner's sensors, nearby NOAA USCRN and USDA SCAN stations, the PRISM and NRCC daily
+  grids at the lawn, the hourly analysis for the location, and a soil estimate — and
+  resolves each input,
   each day, to one basis. Every value says what it rests on; "today" is the lawn's local
   date.
-- **Air temperature / humidity now**: the owner's sensor when one is mapped (a Home
-  Assistant patio sensor here), else a nearby station or the hourly analysis.
+- **Air temperature / humidity now**: the owner's sensor when one is mapped (through Home
+  Assistant or posted readings), else a nearby station or the hourly analysis.
 - **Forecast**: from the provider chosen in setup (Open-Meteo, the National Weather
   Service or OpenWeatherMap), bucketed by local date. Whole-day judgments skip the
   partial first and last day.
@@ -27,7 +29,7 @@ a threshold, tier or rule in the code changes.**
 
 | Situation | What TurfOps does |
 |-----------|-------------------|
-| Newest soil reading older than 72 h | Not used as current; `soil_observed_at` shows the real time and the dashboard shows a banner |
+| Newest station soil reading older than 72 h (a sensor's older than 6 h) | Not used as current; `soil_observed_at` shows the real time and the dashboard shows a banner |
 | Soil data older than 5 days | Timing windows trust only confirmed crossings and otherwise fall back to the calendar |
 | Forecast fetch fails | A forecast up to 6 h old is kept |
 | Weather record cannot answer (no location, history loading, or a read fails) | Timing and disease recommendations drop out rather than guess |
@@ -38,7 +40,8 @@ a threshold, tier or rule in the code changes.**
 |--------|-----------|---------|
 | Soil temp 10 cm | 60–75°F | Grub control window |
 | Air temp | > 85°F | Fertilizer stress risk |
-| Soil moisture (fraction) | < 0.10 | Irrigation needed |
+| Soil moisture (fraction) | < 0.20 / 0.15 / 0.10, with under 0.1" forecast over 5 days | Irrigation: Advisory / Warning / Critical |
+| Rain, last 7 days (no soil-moisture source, 7-day mean air ≥ 50°F) | < ½" / < 5 mm, with under 0.1" forecast over 5 days | Irrigation judged on rain: Advisory / Warning, never Critical |
 | Soil moisture (fraction) | > 0.40 | Saturated — avoid fertilizer |
 | Plant watering (dry-spell test) | ≥ 0.1" forecast in 48 h, or ≥ 1" in the last 7 d, or soil moisture ≥ 0.20 | Weather is watering — plant Watering reminder held back |
 | Soil 5 cm, 5-day mean held 5 d | 45 / 50 / 55°F rising | Spring pre-emergent: early / ideal / closed (or 200 GDD) |
