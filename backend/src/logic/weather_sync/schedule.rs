@@ -50,6 +50,14 @@ impl Waker {
         self.wake.notify_one();
     }
 
+    /// Whether a wake is waiting for the schedule; takes it.
+    #[cfg(test)]
+    pub async fn take_wake(&self) -> bool {
+        tokio::time::timeout(std::time::Duration::ZERO, self.wake.notified())
+            .await
+            .is_ok()
+    }
+
     /// Asks for a pass that reads the sensors and fetches the forecast whatever their
     /// rhythm and does not wait for the installation's minute, and wakes the schedule.
     // @spec SYNC-SCHED-009

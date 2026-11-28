@@ -4,7 +4,7 @@ Disease Management — leaf segment `DIS-MGMT` under the `disease-risk` sub-HLD.
 
 ## Status
 
-**OK** — audited 2026-11-27 (git SHA `5fb1a99`): all 36 active specs implemented, each cited in code and by a test.
+**OK** — audited 2026-11-28 (git SHA `83eb10a`): all 36 active specs implemented, each cited in code and by a test.
 
 ## References
 

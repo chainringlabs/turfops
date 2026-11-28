@@ -335,3 +335,57 @@ async fn a_new_location_puts_its_zone_on_the_apps_clock(pool: PgPool) {
         crate::clock::Clock::Zone(chrono_tz::America::Denver)
     );
 }
+
+/// The sources the stored plan holds, by key.
+async fn planned(pool: &PgPool) -> Vec<String> {
+    let mut keys: Vec<String> = crate::db::weather_queries::plan::read(pool)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|p| p.source.key)
+        .collect();
+    keys.sort_unstable();
+    keys.dedup();
+    keys
+}
+
+// @spec SYNC-SCHED-008
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn moving_the_lawn_rebuilds_its_plan_and_wakes_the_schedule(pool: PgPool) {
+    lawn(&pool).await;
+    let (_schedule, waker, _stopper) = crate::logic::weather_sync::schedule::Schedule::new(
+        pool.clone(),
+        crate::logic::weather_sync::fetcher::Clients::new(),
+    );
+    let state = state(&pool).await.waking(waker.clone());
+    assert!(planned(&pool).await.is_empty(), "no location, no plan");
+
+    put(
+        &state,
+        json!({"location": {"latitude": 39.86, "longitude": -75.79}}),
+    )
+    .await
+    .unwrap();
+    let here = planned(&pool).await;
+    assert!(!here.is_empty(), "a plan for the new location");
+    assert!(waker.take_wake().await, "the schedule is woken");
+
+    // Saves that leave the point where it is wake nothing.
+    put(&state, json!({"name": "Back Forty"})).await.unwrap();
+    put(
+        &state,
+        json!({"location": {"latitude": 39.86, "longitude": -75.79, "place_name": "Home"}}),
+    )
+    .await
+    .unwrap();
+    assert!(!waker.take_wake().await, "the lawn did not move");
+
+    put(
+        &state,
+        json!({"location": {"latitude": 33.45, "longitude": -112.07}}),
+    )
+    .await
+    .unwrap();
+    assert!(waker.take_wake().await, "moved again");
+    assert_ne!(planned(&pool).await, Vec::<String>::new());
+}

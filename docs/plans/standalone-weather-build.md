@@ -144,14 +144,10 @@ what the spec says. Checked against the code on 2026-11-27.
   the station, grid and analysis sentences name the source generically and not what depends
   on it; USCRN skips unreadable lines silently; the forecast not-configured sentence still
   says to set `OWM_API_KEY`, though nothing raises it.
-- **SYNC-SCHED-008**: `PUT /profile` still accepts a location and does not wake the schedule
-  (the UI sends locations through setup, which does).
 - **SETUP-FAIL-001**: a place search that hangs shows the browser's 15 s timeout message,
   because the backend may wait up to 30 s.
 - **SETUP-FAIL-004**: no "try again" on the what-we-found step; a station list loaded for one
   network but not the other is treated as loaded.
-- **RULE-WX-006**: a missing 7-day rain total counts as dry for the first day, and a good day
-  with no following summary counts as dry the day after.
 
 ## Operations notes
 

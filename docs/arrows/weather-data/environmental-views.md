@@ -4,7 +4,7 @@ Environmental Views — leaf segment `WX-VIEW` under the `weather-data` sub-HLD.
 
 ## Status
 
-**OK** — audited 2026-11-27 (git SHA `5fb1a99`): all 26 active specs implemented; 25 cited by a test, 24 cited in code.
+**OK** — audited 2026-11-28 (git SHA `83eb10a`): all 26 active specs implemented; 25 cited by a test, 24 cited in code.
 
 ## References
 
@@ -29,6 +29,7 @@ Environmental Views — leaf segment `WX-VIEW` under the `weather-data` sub-HLD.
 - [frontend/src/components/environmental/display.test.ts](../../../frontend/src/components/environmental/display.test.ts)
 - [frontend/src/components/environmental/trendBasis.test.ts](../../../frontend/src/components/environmental/trendBasis.test.ts)
 - [frontend/src/components/sources/BasisLabel.test.tsx](../../../frontend/src/components/sources/BasisLabel.test.tsx)
+- [frontend/src/components/sources/basisEverywhere.test.tsx](../../../frontend/src/components/sources/basisEverywhere.test.tsx)
 - [frontend/src/components/sources/display.test.ts](../../../frontend/src/components/sources/display.test.ts)
 - [frontend/src/pages/Environmental.test.tsx](../../../frontend/src/pages/Environmental.test.tsx)
 - [frontend/src/pages/Environmental.trends.test.tsx](../../../frontend/src/pages/Environmental.trends.test.tsx)
