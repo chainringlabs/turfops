@@ -96,7 +96,10 @@ A transport failure, a non-success status, a body that does not parse, or a resp
 the span asked for is an outage of that source (`unavailable(Source::…, detail)`). The owner
 sentence names the source and what depends on it; the detail (URL, status, body, parse error)
 goes to the log only. A URL that carries a key is stripped from every error before it is
-formatted, inside the client.
+formatted, inside the client. A Home Assistant failure logs the path asked for and why
+(transport, status, unreadable body), never the address, which may carry a user name and
+password, nor the token. A USCRN file with lines that give no row logs the URL and how many
+were skipped; the rows it could read are kept.
 
 The Home Assistant and forecast clients expose a probe that makes their smallest real request,
 so setup can test a connection the owner has just entered. Routine source status comes from
@@ -136,7 +139,15 @@ the outcome of scheduled fetches (data sync).
   temperature and moisture at the sensor depths nearest 5, 10, 20, 50 and 100 cm (SCAN's
   standard depths are 2, 4, 8, 20 and 40 inches, which are those five). Units are read from
   the response and converted: temperatures arrive in °F, soil moisture and humidity in
-  percent, precipitation in inches.
+  percent, precipitation in inches. Values are asked for with their quality flags
+  (`returnFlags=true`): one flagged `S` (suspect) or as an NRCS estimate (`K`, `B`, `X`) is
+  dropped; `V` (validated), `N` (no check applies) and `E` (edited for sensor noise) are kept.
+- **Time:** a value's time is the station's fixed standard time, converted to UTC. An
+  instantaneous reading (air, humidity, soil) is the reading at that time; a precipitation
+  increment stamped *T* is the rain of the hour starting at *T*, so both are stored at *T*.
+  Checked against the USCRN station 0.6 mi from Eros Data Center, SD, over April–October 2026:
+  SCAN's rain at *T* matches USCRN's hour ending *T* + 1 h with r = 0.993 (0.27 at the next
+  best alignment), and SCAN's air at *T* matches USCRN's reading at *T* to 0.7 °F.
 - **Span:** up to one station-year per request.
 
 ### PRISM and NRCC (RCC-ACIS)
@@ -335,6 +346,7 @@ a station id or a point as an argument and read no setting at all.
 | A counter rising more than 300 mm in one reading | Counts as zero, logged | Store it; cap it at 300 mm | No hour's rain reaches that ceiling, so the rise is a replaced or re-based gauge; storing it would write a flood into the record, and a cap would still invent rain. |
 | Retries | None inside a client | Retry with back-off in each client | One place (data sync) knows the schedule and what else is due; a client that retries hides an outage and multiplies requests on a struggling host. |
 | Identification | Application name and version only | Include a contact address, as some services request | The owner's details are private and are not sent to any service (HLD). |
+| SCAN values AWDB estimated | Dropped, like a suspect value | Kept as station values; kept and marked | A station value stands as measured in every basis label; an agency's estimate is not a measurement. Dropping it lets the next source in the plan, or the labelled soil estimate, answer for the hour. |
 | Key in errors | The URL is stripped inside the client | Rely on callers not to log it | OpenWeatherMap's key travels in the query string; the client is the only place that can guarantee it is never formatted. |
 | Full-day cut-off | 18 of 24 hours | 24 hours; any coverage | Allows a small shortfall while excluding evening-only days. |
 
@@ -347,8 +359,6 @@ a station id or a point as an argument and read no setting at all.
    freeze 8 | 30 days.
 2. **The newest day's rain** comes from the hourly analysis, which caught 58 % of wet weeks in
    testing against PRISM's 88 %. It is replaced within a day or two.
-3. **Whether a SCAN hourly precipitation value describes the hour before its time or the
-   hour after is unverified.** Station rain is in no basis plan, so nothing rests on it yet.
 3. **SCAN was not scored against USCRN.** Its sensors and siting differ; it is used only where
    no USCRN station is within the cut-off.
 4. **Open-Meteo's free tier is for non-commercial use.** A hosted or commercial TurfOps would

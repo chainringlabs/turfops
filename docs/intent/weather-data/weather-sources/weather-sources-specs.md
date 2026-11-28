@@ -8,8 +8,8 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 
 - [x] **WX-SRC-NORM-001**: Every client shall return temperatures in °F, precipitation in millimetres, relative humidity in percent and soil moisture as a fraction from 0 to 1, converting from the units the source declares.
 - [x] **WX-SRC-NORM-002**: Every client shall return as empty any value that is the source's missing marker, any temperature outside −80 to 150 °F, any relative humidity outside 0 to 100, any precipitation that is negative or above 300 mm in an hour, and any soil moisture outside 0 to 1, keeping the rest of the row; a forecast slot whose temperature, relative humidity or wind speed is emptied this way is not returned (WX-SRC-FC-003).
-- [ ] **WX-SRC-NORM-003**: Every client shall return as empty any value the source itself flags as failed quality control.
-- [ ] **WX-SRC-NORM-004**: Every client shall stamp an hourly row with the UTC start of the hour it describes, and shall leave a daily row on the source's own day.
+- [x] **WX-SRC-NORM-003**: Every client shall return as empty any value the source itself flags as failed quality control.
+- [x] **WX-SRC-NORM-004**: Every client shall stamp an hourly row with the UTC start of the hour it describes, and shall leave a daily row on the source's own day.
 
 ## How requests are made
 
@@ -123,5 +123,5 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 
 ## Errors
 
-- [ ] **WX-SRC-ERR-001**: If a request fails in transport, returns a non-success status, or returns a body that does not parse, then the client shall return an outage of its source whose owner sentence names the source and what depends on it, and shall write the URL, status, body or parse error to the log only.
+- [x] **WX-SRC-ERR-001**: If a request fails in transport, returns a non-success status, or returns a body that does not parse, then the client shall return an outage of its source whose owner sentence names the source and what depends on it, and shall write the URL, status, body or parse error to the log only.
 - [x] **WX-SRC-ERR-002**: No response, log line or error shall contain a stored credential or one read from the environment.

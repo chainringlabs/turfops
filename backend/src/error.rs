@@ -1,3 +1,5 @@
+use crate::datasources::grid::Grid as DailyGrid;
+use crate::models::weather_record::Network;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use thiserror::Error;
@@ -95,9 +97,10 @@ fn outage_message(source: Source, outage: &Outage) -> String {
             "The stored weather can't be read right now, so weather, timing and disease \
              information are unavailable. Try again in a few minutes."
         }
+        // @spec WX-SRC-ERR-001
         (Forecast, NotConfigured | Disabled) => {
-            "The weather forecast isn't configured, so forecast-based advice is unavailable. \
-             Set OWM_API_KEY and restart TurfOps."
+            "The weather forecast isn't set up, so forecast-based advice is unavailable. \
+             Choose a forecast provider, and its key if it needs one, on the Sources page."
         }
         (Forecast, _) => {
             "The weather forecast is unavailable right now, so forecast-based advice is \
@@ -140,19 +143,35 @@ fn outage_message(source: Source, outage: &Outage) -> String {
              it by hand, or try again in a few minutes."
         }
         // @spec WX-SRC-ERR-001
-        (SoilStation, _) => {
-            "The weather station network can't be reached right now. Readings TurfOps \
-             already holds are still used; newer ones will arrive when it answers."
+        (SoilStation(Network::Uscrn), _) => {
+            "NOAA's USCRN weather station network can't be reached right now, so station \
+             soil temperature, soil moisture, air and humidity readings aren't updating. \
+             The readings TurfOps already holds are still used; newer ones arrive when it \
+             answers."
         }
-        // @spec WX-SRC-ERR-001
-        (Grid, _) => {
-            "The daily temperature and rain grid can't be reached right now. Days TurfOps \
-             already holds are still used; newer ones will arrive when it answers."
+        (SoilStation(Network::Scan), _) => {
+            "USDA's SCAN weather station network can't be reached right now, so station \
+             soil temperature, soil moisture, air and humidity readings aren't updating. \
+             The readings TurfOps already holds are still used; newer ones arrive when it \
+             answers."
         }
-        // @spec WX-SRC-ERR-001
+        (Grid(DailyGrid::Prism), _) => {
+            "The PRISM daily grid can't be reached right now, so daily temperature and rain \
+             for recent days aren't updating, and growing degree days and freeze dates wait \
+             on them. The days TurfOps already holds are still used; newer ones arrive when \
+             it answers."
+        }
+        (Grid(DailyGrid::Nrcc), _) => {
+            "The NRCC daily grid can't be reached right now, so the days PRISM has not \
+             published yet aren't filled, and growing degree days and freeze dates for them \
+             wait. The days TurfOps already holds are still used; newer ones arrive when it \
+             answers."
+        }
         (HourlyAnalysis, _) => {
-            "The hourly weather analysis can't be reached right now. Hours TurfOps already \
-             holds are still used; newer ones will arrive when it answers."
+            "Open-Meteo's hourly weather analysis can't be reached right now, so hourly air, \
+             humidity and rain where no sensor or station reports them aren't updating, and \
+             the disease models' approximate days wait on them. The hours TurfOps already \
+             holds are still used; newer ones arrive when it answers."
         }
         // @spec WX-SRC-ERR-001, SETUP-FAIL-001
         (PlaceSearch, _) => "Place search is unavailable; enter coordinates instead.",
@@ -180,9 +199,9 @@ pub enum Source {
     /// The stored weather for the lawn, as a whole.
     WeatherRecord,
     /// A measured station network (USCRN, SCAN).
-    SoilStation,
-    /// The daily air-temperature and rain grid (PRISM, NRCC).
-    Grid,
+    SoilStation(Network),
+    /// One of the daily air-temperature and rain grids (PRISM, NRCC).
+    Grid(DailyGrid),
     /// Open-Meteo's hourly analysis of past air temperature, humidity and rain.
     HourlyAnalysis,
     /// Open-Meteo's place search, used in setup.
@@ -407,6 +426,51 @@ mod tests {
             msg.contains("care plans"),
             "names the affected features: {msg}"
         );
+    }
+
+    // @spec WX-SRC-ERR-001
+    #[test]
+    fn a_weather_outage_names_its_source_and_what_waits_on_it() {
+        use crate::datasources::grid::Grid;
+        use crate::models::weather_record::Network;
+        let said = |source| TurfOpsError::unavailable(source, "detail").owner_message();
+        for (source, names, waits) in [
+            (
+                Source::SoilStation(Network::Uscrn),
+                "USCRN",
+                "soil temperature",
+            ),
+            (
+                Source::SoilStation(Network::Scan),
+                "SCAN",
+                "soil temperature",
+            ),
+            (Source::Grid(Grid::Prism), "PRISM", "growing degree days"),
+            (Source::Grid(Grid::Nrcc), "NRCC", "growing degree days"),
+            (Source::HourlyAnalysis, "Open-Meteo", "disease"),
+        ] {
+            let msg = said(source);
+            assert!(msg.contains(names), "{msg}");
+            assert!(msg.contains(waits), "{msg}");
+            assert!(msg.contains("already holds"), "{msg}");
+            assert!(!msg.contains("detail"), "{msg}");
+        }
+    }
+
+    // @spec WX-SRC-ERR-001
+    #[test]
+    fn a_forecast_not_set_up_points_to_the_sources_page_not_a_setting() {
+        for err in [
+            TurfOpsError::not_configured(Source::Forecast),
+            TurfOpsError::disabled(Source::Forecast),
+        ] {
+            let msg = err.owner_message();
+            assert!(msg.contains("Sources page"), "{msg}");
+            assert!(
+                !msg.contains("OWM_API_KEY") && !msg.contains("restart"),
+                "{msg}"
+            );
+        }
     }
 
     // @spec PLANT-AI-008

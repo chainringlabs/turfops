@@ -74,6 +74,41 @@ describe("searching for the lawn", () => {
 	});
 });
 
+// @spec SETUP-FAIL-001
+describe("when the place search fails", () => {
+	it.each([
+		["the server's outage", new ApiError(503, "Something else entirely.")],
+		["the browser's timeout", new ApiError(0, "That took too long.", true)],
+		["no network", new TypeError("Failed to fetch")],
+	])(
+		"says to enter coordinates (%s) and still takes them",
+		async (_name, error) => {
+			const user = userEvent.setup();
+			places.mockRejectedValue(error);
+			render(<LocationStep stored={null} onNext={vi.fn()} />);
+			await user.type(
+				screen.getByLabelText("Place name or postal code"),
+				"Avondale",
+			);
+			await user.click(screen.getByRole("button", { name: "Search" }));
+			expect(
+				await screen.findByText(
+					"Place search is unavailable; enter coordinates instead.",
+				),
+			).toBeInTheDocument();
+			await user.type(screen.getByLabelText("Latitude"), "39.8234");
+			await user.type(screen.getByLabelText("Longitude"), "-75.7846");
+			await user.click(
+				screen.getByRole("button", { name: "Use these coordinates" }),
+			);
+			expect(preview).toHaveBeenCalledWith(39.8234, -75.7846);
+			expect(
+				await screen.findByRole("button", { name: "Continue" }),
+			).toBeInTheDocument();
+		},
+	);
+});
+
 // @spec SETUP-LOC-003
 describe("checking the point before going on", () => {
 	it("shows the place, the coordinates as stored, the timezone and the nearest soil station", async () => {

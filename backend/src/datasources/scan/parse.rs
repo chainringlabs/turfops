@@ -130,6 +130,25 @@ struct Series {
 struct Reading {
     date: String,
     value: Option<f64>,
+    /// AWDB's quality-control flag, asked for with `returnFlags=true`.
+    #[serde(rename = "qcFlag")]
+    qc_flag: Option<String>,
+}
+
+/// Quality-control flags whose value is not kept: S suspect, and K, B and X, estimates
+/// NRCS made in place of a measurement. V (validated), N (no check applies) and E (edited
+/// for sensor noise) are kept.
+const NOT_MEASURED: [&str; 4] = ["S", "K", "B", "X"];
+
+impl Reading {
+    /// The value, unless AWDB flags it as suspect or as its own estimate.
+    fn measured(&self) -> Option<f64> {
+        let flagged = self
+            .qc_flag
+            .as_deref()
+            .is_some_and(|flag| NOT_MEASURED.contains(&flag));
+        self.value.filter(|_| !flagged)
+    }
 }
 
 fn within(value: f64, (low, high): (f64, f64)) -> Option<f64> {
@@ -193,7 +212,7 @@ fn set(row: &mut HourlyRow, input: Input, value: f64) {
 
 /// One station's hours from a data response, ascending. Times arrive in the station's
 /// fixed local standard time and are converted to UTC with `utc_offset_hours`.
-// @spec WX-SRC-SCAN-002, WX-SRC-SCAN-003, WX-SRC-NORM-004
+// @spec WX-SRC-SCAN-002, WX-SRC-SCAN-003, WX-SRC-NORM-003, WX-SRC-NORM-004
 pub fn hourly(json: &str, utc_offset_hours: f64) -> Result<Vec<HourlyRow>, String> {
     let stations: Vec<StationData> =
         serde_json::from_str(json).map_err(|e| format!("SCAN data did not parse: {e}"))?;
@@ -217,7 +236,10 @@ pub fn hourly(json: &str, utc_offset_hours: f64) -> Result<Vec<HourlyRow>, Strin
                 observed_at,
                 ..Default::default()
             });
-            if let Some(value) = reading.value.and_then(|v| in_record_units(input, v, unit)) {
+            if let Some(value) = reading
+                .measured()
+                .and_then(|v| in_record_units(input, v, unit))
+            {
                 set(row, input, value);
             }
         }

@@ -6,7 +6,7 @@ mod tests;
 
 use super::outside::{Fetched, Outside};
 use crate::error::{Result, Source, TurfOpsError};
-use crate::models::weather_record::{HourlyRow, Station};
+use crate::models::weather_record::{HourlyRow, Network, Station};
 use chrono::NaiveDate;
 use std::sync::Arc;
 
@@ -82,7 +82,7 @@ impl ScanClient {
         };
         let url = format!(
             "{}/data?stationTriplets={triplet}&elements={ELEMENTS}&duration=HOURLY\
-             &beginDate={from}%2000:00&endDate={through}%2023:00",
+             &beginDate={from}%2000:00&endDate={through}%2023:00&returnFlags=true",
             self.base
         );
         parse::hourly(&self.text(&url).await?, offset).map_err(down)
@@ -90,5 +90,5 @@ impl ScanClient {
 }
 
 fn down(detail: String) -> TurfOpsError {
-    TurfOpsError::unavailable(Source::SoilStation, detail)
+    TurfOpsError::unavailable(Source::SoilStation(Network::Scan), detail)
 }

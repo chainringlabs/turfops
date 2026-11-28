@@ -131,7 +131,7 @@ async fn a_refusal_or_an_unreadable_body_is_an_outage_of_the_grid() {
             .await
             .unwrap_err();
         let message = err.owner_message();
-        assert!(message.contains("temperature and rain grid"), "{message}");
+        assert!(message.contains("PRISM daily grid"), "{message}");
         assert!(
             !message.contains("unknown grid") && !message.contains("127.0.0.1"),
             "{message}"

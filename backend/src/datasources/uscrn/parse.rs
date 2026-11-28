@@ -91,6 +91,14 @@ pub fn catalog(tsv: &str) -> Vec<Station> {
         .collect()
 }
 
+/// How many of a file's non-blank lines gave no row, when `read` rows came from it.
+pub fn unreadable_lines(text: &str, read: usize) -> usize {
+    text.lines()
+        .filter(|line| !line.trim().is_empty())
+        .count()
+        .saturating_sub(read)
+}
+
 /// 0-based fields of an `hourly02` record.
 mod hourly {
     pub const UTC_DATE: usize = 1;

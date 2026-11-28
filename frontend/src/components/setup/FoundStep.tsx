@@ -45,39 +45,55 @@ export default function FoundStep({
 	const [key, setKey] = useState("");
 	const [replacing, setReplacing] = useState(false);
 	const [problem, setProblem] = useState<string | null>(null);
+	/** What to ask again when a plan or station list could not be loaded. */
+	const [retry, setRetry] = useState<(() => void) | null>(null);
 	const [busy, setBusy] = useState(false);
 
-	async function replan(next: Pins) {
+	function fail(e: unknown, again: (() => void) | null) {
+		setProblem(describeError(e));
+		setRetry(() => again);
+	}
+
+	function clearProblem() {
 		setProblem(null);
+		setRetry(null);
+	}
+
+	// @spec SETUP-FAIL-004
+	async function replan(next: Pins) {
+		clearProblem();
 		setBusy(true);
 		try {
 			setPlan(await getPreview(chosen.latitude, chosen.longitude, next));
 			setPins(next);
 			setOpened(null);
 		} catch (e) {
-			setProblem(describeError(e));
+			fail(e, () => void replan(next));
 		} finally {
 			setBusy(false);
 		}
 	}
 
 	async function open(input: string) {
+		clearProblem();
 		setOpened(input);
 		setChoices(null);
 		try {
 			setChoices(await getStations(input, chosen.latitude, chosen.longitude));
 		} catch (e) {
 			setOpened(null);
-			setProblem(describeError(e));
+			fail(e, () => void open(input));
 		}
 	}
 
 	const askKey = provider === "OpenWeatherMap" && (!keyStored || replacing);
 
 	async function save() {
-		if (askKey && !key.trim())
+		if (askKey && !key.trim()) {
+			setRetry(null);
 			return setProblem("OpenWeatherMap needs its key.");
-		setProblem(null);
+		}
+		clearProblem();
 		setBusy(true);
 		try {
 			await applySetup({
@@ -96,7 +112,7 @@ export default function FoundStep({
 			});
 			onSaved();
 		} catch (e) {
-			setProblem(describeError(e));
+			fail(e, null);
 			setBusy(false);
 		}
 	}
@@ -253,7 +269,24 @@ export default function FoundStep({
 				</p>
 			)}
 
-			{problem && <div style={sharedStyles.error}>{problem}</div>}
+			{problem && (
+				<div style={sharedStyles.error}>
+					{problem}
+					{retry && (
+						<>
+							{" "}
+							<button
+								type="button"
+								style={styles.link}
+								disabled={busy}
+								onClick={retry}
+							>
+								Try again
+							</button>
+						</>
+					)}
+				</div>
+			)}
 
 			<div style={styles.row}>
 				<button

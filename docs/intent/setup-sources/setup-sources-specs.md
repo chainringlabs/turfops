@@ -100,7 +100,7 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 
 ## Failures
 
-- [ ] **SETUP-FAIL-001**: If the place search fails, then the location step shall say "Place search is unavailable; enter coordinates instead" and shall still accept typed coordinates.
+- [x] **SETUP-FAIL-001**: If the place search fails, then the location step shall say "Place search is unavailable; enter coordinates instead" and shall still accept typed coordinates.
 - [x] **SETUP-FAIL-002**: If Home Assistant does not answer at the address, or refuses the token, then the test shall say which of the two happened.
 - [ ] **SETUP-FAIL-003**: If a mapped entity is no longer found in Home Assistant, then the Sources page shall show its sensor as "not found in Home Assistant" with ways to unmap and to remap it.
-- [ ] **SETUP-FAIL-004**: If the station list is not loaded when a preview or a station list is asked for, then the system shall load it before answering; if it cannot be loaded, the request shall fail with the station network's outage sentence and the what-we-found step shall offer to try again.
+- [x] **SETUP-FAIL-004**: If either station network's list is not loaded when a preview or a station list is asked for, then the system shall load it before answering; if it cannot be loaded, the request shall fail with the station network's outage sentence and the what-we-found step shall offer to try again.

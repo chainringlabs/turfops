@@ -104,13 +104,13 @@ impl GridClient {
             .outside
             .post_json(&self.url, &body, timeout)
             .await
-            .map_err(down)?;
-        parse(&text).map_err(down)
+            .map_err(down(grid))?;
+        parse(&text).map_err(down(grid))
     }
 }
 
-fn down(detail: String) -> TurfOpsError {
-    TurfOpsError::unavailable(Source::Grid, detail)
+fn down(grid: Grid) -> impl Fn(String) -> TurfOpsError {
+    move |detail| TurfOpsError::unavailable(Source::Grid(grid), detail)
 }
 
 fn within(value: f64, (low, high): (f64, f64)) -> Option<f64> {

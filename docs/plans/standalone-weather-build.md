@@ -126,7 +126,6 @@ Nothing.
   to calibrate a depth, no estimate is written, the estimate source never registers a span,
   and "history still loading" does not clear for that depth. Unlikely in the contiguous
   United States, where the five nearest are taken at any distance.
-- **SCAN's hourly precipitation** has not been checked for which hour it belongs to.
 - **Home Assistant's `last_reported`** is taken from memory of its API, not from a live
   instance. The client falls back to `last_updated`.
 - **The disease tier thresholds** have not been re-run on hourly-analysis inputs.
@@ -134,20 +133,7 @@ Nothing.
 
 ### Specs that fall short
 
-Each of these is marked `[ ]` in its spec file and has code citing it; the code does part of
-what the spec says. Checked against the code on 2026-11-27.
-
-- **WX-SRC-NORM-003**: the SCAN request asks for no quality flags, so values AWDB marks
-  suspect are stored as good.
-- **WX-SRC-NORM-004**: waits on the SCAN precipitation-hour check above.
-- **WX-SRC-ERR-001**: Home Assistant failures discard their detail instead of logging it;
-  the station, grid and analysis sentences name the source generically and not what depends
-  on it; USCRN skips unreadable lines silently; the forecast not-configured sentence still
-  says to set `OWM_API_KEY`, though nothing raises it.
-- **SETUP-FAIL-001**: a place search that hangs shows the browser's 15 s timeout message,
-  because the backend may wait up to 30 s.
-- **SETUP-FAIL-004**: no "try again" on the what-we-found step; a station list loaded for one
-  network but not the other is treated as loaded.
+None. Every spec found short in the check of 2026-11-27 now does what it says.
 
 ## Operations notes
 

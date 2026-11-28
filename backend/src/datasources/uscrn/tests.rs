@@ -101,7 +101,10 @@ async fn a_failed_or_unreadable_answer_is_an_outage_of_the_station_network() {
             .await
             .unwrap_err();
         let message = err.owner_message();
-        assert!(message.contains("station network"), "{message}");
+        assert!(
+            message.contains("USCRN weather station network"),
+            "{message}"
+        );
         assert!(
             !message.contains("127.0.0.1") && !message.contains("maintenance"),
             "{message}"
@@ -109,7 +112,10 @@ async fn a_failed_or_unreadable_answer_is_an_outage_of_the_station_network() {
         let TurfOpsError::Unavailable { origin, .. } = err else {
             panic!("expected an outage");
         };
-        assert_eq!(origin, Source::SoilStation);
+        assert_eq!(
+            origin,
+            Source::SoilStation(crate::models::weather_record::Network::Uscrn)
+        );
     }
 }
 

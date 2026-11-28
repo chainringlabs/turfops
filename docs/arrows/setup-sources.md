@@ -4,7 +4,7 @@ Setup and Sources — leaf segment `SETUP` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-28 (git SHA `83eb10a`): 70 of 74 active specs implemented; 4 marked `[ ]` (2 of them already cited in code).
+**PARTIAL** — audited 2026-11-28 (git SHA `1b12d9d`): 72 of 74 active specs implemented; 2 marked `[ ]`.
 
 ## References
 
@@ -121,15 +121,14 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | PAGE | SETUP-PAGE-001 – SETUP-PAGE-013 | 13 | 0 | 0 | 13 | 13 |
 | API | SETUP-API-001 – SETUP-API-015 | 14 | 0 | 0 | 14 | 14 |
 | CRED | SETUP-CRED-001 – SETUP-CRED-004 | 3 | 0 | 1 | 3 | 3 |
-| FAIL | SETUP-FAIL-001 – SETUP-FAIL-004 | 1 | 0 | 3 | 3 | 3 |
-| **Total** | | **70** | **0** | **4** | **72** | **72** |
+| FAIL | SETUP-FAIL-001 – SETUP-FAIL-004 | 3 | 0 | 1 | 3 | 3 |
+| **Total** | | **72** | **0** | **2** | **72** | **72** |
 
-**Summary:** 70 of 74 active specs implemented; 0 deferred; 70 implemented specs cited by a test.
+**Summary:** 72 of 74 active specs implemented; 0 deferred; 72 implemented specs cited by a test.
 
 ## Key Findings
 
-1. **Marked `[ ]` but cited in code:** SETUP-FAIL-001, SETUP-FAIL-004. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
-2. **Open gaps (not yet built):** SETUP-CRED-004, SETUP-FAIL-003.
+1. **Open gaps (not yet built):** SETUP-CRED-004, SETUP-FAIL-003.
 
 ## Work Required
 
@@ -137,7 +136,6 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Confirm SETUP-FAIL-001, SETUP-FAIL-004 against the code and set their markers.
 - Build or defer SETUP-CRED-004, SETUP-FAIL-003.
 
 ### Nice to Have
