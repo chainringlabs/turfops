@@ -39,7 +39,7 @@ RUN cargo build --release
 # glibc-dynamic ships glibc and libgcc_s.so.1, which the binary loads; nothing else is
 # copied.
 # @spec DEPLOY-TZ-002 (the image sets no TZ; the clock follows the lawn's location)
-FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:a96ba3c8d5ffc646e1092c03d72000b5e2ccd9f6cda695d6342a0e31ce4d52ee
+FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:db4aee413b04fe11b03de02385e3ae184eaf5c91d92ec413daf71416561a79e8
 
 WORKDIR /app
 
