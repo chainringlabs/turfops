@@ -4,7 +4,7 @@ Weather Sources — leaf segment `WX-SRC` under the `weather-data` sub-HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `5fb1a99`): 77 of 80 active specs implemented; 3 marked `[ ]` (3 of them already cited in code).
+**PARTIAL** — audited 2026-11-28 (git SHA `83eb10a`): 77 of 80 active specs implemented; 3 marked `[ ]` (3 of them already cited in code).
 
 ## References
 

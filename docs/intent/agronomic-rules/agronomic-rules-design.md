@@ -116,7 +116,7 @@ Cool-season only, Sep 1–Nov 30, needs the soil average. A *feeding* is an appl
   - *Without soil moisture* (no station within 50 miles and no probe): judged on rain. Fires only while the grass is growing (7-day mean air ≥ 50°F) and the 7-day rain total is under 12.5 mm (½ in): Warning under 5 mm, otherwise Advisory, never Critical. The text says it is judged on rainfall because nothing measures soil moisture at this lawn, and that a probe would replace it.
   - Either way it declares an optional wetting-agent need, which never puts the recommendation on the shopping list.
 - **Heat stress.** Cool-season only. Uses the maximum daily high over today plus the next 3 local days. Severity is Advisory from 85°F, Warning from 90°F and Critical from 95°F. "Hot days" counts the consecutive days from the start, ignoring a leftover partial day that is cooler.
-- **Application window.** Considers the first 5 daily summaries and judges only full days (`is_full_day`). A day is *good* when its mean temperature is ≥ 50°F with a high ≤ 85°F, the day before is dry (or, for the first summary, the 7-day rain total is under 25 mm) and the day itself and the next are dry. Dry means under 2.5 mm and under 50% probability; a day whose amount the provider does not forecast is judged on probability alone, and a day with neither is not dry. Wind and humidity add to the score but are not required. The highest-scoring good day is announced as Info. With no good day, there is no recommendation.
+- **Application window.** Considers the first 5 daily summaries and judges only full days (`is_full_day`). A day is *good* when its mean temperature is ≥ 50°F with a high ≤ 85°F, the day before is dry (or, for the first summary, the 7-day rain total is under 25 mm) and the day itself and the next are dry. Dry means under 2.5 mm and under 50% probability; a day whose amount the provider does not forecast is judged on probability alone, and a day with neither is not dry. Rain that is not known is never dry: the first summary is not good while the 7-day rain total is missing, and a summary with no summary after it is not good. Wind and humidity add to the score but are not required. The highest-scoring good day is announced as Info. With no good day, there is no recommendation.
 - **Mowing height.** Cool-season only. Uses the 7-day ambient average: above 85°F → Warning (heat-stress height), above 75°F → Advisory (summer height), at or above 50°F → Info (spring/fall height), below 50°F → none.
 
 ## Nitrogen Guard
@@ -223,7 +223,7 @@ Both widgets render on the Dashboard (`frontend/src/pages/Dashboard.tsx`). The d
 | Soil average (`None`): no source within its age limit (data sync then withholds the 7-day figures and the trend) | Spring N, broadleaf, grub, fall fertilization silent; spring broadleaf loses the trend |
 | Live soil reading withheld | Grub silent even if the 7-day average exists |
 | Soil moisture absent (no station within 50 miles, no probe) or withheld | Fertilizer block keeps only the air check; irrigation is judged on rain |
-| 7-day rain total (`None`) | Irrigation without soil moisture is silent |
+| 7-day rain total (`None`) | Irrigation without soil moisture is silent; the application window cannot pick the first forecast day |
 | Ambient air (`None`) | Fertilizer block keeps the soil-moisture checks; irrigation without soil moisture is silent |
 | Forecast | Rain delay, irrigation, heat stress, application window silent; the guard can no longer hold on heat |
 | GDD (`None`) | Spring N stays on soil temperature only; broadleaf spring uses March only; grub uses the calendar window only with no peak-hatch escalation |
@@ -272,7 +272,7 @@ Both widgets render on the Dashboard (`frontend/src/pages/Dashboard.tsx`). The d
 1. Grub ids carry the year (`grub_control_<year>`, `grub_control.rs:122,177`), while the other rule ids rely on answered-state expiry. Grub and broadleaf "already applied" checks ignore `is_turf()`.
 2. Days with no daily air are skipped, so a gap silently lowers YTD GDD and the crabgrass status.
 3. Spring broadleaf is silent whenever the trend is Unknown (under 48 readings) or Stable (`broadleaf_herbicide.rs:71`). Fall broadleaf checks no trend, though its doc comment says "falling" (`broadleaf_herbicide.rs:14-15,80-86`). The application window's doc comment lists wind and humidity as requirements, but they only add to the score.
-4. Application window: equal scores pick the *last* good day (`max_by_key`), and a final summary with no next day is assumed dry (`application_window.rs:52-55,168-175`).
+4. Application window: equal scores pick the *last* good day (`max_by_key`, `application_window.rs:52-55`).
 5. Irrigation can say "no significant rain … for 0 days": `dry_days` stops at the first day with ≥ 2.5 mm or ≥ 50% probability, while the cancel test uses only the 5-day amount (`irrigation_forecast.rs:59-66,86-90`).
 6. `GddWidget` hard-codes 200 instead of using `crabgrass_model.germination_threshold` (`GddWidget.tsx:41,48,68`).
 8. CLAUDE.md understates two rules: irrigation fires below 0.20 moisture (Advisory), not only below 0.10; and spring N has no "GDD 50–150" range: ≥ 50 promotes 50–55°F soil to ready, ≥ 150 only adds a note.

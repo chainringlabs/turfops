@@ -86,10 +86,17 @@ fn the_wetting_agent_is_optional_and_never_shopped_for() {
     assert!(shopping::build(&feed, &[]).items.is_empty());
 }
 
-fn window(days: Vec<DailyForecast>, lake_rain_mm: f64) -> Option<(String, Severity, String)> {
+fn window(days: Vec<DailyForecast>, week_rain_mm: f64) -> Option<(String, Severity, String)> {
+    window_after(days, Some(week_rain_mm))
+}
+
+fn window_after(
+    days: Vec<DailyForecast>,
+    week_rain_mm: Option<f64>,
+) -> Option<(String, Severity, String)> {
     let env = EnvironmentalSummary {
         forecast: Some(forecast(days, Vec::new())),
-        precipitation_7day_total_mm: Some(lake_rain_mm),
+        precipitation_7day_total_mm: week_rain_mm,
         ..Default::default()
     };
     ApplicationWindowRule
@@ -137,7 +144,7 @@ fn the_best_good_day_in_the_next_five_is_announced() {
 
 // @spec RULE-WX-006
 #[test]
-fn the_first_days_yesterday_is_the_lakes_week_of_rain() {
+fn the_first_days_yesterday_is_the_weeks_rain_total() {
     let days = || {
         vec![
             day(on(0), 72.0, 52.0, 0.0, 0.0),
@@ -148,6 +155,38 @@ fn the_first_days_yesterday_is_the_lakes_week_of_rain() {
     let (_, _, description) = window(days(), 24.9).expect("a soggy-free week");
     assert!(description.contains(&on(0).format("%b %d").to_string()));
     assert_eq!(window(days(), 25.0), None, "an inch of rain this week");
+}
+
+// @spec RULE-WX-006
+#[test]
+fn with_no_weeks_rain_total_the_first_day_is_not_a_good_day() {
+    let days = || {
+        vec![
+            day(on(0), 72.0, 52.0, 0.0, 0.0),
+            day(on(1), 92.0, 70.0, 0.0, 0.0), // dry but too hot
+        ]
+    };
+    assert_eq!(
+        window_after(days(), None),
+        None,
+        "yesterday's rain is unknown"
+    );
+    let (_, _, description) = window_after(days(), Some(0.0)).expect("a dry week");
+    assert!(description.contains(&on(0).format("%b %d").to_string()));
+}
+
+// @spec RULE-WX-006
+#[test]
+fn a_day_with_no_summary_after_it_is_not_a_good_day() {
+    let days = vec![
+        day(on(0), 92.0, 70.0, 0.0, 0.0), // dry but too hot
+        day(on(1), 70.0, 50.0, 0.0, 0.0), // fair, but the day after is unknown
+    ];
+    assert_eq!(window(days.clone(), 0.0), None);
+    let mut known = days;
+    known.push(day(on(2), 92.0, 70.0, 0.0, 0.0));
+    let (_, _, description) = window(known, 0.0).expect("the day after is dry");
+    assert!(description.contains(&on(1).format("%b %d").to_string()));
 }
 
 // @spec RULE-WX-007

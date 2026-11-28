@@ -4,7 +4,7 @@ Data Sync — leaf segment `SYNC` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `5fb1a99`): 49 of 50 active specs implemented; 1 marked `[ ]` (1 of them already cited in code).
+**OK** — audited 2026-11-28 (git SHA `83eb10a`): all 50 active specs implemented; 47 cited by a test, 49 cited in code.
 
 ## References
 
@@ -20,6 +20,7 @@ Data Sync — leaf segment `SYNC` under the root HLD.
 ### Tests
 - [backend/src/api/health/db_tests.rs](../../backend/src/api/health/db_tests.rs)
 - [backend/src/api/health/tests.rs](../../backend/src/api/health/tests.rs)
+- [backend/src/api/profile/db_tests.rs](../../backend/src/api/profile/db_tests.rs)
 - [backend/src/api/sources/read_db_tests.rs](../../backend/src/api/sources/read_db_tests.rs)
 - [backend/src/api/timing/handler_tests.rs](../../backend/src/api/timing/handler_tests.rs)
 - [backend/src/api/timing/memo_tests.rs](../../backend/src/api/timing/memo_tests.rs)
@@ -44,6 +45,7 @@ Data Sync — leaf segment `SYNC` under the root HLD.
 - [backend/src/api/dashboard.rs](../../backend/src/api/dashboard.rs)
 - [backend/src/api/environmental.rs](../../backend/src/api/environmental.rs)
 - [backend/src/api/health.rs](../../backend/src/api/health.rs)
+- [backend/src/api/profile.rs](../../backend/src/api/profile.rs)
 - [backend/src/api/sources/write.rs](../../backend/src/api/sources/write.rs)
 - [backend/src/api/timing.rs](../../backend/src/api/timing.rs)
 - [backend/src/api/timing/memo.rs](../../backend/src/api/timing/memo.rs)
@@ -85,22 +87,21 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| SCHED | SYNC-SCHED-001 – SYNC-SCHED-023 | 22 | 0 | 1 | 22 | 21 |
+| SCHED | SYNC-SCHED-001 – SYNC-SCHED-023 | 23 | 0 | 0 | 22 | 22 |
 | REFRESH | SYNC-REFRESH-007 – SYNC-REFRESH-009 | 2 | 0 | 0 | 2 | 1 |
 | MERGE | SYNC-MERGE-003 – SYNC-MERGE-011 | 7 | 0 | 0 | 7 | 7 |
 | AGE | SYNC-AGE-001 – SYNC-AGE-004 | 4 | 0 | 0 | 4 | 4 |
 | FAIL | SYNC-FAIL-001 – SYNC-FAIL-011 | 5 | 0 | 0 | 5 | 4 |
 | CONN | SYNC-CONN-001 – SYNC-CONN-008 | 7 | 0 | 0 | 7 | 7 |
 | MEMO | SYNC-MEMO-001 – SYNC-MEMO-002 | 2 | 0 | 0 | 2 | 2 |
-| **Total** | | **49** | **0** | **1** | **49** | **46** |
+| **Total** | | **50** | **0** | **0** | **49** | **47** |
 
-**Summary:** 49 of 50 active specs implemented; 0 deferred; 46 implemented specs cited by a test, 3 not.
+**Summary:** 50 of 50 active specs implemented; 0 deferred; 47 implemented specs cited by a test, 3 not.
 
 ## Key Findings
 
-1. **Marked `[ ]` but cited in code:** SYNC-SCHED-008. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
-2. **Implemented, no `@spec` in code:** SYNC-SCHED-012.
-3. **Implemented, no test cites it:** SYNC-SCHED-012, SYNC-REFRESH-007, SYNC-FAIL-001.
+1. **Implemented, no `@spec` in code:** SYNC-SCHED-012.
+2. **Implemented, no test cites it:** SYNC-SCHED-012, SYNC-REFRESH-007, SYNC-FAIL-001.
 
 ## Work Required
 
@@ -108,7 +109,6 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Confirm SYNC-SCHED-008 against the code and set their markers.
 - Add a test citing SYNC-SCHED-012, SYNC-REFRESH-007, SYNC-FAIL-001.
 - Annotate the code behind SYNC-SCHED-012.
 

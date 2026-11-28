@@ -4,7 +4,7 @@ Applications — leaf segment `APP` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `5fb1a99`): 81 of 82 active specs implemented; 1 marked `[ ]`.
+**PARTIAL** — audited 2026-11-28 (git SHA `83eb10a`): 81 of 82 active specs implemented; 1 marked `[ ]`.
 
 ## References
 

@@ -118,7 +118,7 @@ All under `/api/v1`. Reads return the current state; writes return the state aft
 | POST | `/sources/sensors/check` | The comparison shown before saving a mapping |
 | PUT / DELETE | `/sources/sensors/{id}` | Change a mapping; unmap |
 
-The location is a field of the lawn profile (applications). Setup saves it through `/setup/apply`; `PUT /profile` also accepts it.
+The location is a field of the lawn profile (applications). Setup saves it through `/setup/apply`; `PUT /profile` also accepts it, and a point changed there rebuilds the plan and wakes the schedule as setup does.
 
 **Where a step leads.** Walked through from the location step, each step goes on to the next when the owner saves or skips it, and the last step ends at the dashboard, with the Sources page offered beside it. What we found has no Skip: it is where the location is saved, and saving it with what was found unchanged is the skip. Your sensors, Your lawn and Loading history each have Skip. Opened from the Sources page on one step, setup returns there once that step is saved or left. After a save of the location and what we found, the Sources page says the new sources start downloading now and that history can take several minutes.
 

@@ -156,21 +156,18 @@ impl ApplicationWindowRule {
             .position(|d| d.date == day.date)
             .unwrap_or(0);
 
-        // Check day before
+        // The day before: the forecast's own summary, or for the first summary the week's
+        // rain total. Rain that is not known is not dry.
         let no_rain_before = if day_idx > 0 {
             is_dry(&forecast.daily_summary[day_idx - 1])
         } else {
-            // Check recent precipitation from environmental data
-            env.precipitation_7day_total_mm.unwrap_or(0.0) < PRECIP_HEAVY_7DAY_MM
+            env.precipitation_7day_total_mm
+                .is_some_and(|mm| mm < PRECIP_HEAVY_7DAY_MM)
         };
 
-        // Check current day and next day
+        // The day itself and the day after; a day with no summary after it can't be judged.
         let current_dry = is_dry(day);
-        let next_day_dry = forecast
-            .daily_summary
-            .get(day_idx + 1)
-            .map(is_dry)
-            .unwrap_or(true);
+        let next_day_dry = forecast.daily_summary.get(day_idx + 1).is_some_and(is_dry);
 
         let no_rain_after = current_dry && next_day_dry;
 

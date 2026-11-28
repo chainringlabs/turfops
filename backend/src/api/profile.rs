@@ -68,13 +68,20 @@ fn requested_location(
 
 /// Update the lawn profile, or create it when none exists yet (filling omitted fields
 /// the way startup seeding does), so saving Settings always works.
-// @spec APP-PROF-009, APP-PROF-010, APP-PROF-011, APP-PROF-012
+// @spec APP-PROF-009, APP-PROF-010, APP-PROF-011, APP-PROF-012, SYNC-SCHED-008
 pub async fn update_profile(
     State(state): State<AppState>,
     Json(req): Json<UpdateProfileRequest>,
 ) -> Result<Json<LawnProfile>, TurfOpsError> {
     let existing = queries::get_default_lawn_profile(&state.pool).await?;
     let creating = existing.is_none();
+    let point = |profile: &LawnProfile| {
+        profile
+            .location
+            .as_ref()
+            .map(|at| (at.latitude, at.longitude))
+    };
+    let was_at = existing.as_ref().and_then(point);
     let mut profile = existing.unwrap_or_else(|| {
         LawnProfile::new("Main Lawn".into(), GrassType::TallFescue, "7a".into())
     });
@@ -124,6 +131,10 @@ pub async fn update_profile(
     }
 
     state.follow_location().await?;
+    // A lawn that moved needs the sources for its new place, fetched now.
+    if point(&profile) != was_at {
+        crate::api::sources::write::replanned(&state).await?;
+    }
 
     // Re-fetch to get the stored timestamps (and id, when created)
     let updated = queries::get_default_lawn_profile(&state.pool)
