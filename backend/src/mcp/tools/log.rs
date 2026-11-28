@@ -135,7 +135,7 @@ impl TurfOpsMcp {
             .ok_or_else(|| TurfOpsError::NotFound("No lawn profile found".into()))?;
         let profile_id = profile
             .id
-            .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+            .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
         queries::get_applications_in_range_page(
             &self.state.pool,
             profile_id,

@@ -78,7 +78,7 @@ async fn compute(
 
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
     // Its own range, so the feed and this page judge the same log.
     // @spec FEED-PIPE-011
     let history = queries::get_applications_for_profile_in_range(

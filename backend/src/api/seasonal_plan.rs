@@ -53,7 +53,7 @@ pub async fn get_seasonal_plan(
 
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
 
     let start_date = NaiveDate::from_ymd_opt(year, 1, 1)
         .ok_or_else(|| TurfOpsError::InvalidData(format!("Invalid year: {}", year)))?;
@@ -152,7 +152,7 @@ async fn find_crossings(state: &AppState) -> Result<Arc<RecordCrossings>, TurfOp
         }
     }
     let first = NaiveDate::from_ymd_opt(today.year() - 10, 1, 1)
-        .ok_or_else(|| TurfOpsError::InvalidData(format!("Invalid year: {}", today.year())))?;
+        .ok_or_else(|| TurfOpsError::Internal(format!("Invalid year: {}", today.year())))?;
     let series = WeatherRecord::new(state.pool.clone())
         .fetch_daily_soil_temp_averages(first, today, asked)
         .await?;

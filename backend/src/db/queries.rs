@@ -14,11 +14,11 @@ mod row_tests;
 /// Safely convert a Serialize enum variant to its string representation for DB storage.
 pub(crate) fn enum_to_db_string<T: serde::Serialize>(value: T) -> Result<String> {
     let json_val = serde_json::to_value(value)
-        .map_err(|e| TurfOpsError::InvalidData(format!("Failed to serialize enum: {}", e)))?;
+        .map_err(|e| TurfOpsError::Internal(format!("Failed to serialize enum: {}", e)))?;
     json_val
         .as_str()
         .map(|s| s.to_string())
-        .ok_or_else(|| TurfOpsError::InvalidData("Expected string enum variant".into()))
+        .ok_or_else(|| TurfOpsError::Internal("Expected string enum variant".into()))
 }
 
 /// Safely convert an Option<Serialize enum> to Option<String> for DB storage.
@@ -73,7 +73,7 @@ pub async fn get_default_lawn_profile(pool: &PgPool) -> Result<Option<LawnProfil
 pub async fn update_lawn_profile(pool: &PgPool, profile: &LawnProfile) -> Result<()> {
     let id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile has no ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile has no ID".into()))?;
 
     sqlx::query(
         r#"
@@ -288,7 +288,7 @@ pub async fn create_application(pool: &PgPool, app: &Application) -> Result<i64>
 
 pub async fn update_application(pool: &PgPool, app: &Application) -> Result<u64> {
     let id = app.id.ok_or_else(|| {
-        TurfOpsError::InvalidData("update_application requires Application.id".into())
+        TurfOpsError::Internal("update_application requires Application.id".into())
     })?;
     let result = sqlx::query(
         r#"

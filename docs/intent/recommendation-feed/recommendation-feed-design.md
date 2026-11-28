@@ -109,7 +109,7 @@ flowchart TD
 | Failure | Effect |
 |---|---|
 | No lawn profile | 404 from the handler before the feed runs |
-| Profile row without id | `InvalidData` → 400 |
+| Profile row without id | `Internal` → logged 500 |
 | The summary cannot be assembled | The feed runs on the summary data sync returns, whose weather fields may be empty; weather-dependent sources are silent |
 | No location set | Rules that need weather are silent; plant tasks and follow-ups still appear |
 | Weather record or forecast unavailable for disease | Disease recs omitted (warn log); rest of feed intact |

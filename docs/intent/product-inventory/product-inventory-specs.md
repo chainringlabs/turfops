@@ -17,6 +17,7 @@ A product's **facts** are its owner-owned, matchable fields (category, form, lab
 - [x] **INV-SHELF-009**: When reading a stored product whose optional or list fact holds a value outside its vocabulary, the system shall drop that value with a logged warning and still return the product; an unknown stored stock status shall read as In stock.
 - [x] **INV-SHELF-010**: When a shelf product is deleted, the system shall keep every application that referenced it, clearing the application's product link and keeping its recorded product name.
 - [x] **INV-SHELF-011**: The products API shall serialize a product's facts as top-level fields of the product object, not nested.
+- [x] **INV-SHELF-012**: If a stored product's category or form is outside its vocabulary or its profile cannot be read, then the system shall skip that product and log a warning naming it when listing products (`GET /api/v1/products`, the recommendation feed's shelf, the shopping list and the Disease Risk shelf) instead of failing the whole request, and a request for that one product shall fail as an internal error (UI-ERR-002); its name shall still count as taken (INV-API-013).
 
 ## Product endpoints
 

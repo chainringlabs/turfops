@@ -30,7 +30,7 @@ pub async fn list_soil_tests(
 
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
 
     let limit = params
         .limit
@@ -130,7 +130,7 @@ pub async fn create_soil_test(
 
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
 
     let test_date = validate_request(&req)?;
 
@@ -179,7 +179,7 @@ pub async fn update_soil_test(
 
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
 
     let test_date = validate_request(&req)?;
 
@@ -234,7 +234,7 @@ pub async fn get_soil_test_recommendations(
 
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
 
     let test = soil_test_queries::get_latest_soil_test(&state.pool, profile_id)
         .await?

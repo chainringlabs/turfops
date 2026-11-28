@@ -121,7 +121,7 @@ Agronomic amounts (nutrient per 1,000 sq ft, lime or sulfur from a soil test, se
 
 `applications.product_id BIGINT NULL REFERENCES products(id) ON DELETE SET NULL` (`20260922000100_application_product.sql`), indexed. The application keeps its own `product_name` copy, so history survives a rename or delete and the application duplicate key is unchanged.
 
-Reads (`backend/src/db/product_queries.rs`): list by lawn profile, optional category, archived excluded unless asked, ordered by category then `lower(name)`. Unknown stored enum strings in optional or list columns are dropped with a warning (`parse_enum`, line 180); an unknown category or form fails the row with 400; an unknown stock status reads as InStock; invalid profile JSON fails the row.
+Reads (`backend/src/db/product_queries.rs`): list by lawn profile, optional category, archived excluded unless asked, ordered by category then `lower(name)`. Unknown stored enum strings in optional or list columns are dropped with a warning (`parse_enum`); an unknown stock status reads as InStock. A row whose category or form is unknown, or whose profile JSON cannot be read, cannot be read at all: a listing skips it with a warning naming the product, and a read of that one product is a logged server error (500). The name check reads the lawn's names directly, so an unreadable product's name stays taken.
 
 ## API Endpoints
 
@@ -252,6 +252,7 @@ Colors use the status palette (`#0ca30c` / `#fab219` / `#d03b3b`) and are never 
 | An out-of-range assistant suggestion | Left out of the facts, the rest of the product saved | Reject the add; save it and let the CHECK fail | The suggestion is optional; one bad number must not cost the owner the product. |
 | Assistant fails with no category | Save under Other with a `profile_error` telling the owner to set the category | Refuse with 503 | The owner asked to add the product; Other is a category every fact fits and can be edited. |
 | Duplicate names | 409 on add or rename to an existing name (case-insensitive, archived included) | Allow duplicates | Link past applications, log suggestions and the shopping list all key on the name; two same-named products make each ambiguous. |
+| An unreadable stored product | Skip it with a warning in every listing (product list, feed shelf, shopping list, disease shelf); a read of that product is a logged 500 | Fail every listing (as one bad row once did); answer 400 | One corrupt row must not take down the shelf, the shopping list and the inventory badges for every other product (HLD graceful degradation); it is the server's data at fault, not the request. |
 | Shelf read failure in the feed | Feed without inventory badges, warning logged | Fail the whole feed | HLD graceful degradation: the shelf annotates advice, it does not gate it. |
 
 ## Open Questions & Future Decisions

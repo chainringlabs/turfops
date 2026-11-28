@@ -20,7 +20,7 @@ pub async fn get_shopping_list(
         .ok_or_else(|| TurfOpsError::NotFound("No lawn profile found".into()))?;
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
 
     let active = super::recommendation_feed::active(&state, &profile, &summary).await?;
     let products =

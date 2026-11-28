@@ -4,7 +4,7 @@ Web UI — leaf segment `UI` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `24a3baf`): 63 of 65 active specs implemented; 2 marked `[ ]` (2 of them already cited in code).
+**OK** — audited 2026-11-27 (git SHA `aa1cae8`): all 65 active specs implemented, each cited in code and by a test.
 
 ## References
 
@@ -21,8 +21,10 @@ Web UI — leaf segment `UI` under the root HLD.
 - [docs/timing-windows.md](../timing-windows.md)
 
 ### Tests
+- [backend/src/api/plants/db_crud_tests.rs](../../backend/src/api/plants/db_crud_tests.rs)
 - [backend/src/config/cors_origin_tests.rs](../../backend/src/config/cors_origin_tests.rs)
 - [backend/src/config/load_tests.rs](../../backend/src/config/load_tests.rs)
+- [backend/src/db/product_queries/row_tests.rs](../../backend/src/db/product_queries/row_tests.rs)
 - [backend/src/error/error_body_tests.rs](../../backend/src/error/error_body_tests.rs)
 - [backend/src/error/log_level_tests.rs](../../backend/src/error/log_level_tests.rs)
 - [backend/src/web/cors_tests.rs](../../backend/src/web/cors_tests.rs)
@@ -116,19 +118,19 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | NAV | UI-NAV-001 – UI-NAV-003 | 3 | 0 | 0 | 3 | 3 |
 | DASH | UI-DASH-001 – UI-DASH-003 | 3 | 0 | 0 | 3 | 3 |
 | API | UI-API-001 – UI-API-006 | 6 | 0 | 0 | 6 | 6 |
-| ERR | UI-ERR-001 – UI-ERR-012 | 10 | 0 | 2 | 12 | 12 |
+| ERR | UI-ERR-001 – UI-ERR-012 | 12 | 0 | 0 | 12 | 12 |
 | TYPE | UI-TYPE-001 – UI-TYPE-004 | 4 | 0 | 0 | 4 | 4 |
 | UTIL | UI-UTIL-001 – UI-UTIL-006 | 6 | 0 | 0 | 6 | 6 |
 | CONV | UI-CONV-001 – UI-CONV-005 | 5 | 0 | 0 | 5 | 5 |
 | BUILD | UI-BUILD-001 – UI-BUILD-010 | 10 | 0 | 0 | 10 | 10 |
 | SRV | UI-SRV-001 – UI-SRV-010 | 9 | 0 | 0 | 9 | 9 |
-| **Total** | | **63** | **0** | **2** | **65** | **65** |
+| **Total** | | **65** | **0** | **0** | **65** | **65** |
 
-**Summary:** 63 of 65 active specs implemented; 0 deferred; 63 implemented specs cited by a test.
+**Summary:** 65 of 65 active specs implemented; 0 deferred; 65 implemented specs cited by a test.
 
 ## Key Findings
 
-1. **Marked `[ ]` but cited in code:** UI-ERR-002, UI-ERR-003. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
+1. No findings.
 
 ## Work Required
 
@@ -136,7 +138,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Confirm UI-ERR-002, UI-ERR-003 against the code and set their markers.
+- None.
 
 ### Nice to Have
 - None.

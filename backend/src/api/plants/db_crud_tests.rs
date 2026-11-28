@@ -215,3 +215,24 @@ async fn deleting_a_plant_ends_its_reminders_and_keeps_its_log_unlinked(pool: Pg
     assert_eq!(log[0].plant_id, None, "its plant link is cleared");
     assert_eq!(log[0].plant_name.as_deref(), Some("Boxwood"));
 }
+
+// @spec PLANT-DATA-006, UI-ERR-002, UI-ERR-003
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn an_unreadable_plan_skips_the_plant_and_reading_it_is_a_server_error(pool: PgPool) {
+    let lawn = profile(&pool, "7a").await;
+    let good = saved_plant(&pool, lawn, "Boxwood").await;
+    let bad = saved_plant(&pool, lawn, "Azalea").await;
+    sqlx::query("UPDATE plants SET maintenance_plan = '\"garbled\"'::jsonb WHERE id = $1")
+        .bind(bad)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let state = state(pool, None).await;
+
+    let Json(plants) = list_plants(State(state.clone())).await.unwrap();
+    let ids: Vec<_> = plants.iter().map(|p| p.id.unwrap()).collect();
+    assert_eq!(ids, vec![good]);
+    let err = get_plant(State(state), Path(bad)).await.unwrap_err();
+    assert_eq!(err.owner_message(), crate::error::SERVER_ERROR_MESSAGE);
+    assert_eq!(status(err), StatusCode::INTERNAL_SERVER_ERROR);
+}

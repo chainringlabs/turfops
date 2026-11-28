@@ -4,7 +4,7 @@ Seasonal Plan — leaf segment `PLAN` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-11-27 (git SHA `24a3baf`): all 70 active specs implemented; 70 cited by a test, 69 cited in code.
+**OK** — audited 2026-11-27 (git SHA `aa1cae8`): all 70 active specs implemented; 70 cited by a test, 69 cited in code.
 
 ## References
 

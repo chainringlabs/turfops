@@ -159,9 +159,6 @@ what the spec says. Checked against the code on 2026-11-27.
   fit's training RMSE, not the scoring file, so they can differ from the Sources page.
 - **RULE-WX-006**: a missing 7-day rain total counts as dry for the first day, and a good day
   with no following summary counts as dry the day after.
-- **UI-ERR-002, -003**: row-parse failures (a plant's plan JSON, a product's category or
-  profile) answer 400 with serde text and are not logged; one bad product row fails the whole
-  product list.
 
 ## Operations notes
 

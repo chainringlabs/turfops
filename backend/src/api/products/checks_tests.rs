@@ -1,35 +1,17 @@
 use super::checks::*;
+use crate::db::product_queries::ProductName;
 use crate::error::TurfOpsError;
 use crate::models::frac_class::FracClass;
 use crate::models::product::*;
-use chrono::Utc;
-
-fn shelf_item(id: i64, name: &str, archived: bool) -> Product {
-    let now = Utc::now();
-    Product {
-        id: Some(id),
-        lawn_profile_id: 1,
-        name: name.into(),
-        brand: None,
-        stock_status: StockStatus::InStock,
-        facts: ProductFacts::manual(ProductCategory::Fertilizer, ProductForm::Granular),
-        profile: None,
-        profile_generated_at: None,
-        profile_model: None,
-        notes: None,
-        archived,
-        created_at: now,
-        updated_at: now,
-    }
-}
 
 // @spec INV-API-013
 #[test]
 fn a_name_already_on_the_shelf_is_taken() {
-    let shelf = [
-        shelf_item(1, "Milorganite", false),
-        shelf_item(2, "Old Lime", true),
-    ];
+    let named = |id, name: &str| ProductName {
+        id,
+        name: name.into(),
+    };
+    let shelf = [named(1, "Milorganite"), named(2, "Old Lime")];
     assert!(name_taken(&shelf, "  milorganite ", None));
     assert!(
         name_taken(&shelf, "OLD LIME", None),
