@@ -126,6 +126,50 @@ fn a_value_that_is_absent_or_implausible_is_empty_and_the_rest_of_the_hour_stand
     );
 }
 
+// @spec WX-SRC-NORM-003
+#[test]
+fn a_value_flagged_suspect_or_estimated_by_awdb_is_empty_and_an_edited_one_kept() {
+    let flagged = |flag: &str| {
+        let json = DATA.replace(
+            r#"{"date":"2026-11-18 00:00","value":30.2}"#,
+            &format!(
+                r#"{{"date":"2026-11-18 00:00","value":30.2,"qcFlag":"{flag}","qaFlag":"P"}}"#
+            ),
+        );
+        parse::hourly(&json, -5.0).unwrap()[0].air_temp_f
+    };
+    // S suspect; K, B and X are estimates made by NRCS, not measurements.
+    for flag in ["S", "K", "B", "X"] {
+        assert_eq!(flagged(flag), None, "{flag}");
+    }
+    // V validated, N no check applies, E edited for sensor noise.
+    for flag in ["V", "N", "E"] {
+        assert_eq!(flagged(flag), Some(30.2), "{flag}");
+    }
+    // Only the flagged value goes: the rest of the hour stands.
+    let json = DATA.replace(
+        r#"{"date":"2026-11-18 00:00","value":96.00}"#,
+        r#"{"date":"2026-11-18 00:00","value":96.00,"qcFlag":"S","qaFlag":"R"}"#,
+    );
+    let first = &parse::hourly(&json, -5.0).unwrap()[0];
+    assert_eq!((first.rh_pct, first.air_temp_f), (None, Some(30.2)));
+}
+
+// @spec WX-SRC-NORM-004
+#[test]
+fn an_hours_rain_is_stamped_at_the_start_of_the_hour_it_fell_in() {
+    // AWDB's hourly PRCP at local 01:00 is the rain of 01:00–02:00 (checked against the
+    // USCRN station 0.6 mi from Eros Data Center, SD: r = 0.993 at that alignment, 0.27
+    // an hour earlier); instantaneous readings are taken at their own time.
+    let rows = parse::hourly(DATA, -5.0).unwrap();
+    assert_eq!(
+        rows[1].observed_at,
+        Utc.with_ymd_and_hms(2026, 11, 18, 6, 0, 0).unwrap(),
+        "local 01:00 EST is 06:00 UTC, the start of the hour that held 0.10 in"
+    );
+    assert!((rows[1].precip_mm.unwrap() - 2.54).abs() < 1e-9);
+}
+
 // @spec WX-SRC-NORM-001
 #[test]
 fn a_temperature_declared_in_celsius_is_converted() {
@@ -158,6 +202,7 @@ async fn hours_are_asked_for_by_triplet_element_and_span() {
         "SMS:-40",
         "beginDate=2026-11-18%2000:00",
         "endDate=2026-11-18%2023:00",
+        "returnFlags=true",
     ] {
         assert!(line.contains(part), "{part} in {line}");
     }
@@ -193,6 +238,9 @@ async fn the_catalog_is_fetched_for_the_whole_network_and_a_bad_answer_is_an_out
     for (status, body) in [(500, "error"), (200, "not json"), (200, "[]")] {
         let base = stub_http(status, body).await;
         let err = client(&base).catalog().await.unwrap_err();
-        assert!(err.owner_message().contains("station network"), "{err:?}");
+        assert!(
+            err.owner_message().contains("SCAN weather station network"),
+            "{err:?}"
+        );
     }
 }

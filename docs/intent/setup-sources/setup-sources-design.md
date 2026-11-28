@@ -145,11 +145,11 @@ The location is a field of the lawn profile (applications). Setup saves it throu
 
 | Failure | Effect |
 |---|---|
-| Place search unavailable | The step says so; coordinates can still be typed |
+| Place search unavailable (the service fails, the network is down, or the request times out) | The step says so in the one sentence, whatever the cause; coordinates can still be typed |
 | Home Assistant does not answer or refuses the token | The Test result says which; nothing is saved by Test |
 | Home Assistant connection lost after sensors are mapped | The mappings stay; the sensors' inputs fall to the next basis after data sync's age limit; the Sources page shows the failure |
 | An entity disappears from Home Assistant | Its sensor is shown as "not found in Home Assistant" with Unmap and Remap |
-| The station list is not loaded yet | The preview loads it first: setup runs before the lawn has a location for the schedule to act on. If it cannot be loaded, step 2 shows the station network's outage sentence and offers to try again |
+| A network's station list is not loaded yet | The preview or station list loads every network's list the catalog holds no station of first: setup runs before the lawn has a location for the schedule to act on. If one cannot be loaded, step 2 shows the station network's outage sentence and offers to try again; a failed save offers nothing extra, since Save is the way to try it again |
 | No stations within 150 miles for a pin | The list is empty and says so; the estimate remains |
 
 ## Decisions & Alternatives

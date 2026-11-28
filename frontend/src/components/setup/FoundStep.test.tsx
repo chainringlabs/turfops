@@ -278,3 +278,65 @@ it("shows a failed save as its owner sentence and stays on the step", async () =
 	).toBeInTheDocument();
 	expect(onSaved).not.toHaveBeenCalled();
 });
+
+// @spec SETUP-FAIL-004
+describe("a station list or plan that could not be loaded", () => {
+	const outage =
+		"NOAA's USCRN weather station network can't be reached right now, so station soil temperature, soil moisture, air and humidity readings aren't updating. The readings TurfOps already holds are still used; newer ones arrive when it answers.";
+
+	it("offers to try the station list again", async () => {
+		const user = userEvent.setup();
+		const { ApiError } = await import("../../api/errors");
+		stations.mockRejectedValueOnce(new ApiError(503, outage));
+		stations.mockResolvedValueOnce([
+			{
+				station_ref: 9,
+				network: "SCAN",
+				name: "Rock Springs",
+				state: "PA",
+				distance_miles: 41.2,
+				elevation_difference_ft: -60,
+				first_year: 2001,
+				last_year: null,
+			},
+		]);
+		show();
+		const row = screen.getByRole("row", { name: /Soil temperature, 10 cm/ });
+		await user.click(
+			within(row).getByRole("button", { name: "Pin a station" }),
+		);
+		expect(await screen.findByText(outage)).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "Try again" }));
+		expect(stations).toHaveBeenCalledTimes(2);
+		expect(
+			await screen.findByRole("button", { name: /Rock Springs, PA/ }),
+		).toBeInTheDocument();
+		expect(screen.queryByText(outage)).toBeNull();
+		expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+	});
+
+	it("offers to try the plan again after a pin", async () => {
+		const user = userEvent.setup();
+		const { ApiError } = await import("../../api/errors");
+		preview.mockRejectedValueOnce(new ApiError(503, outage));
+		preview.mockResolvedValueOnce(plan);
+		show({ pins: { soil_temp_10: 9 } });
+		const row = screen.getByRole("row", { name: /Soil temperature, 10 cm/ });
+		await user.click(within(row).getByRole("button", { name: "Unpin" }));
+		expect(await screen.findByText(outage)).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "Try again" }));
+		expect(preview).toHaveBeenCalledTimes(2);
+		expect(preview).toHaveBeenLastCalledWith(39.8234, -75.7846, {});
+		await vi.waitFor(() => expect(screen.queryByText(outage)).toBeNull());
+	});
+
+	it("does not offer to try a failed save again: Save is the way", async () => {
+		const user = userEvent.setup();
+		const { ApiError } = await import("../../api/errors");
+		apply.mockRejectedValue(new ApiError(503, outage));
+		show();
+		await user.click(screen.getByRole("button", { name: "Save" }));
+		expect(await screen.findByText(outage)).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+	});
+});

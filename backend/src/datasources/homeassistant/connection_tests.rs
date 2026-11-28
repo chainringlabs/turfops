@@ -157,3 +157,66 @@ async fn one_entity_is_its_reading_or_why_there_is_none() {
         Ok(Lookup::Missing)
     );
 }
+
+/// What is logged at warn or above while `run` is awaited (on this test's thread).
+async fn warnings_while<T>(run: impl std::future::Future<Output = T>) -> (T, String) {
+    use std::sync::{Arc, Mutex};
+    struct Sink(Arc<Mutex<Vec<u8>>>);
+    impl std::io::Write for Sink {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let buf = Arc::new(Mutex::new(Vec::<u8>::new()));
+    let sink = buf.clone();
+    let subscriber = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::WARN)
+        .with_ansi(false)
+        .with_writer(move || Sink(sink.clone()))
+        .finish();
+    crate::test_support::keep_tracing_interest_shared();
+    let guard = tracing::subscriber::set_default(subscriber);
+    let out = run.await;
+    drop(guard);
+    let text = String::from_utf8(buf.lock().unwrap().clone()).unwrap();
+    (out, text)
+}
+
+// @spec WX-SRC-ERR-001, WX-SRC-ERR-002
+#[tokio::test]
+async fn why_home_assistant_did_not_answer_is_logged_without_its_address_or_token() {
+    for (status, body, why) in [
+        (500, "boom", "500"),
+        (200, "not json", "decod"),
+        (401, "401: Unauthorized", "401"),
+    ] {
+        let base = stub_http(status, body).await;
+        // An address may carry a user name and password; neither is logged.
+        let address = base.replace("http://", "http://owner:hunter2@");
+        let (got, log) =
+            warnings_while(async { HaConnection::new(&address, TOKEN).unwrap().probe().await })
+                .await;
+        assert!(got.is_err(), "{status}");
+        assert!(log.contains("/api/config"), "{log}");
+        assert!(log.to_lowercase().contains(why), "{why} in {log}");
+        for secret in ["hunter2", "owner", TOKEN, "127.0.0.1"] {
+            assert!(!log.contains(secret), "{secret} in {log}");
+        }
+    }
+    let (_, log) = warnings_while(async {
+        HaConnection::new("http://owner:hunter2@127.0.0.1:1", TOKEN)
+            .unwrap()
+            .entities()
+            .await
+    })
+    .await;
+    assert!(log.contains("/api/states"), "{log}");
+    assert!(
+        !log.contains("hunter2") && !log.contains("127.0.0.1"),
+        "{log}"
+    );
+}

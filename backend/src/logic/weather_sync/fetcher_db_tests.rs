@@ -136,7 +136,7 @@ async fn a_failed_fetch_is_recorded_against_its_source_and_nothing_held_changes(
     assert_eq!(after.held, before.held);
     assert_eq!((after.last_failure, after.last_success), (Some(now), None));
     let said = after.last_error.unwrap();
-    assert!(said.contains("temperature and rain grid"), "{said}");
+    assert!(said.contains("PRISM daily grid"), "{said}");
     assert!(
         !said.contains("exploded") && !said.contains("127.0.0.1"),
         "{said}"

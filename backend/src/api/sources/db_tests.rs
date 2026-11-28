@@ -190,6 +190,32 @@ async fn a_station_list_that_cannot_be_loaded_is_an_outage_of_the_station_networ
     assert!(message.contains("weather station network"), "{message}");
 }
 
+// @spec SETUP-FAIL-004
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn a_network_whose_list_is_missing_is_loaded_even_when_the_other_is_held(pool: PgPool) {
+    let uscrn = [station(Network::Uscrn, "near", 20.0, &SOIL)];
+    catalog::replace_network(&pool, Network::Uscrn, &uscrn)
+        .await
+        .unwrap();
+    // The SCAN list is missing and cannot be loaded: the preview is the network's outage,
+    // not a plan that silently lacks every SCAN station.
+    let fetcher = crate::api::setup::db_tests::searching(&pool, "http://127.0.0.1:1");
+    let state = state(&pool).await.fetching(fetcher);
+    let err = preview(State(state.clone()), at(39.86, -75.79, None))
+        .await
+        .unwrap_err();
+    let (status, message) = reply(err).await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert!(message.contains("weather station network"), "{message}");
+    let err = stations_for(
+        State(state),
+        stations_query("soil_temp_10", Some((39.86, -75.79))),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(reply(err).await.0, StatusCode::SERVICE_UNAVAILABLE);
+}
+
 pub(super) fn stations_query(input: &str, point: Option<(f64, f64)>) -> Query<StationsQuery> {
     Query(StationsQuery {
         input: input.into(),

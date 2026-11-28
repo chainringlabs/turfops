@@ -17,6 +17,9 @@ function placeName(place: Place): string {
 	return place.state ? `${place.name}, ${place.state}` : place.name;
 }
 
+/** Whatever stopped the search (the service, the network, a timeout), coordinates still work. */
+const SEARCH_DOWN = "Place search is unavailable; enter coordinates instead.";
+
 const coordinates = (lat: number, lon: number) =>
 	`${lat.toFixed(4)}, ${lon.toFixed(4)}`;
 
@@ -42,8 +45,9 @@ export default function LocationStep({ stored, onNext }: LocationStepProps) {
 		setBusy(true);
 		try {
 			setResults(await getPlaces(query.trim()));
-		} catch (e) {
-			setProblem(describeError(e));
+		} catch {
+			// @spec SETUP-FAIL-001
+			setProblem(SEARCH_DOWN);
 		} finally {
 			setBusy(false);
 		}

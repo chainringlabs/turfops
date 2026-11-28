@@ -9,7 +9,7 @@ mod tests;
 
 use super::outside::{Fetched, Outside};
 use crate::error::{Result, Source, TurfOpsError};
-use crate::models::weather_record::{DailyRow, HourlyRow, Station};
+use crate::models::weather_record::{DailyRow, HourlyRow, Network, Station};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
@@ -115,6 +115,14 @@ impl UscrnClient {
                 if rows.is_empty() && !text.trim().is_empty() {
                     return Err(down(format!("{url}: the file could not be read")));
                 }
+                let skipped = parse::unreadable_lines(&text, rows.len());
+                if skipped > 0 {
+                    tracing::warn!(
+                        url,
+                        skipped,
+                        "USCRN: lines that could not be read were skipped"
+                    );
+                }
                 Ok(StationYear::Rows {
                     rows,
                     last_modified,
@@ -125,5 +133,5 @@ impl UscrnClient {
 }
 
 fn down(detail: String) -> TurfOpsError {
-    TurfOpsError::unavailable(Source::SoilStation, detail)
+    TurfOpsError::unavailable(Source::SoilStation(Network::Uscrn), detail)
 }

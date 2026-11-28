@@ -59,15 +59,23 @@ pub struct Preview {
     pub nearest_soil_station: Option<StationChoice>,
 }
 
-/// The stations in the catalog, loading both networks' lists first when it is empty:
-/// setup needs them before the lawn has a location for the schedule to act on.
+/// The stations in the catalog, loading first the list of each network the catalog holds
+/// no station of: setup needs them before the lawn has a location for the schedule to act
+/// on. A list that cannot be loaded fails the request with that network's outage.
 // @spec SETUP-FAIL-004
 async fn stations(state: &AppState) -> Result<Vec<(i64, Station)>, TurfOpsError> {
     let held = catalog::stations(&state.pool).await?;
-    let Some(fetcher) = state.weather.as_ref().filter(|_| held.is_empty()) else {
+    let Some(fetcher) = state.weather.as_ref() else {
         return Ok(held);
     };
-    for network in [Network::Uscrn, Network::Scan] {
+    let missing: Vec<Network> = [Network::Uscrn, Network::Scan]
+        .into_iter()
+        .filter(|network| !held.iter().any(|(_, s)| s.network == *network))
+        .collect();
+    if missing.is_empty() {
+        return Ok(held);
+    }
+    for network in missing {
         fetcher.refresh_catalog(network).await?;
     }
     catalog::stations(&state.pool).await

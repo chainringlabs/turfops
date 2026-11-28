@@ -172,3 +172,16 @@ fn what_a_station_reports_is_read_from_its_rows() {
     let dead = hourly02(HOURLY.lines().nth(2).unwrap());
     assert_eq!(inputs_reported(&dead), vec![Input::Humidity, Input::Rain]);
 }
+
+// @spec WX-SRC-ERR-001
+#[test]
+fn the_lines_a_file_could_not_read_are_counted_for_the_log() {
+    let rows = hourly02(HOURLY);
+    assert_eq!(unreadable_lines(HOURLY, rows.len()), 1, "the short line");
+    let clean: String = HOURLY.lines().take(3).map(|l| format!("{l}\n\n")).collect();
+    assert_eq!(
+        unreadable_lines(&clean, hourly02(&clean).len()),
+        0,
+        "blank lines are not unreadable"
+    );
+}

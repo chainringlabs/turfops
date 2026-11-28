@@ -39,6 +39,24 @@ impl Unusable {
     }
 }
 
+/// Nothing usable answered at `path`. Why goes to the log; the address, which may carry a
+/// user name and password, and the token never do.
+// @spec WX-SRC-ERR-001, WX-SRC-ERR-002
+fn no_answer(path: &str, why: impl std::fmt::Display) -> Unusable {
+    tracing::warn!(path, %why, "Home Assistant did not answer as expected");
+    Unusable::NoAnswer
+}
+
+/// A request error without the URL it was sent to.
+fn plain(error: reqwest::Error) -> reqwest::Error {
+    error.without_url()
+}
+
+fn refused(path: &str, status: reqwest::StatusCode) -> Unusable {
+    tracing::warn!(path, %status, "Home Assistant refused the token");
+    Unusable::Refused
+}
+
 /// What Home Assistant says about one entity.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Lookup {
@@ -139,7 +157,7 @@ impl HaConnection {
             .connect_timeout(CONNECT_TIMEOUT)
             .timeout(REQUEST_TIMEOUT)
             .build()
-            .map_err(|_| Unusable::NoAnswer)?;
+            .map_err(|e| no_answer("(no client)", plain(e)))?;
         Ok(Self {
             http,
             address: address.to_string(),
@@ -154,24 +172,25 @@ impl HaConnection {
             .bearer_auth(&self.token)
             .send()
             .await
-            .map_err(|_| Unusable::NoAnswer)?;
+            .map_err(|e| no_answer(path, plain(e)))?;
         match response.status() {
             status if status.is_success() => Ok(response),
-            reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN => {
-                Err(Unusable::Refused)
+            status @ (reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN) => {
+                Err(refused(path, status))
             }
-            _ => Err(Unusable::NoAnswer),
+            status => Err(no_answer(path, format!("answered {status}"))),
         }
     }
 
     /// One authenticated request: did it answer, did it accept the token, and what is it.
     // @spec WX-SRC-HA-005, SETUP-HA-001
     pub async fn probe(&self) -> Result<Answered, Unusable> {
-        self.get("/api/config")
+        const PATH: &str = "/api/config";
+        self.get(PATH)
             .await?
             .json()
             .await
-            .map_err(|_| Unusable::NoAnswer)
+            .map_err(|e| no_answer(PATH, plain(e)))
     }
 
     /// One entity by id: its reading, or why there is none.
@@ -191,35 +210,40 @@ impl HaConnection {
         if !well_formed {
             return Ok(Lookup::Missing);
         }
+        let path = format!("/api/states/{entity_id}");
         let response = self
             .http
-            .get(format!("{}/api/states/{entity_id}", self.address))
+            .get(format!("{}{path}", self.address))
             .bearer_auth(&self.token)
             .send()
             .await
-            .map_err(|_| Unusable::NoAnswer)?;
+            .map_err(|e| no_answer(&path, plain(e)))?;
         match response.status() {
             reqwest::StatusCode::NOT_FOUND => Ok(Lookup::Missing),
-            reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN => {
-                Err(Unusable::Refused)
+            status @ (reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN) => {
+                Err(refused(&path, status))
             }
             status if status.is_success() => {
-                let state: State = response.json().await.map_err(|_| Unusable::NoAnswer)?;
+                let state: State = response
+                    .json()
+                    .await
+                    .map_err(|e| no_answer(&path, plain(e)))?;
                 Ok(state.entity().map_or(Lookup::NotANumber, Lookup::Reading))
             }
-            _ => Err(Unusable::NoAnswer),
+            status => Err(no_answer(&path, format!("answered {status}"))),
         }
     }
 
     /// Every sensor entity whose state is a number.
     // @spec WX-SRC-HA-004
     pub async fn entities(&self) -> Result<Vec<Entity>, Unusable> {
+        const PATH: &str = "/api/states";
         let states: Vec<State> = self
-            .get("/api/states")
+            .get(PATH)
             .await?
             .json()
             .await
-            .map_err(|_| Unusable::NoAnswer)?;
+            .map_err(|e| no_answer(PATH, plain(e)))?;
         Ok(states.into_iter().filter_map(State::entity).collect())
     }
 }
