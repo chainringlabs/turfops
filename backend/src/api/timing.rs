@@ -101,7 +101,7 @@ pub(crate) async fn climate_read(state: &AppState) -> Result<ClimateRead, TurfOp
         }
     }
     let start = climate_start(asked.at.today)
-        .ok_or_else(|| TurfOpsError::InvalidData("Invalid history start".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Invalid history start".into()))?;
     match WeatherRecord::new(state.pool.clone())
         .fetch_climate_record(start, asked)
         .await
@@ -269,7 +269,7 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
 
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
     // Its own range, so the feed and this page judge the same log.
     // @spec FEED-PIPE-011
     let history = queries::get_applications_for_profile_in_range(
@@ -389,7 +389,7 @@ async fn plan_for(
     // (dormant seeding) into the following February.
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
     let invalid_year = || TurfOpsError::InvalidData(format!("Invalid year: {year}"));
     let applications = queries::get_applications_for_profile_in_range(
         &state.pool,

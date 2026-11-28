@@ -4,7 +4,7 @@ Agronomic Rules — leaf segment `RULE` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `24a3baf`): 78 of 82 active specs implemented; 4 marked `[ ]` (1 of them already cited in code).
+**PARTIAL** — audited 2026-11-27 (git SHA `aa1cae8`): 78 of 82 active specs implemented; 4 marked `[ ]` (1 of them already cited in code).
 
 ## References
 

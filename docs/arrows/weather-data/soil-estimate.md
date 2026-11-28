@@ -4,7 +4,7 @@ Soil Estimate — leaf segment `WX-EST` under the `weather-data` sub-HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `24a3baf`): 29 of 30 active specs implemented; 1 marked `[ ]` (1 of them already cited in code).
+**PARTIAL** — audited 2026-11-27 (git SHA `aa1cae8`): 29 of 30 active specs implemented; 1 marked `[ ]` (1 of them already cited in code).
 
 ## References
 

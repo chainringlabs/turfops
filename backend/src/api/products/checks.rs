@@ -1,17 +1,18 @@
 //! Request checks for the product endpoints that need no database.
 
+use crate::db::product_queries::ProductName;
 use crate::error::TurfOpsError;
 use crate::models::frac_class::frac_classes_for_product;
-use crate::models::product::{Product, ProductCategory, ProductFacts, ProductForm};
+use crate::models::product::{ProductCategory, ProductFacts, ProductForm};
 
 /// Whether `name` is already on the shelf (case-insensitive, trimmed, archived included),
 /// ignoring the product being edited.
 // @spec INV-API-013
-pub(crate) fn name_taken(existing: &[Product], name: &str, editing: Option<i64>) -> bool {
+pub(crate) fn name_taken(existing: &[ProductName], name: &str, editing: Option<i64>) -> bool {
     let wanted = name.trim().to_lowercase();
     existing
         .iter()
-        .filter(|p| editing.is_none() || p.id != editing)
+        .filter(|p| editing != Some(p.id))
         .any(|p| p.name.trim().to_lowercase() == wanted)
 }
 

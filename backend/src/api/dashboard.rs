@@ -33,7 +33,7 @@ pub async fn get_dashboard(
 
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
     let recent_applications: Vec<Application> =
         queries::get_applications_for_profile(&state.pool, profile_id, 5, 0).await?;
 

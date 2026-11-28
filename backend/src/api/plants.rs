@@ -60,7 +60,7 @@ pub async fn create_plant(
         .ok_or_else(|| TurfOpsError::NotFound("No lawn profile found".into()))?;
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
 
     let plan = openrouter
         .generate_plant_plan(PlantPlanRequest {
@@ -97,7 +97,7 @@ pub async fn create_plant(
     let id = plant_queries::create_plant(&state.pool, &plant).await?;
     let created = plant_queries::get_plant(&state.pool, id)
         .await?
-        .ok_or_else(|| TurfOpsError::InvalidData("Plant not found after insert".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Plant not found after insert".into()))?;
     Ok((StatusCode::CREATED, Json(created)))
 }
 
@@ -275,7 +275,7 @@ async fn active_profile_id(state: &AppState) -> Result<i64, TurfOpsError> {
         .await?
         .ok_or_else(|| TurfOpsError::NotFound("No lawn profile found".into()))?
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))
 }
 
 #[cfg(all(test, feature = "db-tests"))]

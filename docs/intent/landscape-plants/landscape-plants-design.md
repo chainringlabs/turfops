@@ -67,7 +67,7 @@ Queries live in `backend/src/db/plant_queries.rs`:
 | `update_plant_plan` | Replaces `maintenance_plan` and `plan_model` and sets `plan_generated_at` and `updated_at` to `NOW()`. |
 | `delete_plant` | In one transaction, writes the plant's name into `applications.plant_name` on its entries (APP-LOG-009, owned by Applications), then `DELETE`s by id. Returns the rows deleted, so the handler answers 404 for an unknown id (PLANT-API-013). |
 
-On read, an unknown `plant_type` string falls back to `Other` with a warning log. A `maintenance_plan` that does not deserialize is an `InvalidData` error for that row: reading that one plant by id returns 400, while listing skips the plant and logs a warning naming it, so one corrupt row cannot take down `GET /plants`, the recommendation feed or the seasonal plan (PLANT-DATA-006).
+On read, an unknown `plant_type` string falls back to `Other` with a warning log. A `maintenance_plan` that does not deserialize is an `Internal` error for that row: reading that one plant by id is a logged server error (500), while listing skips the plant and logs a warning naming it, so one corrupt row cannot take down `GET /plants`, the recommendation feed or the seasonal plan (PLANT-DATA-006).
 
 ## API Endpoints
 

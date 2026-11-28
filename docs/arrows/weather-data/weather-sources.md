@@ -4,7 +4,7 @@ Weather Sources — leaf segment `WX-SRC` under the `weather-data` sub-HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `24a3baf`): 77 of 80 active specs implemented; 3 marked `[ ]` (3 of them already cited in code).
+**PARTIAL** — audited 2026-11-27 (git SHA `aa1cae8`): 77 of 80 active specs implemented; 3 marked `[ ]` (3 of them already cited in code).
 
 ## References
 
@@ -32,6 +32,7 @@ Weather Sources — leaf segment `WX-SRC` under the `weather-data` sub-HLD.
 - [backend/src/datasources/open_meteo/places_tests.rs](../../../backend/src/datasources/open_meteo/places_tests.rs)
 - [backend/src/datasources/open_meteo/tests.rs](../../../backend/src/datasources/open_meteo/tests.rs)
 - [backend/src/datasources/openweathermap/fetch_tests.rs](../../../backend/src/datasources/openweathermap/fetch_tests.rs)
+- [backend/src/datasources/openweathermap/norm_tests.rs](../../../backend/src/datasources/openweathermap/norm_tests.rs)
 - [backend/src/datasources/openweathermap/tests.rs](../../../backend/src/datasources/openweathermap/tests.rs)
 - [backend/src/datasources/outside/tests.rs](../../../backend/src/datasources/outside/tests.rs)
 - [backend/src/datasources/scan/tests.rs](../../../backend/src/datasources/scan/tests.rs)

@@ -27,7 +27,7 @@ pub async fn get_nitrogen_budget(
 
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
 
     let (start_date, end_date) = budget_window(year, state.clock.today())
         .ok_or_else(|| TurfOpsError::InvalidData(format!("Invalid year: {}", year)))?;

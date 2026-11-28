@@ -4,7 +4,7 @@ Recommendation Feed — leaf segment `FEED` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `24a3baf`): 51 of 52 active specs implemented; 1 marked `[ ]`.
+**PARTIAL** — audited 2026-11-27 (git SHA `aa1cae8`): 51 of 52 active specs implemented; 1 marked `[ ]`.
 
 ## References
 

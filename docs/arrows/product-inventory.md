@@ -4,7 +4,7 @@ Product Inventory — leaf segment `INV` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-11-27 (git SHA `24a3baf`): all 72 active specs implemented, each cited in code and by a test.
+**OK** — audited 2026-11-27 (git SHA `aa1cae8`): all 73 active specs implemented, each cited in code and by a test.
 
 ## References
 
@@ -15,7 +15,7 @@ Product Inventory — leaf segment `INV` under the root HLD.
 - [docs/intent/product-inventory/product-inventory-design.md](../intent/product-inventory/product-inventory-design.md)
 
 ### EARS
-- [docs/intent/product-inventory/product-inventory-specs.md](../intent/product-inventory/product-inventory-specs.md) (73 specs, prefix `INV`)
+- [docs/intent/product-inventory/product-inventory-specs.md](../intent/product-inventory/product-inventory-specs.md) (74 specs, prefix `INV`)
 
 ### Related docs
 - [docs/agronomy-methods.md](../agronomy-methods.md)
@@ -106,7 +106,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| SHELF | INV-SHELF-001 – INV-SHELF-011 | 11 | 0 | 0 | 11 | 11 |
+| SHELF | INV-SHELF-001 – INV-SHELF-012 | 12 | 0 | 0 | 12 | 12 |
 | API | INV-API-001 – INV-API-014 | 14 | 0 | 0 | 14 | 14 |
 | LLM | INV-LLM-001 – INV-LLM-012 | 12 | 0 | 0 | 12 | 12 |
 | RATE | INV-RATE-001 – INV-RATE-002 | 2 | 0 | 0 | 2 | 2 |
@@ -115,9 +115,9 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | ENRICH | INV-ENRICH-001 – INV-ENRICH-005 | 5 | 0 | 0 | 5 | 5 |
 | SHOP | INV-SHOP-001 – INV-SHOP-006 | 6 | 0 | 0 | 6 | 6 |
 | UI | INV-UI-001 – INV-UI-013 | 13 | 0 | 0 | 13 | 13 |
-| **Total** | | **72** | **1** | **0** | **72** | **72** |
+| **Total** | | **73** | **1** | **0** | **73** | **73** |
 
-**Summary:** 72 of 72 active specs implemented; 1 deferred; 72 implemented specs cited by a test.
+**Summary:** 73 of 73 active specs implemented; 1 deferred; 73 implemented specs cited by a test.
 
 ## Key Findings
 

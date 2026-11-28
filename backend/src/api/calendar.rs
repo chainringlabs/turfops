@@ -40,7 +40,7 @@ pub async fn get_calendar(
 
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
 
     let month_start = NaiveDate::from_ymd_opt(year, month, 1).ok_or_else(|| {
         TurfOpsError::InvalidData(format!("Invalid year/month: {}/{}", year, month))

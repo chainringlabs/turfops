@@ -62,3 +62,33 @@ fn known_stored_values_read_back_unchanged() {
     assert_eq!(p.facts.herbicide_timing, Some(HerbicideTiming::PreEmergent));
     assert_eq!(p.facts.amendment_kind, Some(AmendmentKind::Gypsum));
 }
+
+// @spec INV-SHELF-012, UI-ERR-002
+#[test]
+fn a_row_with_an_unknown_category_or_an_unreadable_profile_is_an_internal_error() {
+    let mut unknown = row();
+    unknown.category = "Compost".into();
+    let mut garbled = row();
+    garbled.profile = Some(serde_json::json!("garbled"));
+    for r in [unknown, garbled] {
+        let err = r.into_product().unwrap_err();
+        assert!(matches!(err, TurfOpsError::Internal(_)), "{err:?}");
+    }
+}
+
+// @spec INV-SHELF-012
+#[test]
+fn listing_keeps_the_readable_products() {
+    let ok = |id| {
+        let mut r = row();
+        r.id = id;
+        r.into_product()
+    };
+    let rows = vec![
+        ok(1),
+        Err(TurfOpsError::Internal("Product 2".into())),
+        ok(3),
+    ];
+    let ids: Vec<_> = readable_products(rows).into_iter().map(|p| p.id).collect();
+    assert_eq!(ids, vec![Some(1), Some(3)]);
+}

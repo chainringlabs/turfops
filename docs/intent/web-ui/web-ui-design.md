@@ -87,7 +87,7 @@ On a narrow screen (phone width) the sidebar collapses: the page takes the full 
 | 204 or empty 2xx body | Resolves `undefined` (no content), never a JSON parse error. |
 | 2xx with a body | Parsed JSON, unvalidated, cast to `T`. |
 
-The backend's error body is `{"error": "<message>"}` (`backend/src/error.rs`, see deployment's HTTP error contract): 404 `NotFound` and 400 `InvalidData` as the handler wrote them, 503 `Unavailable` with a fixed sentence naming the data source, what it affects and what to do, 409 for a unique violation (the application-log duplicate guard), and 500 "Something went wrong on the server. Try again; the details are in the server log." for everything else. Requests axum rejects before a handler runs and unknown `/api/v1` paths get the same shape (`api/json_errors.rs`).
+The backend's error body is `{"error": "<message>"}` (`backend/src/error.rs`, see deployment's HTTP error contract): 404 `NotFound` and 400 `InvalidData` (a mistake in the request) as the handler wrote them, 503 `Unavailable` with a fixed sentence naming the data source, what it affects and what to do, 409 for a unique violation (the application-log duplicate guard), and 500 "Something went wrong on the server. Try again; the details are in the server log." for everything else. Requests axum rejects before a handler runs and unknown `/api/v1` paths get the same shape (`api/json_errors.rs`).
 
 Per-call timeouts: 30 s for the seasonal plan and the shopping list (both re-evaluate expensive state); 60 s for `createPlant`, `refreshPlantPlan`, `createProduct` and `refreshProductProfile` (an OpenRouter round-trip). Everything else uses the 15 s default.
 

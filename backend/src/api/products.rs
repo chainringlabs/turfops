@@ -19,6 +19,8 @@ mod refresh;
 mod refresh_outage_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod test_state;
+#[cfg(all(test, feature = "db-tests"))]
+mod unreadable_db_tests;
 
 pub use link::{link_applications, logged_product_suggestions};
 pub use refresh::refresh_product_profile;
@@ -268,9 +270,7 @@ async fn ensure_name_free(
     name: &str,
     editing: Option<i64>,
 ) -> Result<(), TurfOpsError> {
-    let shelf =
-        product_queries::list_products_for_profile(&state.pool, lawn_profile_id, None, true)
-            .await?;
+    let shelf = product_queries::product_names(&state.pool, lawn_profile_id).await?;
     if checks::name_taken(&shelf, name, editing) {
         return Err(checks::name_conflict(name));
     }
@@ -292,5 +292,5 @@ async fn active_profile(state: &AppState) -> Result<LawnProfile, TurfOpsError> {
 fn profile_id(profile: &LawnProfile) -> Result<i64, TurfOpsError> {
     profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))
 }

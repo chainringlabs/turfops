@@ -52,7 +52,7 @@ pub async fn get_plant(pool: &PgPool, id: i64) -> Result<Option<Plant>> {
 // @spec PLANT-DATA-001
 pub async fn create_plant(pool: &PgPool, plant: &Plant) -> Result<i64> {
     let plan_json = serde_json::to_value(&plant.maintenance_plan)
-        .map_err(|e| TurfOpsError::InvalidData(format!("Plan serialization: {}", e)))?;
+        .map_err(|e| TurfOpsError::Internal(format!("Plan serialization: {}", e)))?;
 
     let id = sqlx::query_scalar::<_, i64>(
         r#"
@@ -139,7 +139,7 @@ pub async fn update_plant_plan(
     model: &str,
 ) -> Result<()> {
     let plan_json = serde_json::to_value(plan)
-        .map_err(|e| TurfOpsError::InvalidData(format!("Plan serialization: {}", e)))?;
+        .map_err(|e| TurfOpsError::Internal(format!("Plan serialization: {}", e)))?;
 
     sqlx::query(
         r#"
@@ -209,7 +209,7 @@ impl PlantRow {
 
         let maintenance_plan: PlantMaintenancePlan = serde_json::from_value(self.maintenance_plan)
             .map_err(|e| {
-                TurfOpsError::InvalidData(format!(
+                TurfOpsError::Internal(format!(
                     "Plant {} has invalid maintenance_plan JSON: {}",
                     self.id, e
                 ))
@@ -271,7 +271,7 @@ mod tests {
     fn an_unreadable_plan_skips_that_plant_not_the_list() {
         let rows = vec![
             Ok(plant(1)),
-            Err(TurfOpsError::InvalidData(
+            Err(TurfOpsError::Internal(
                 "Plant 2 has invalid maintenance_plan JSON".into(),
             )),
             Ok(plant(3)),

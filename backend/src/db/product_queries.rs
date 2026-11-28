@@ -35,7 +35,44 @@ pub async fn list_products_for_profile(
     .fetch_all(pool)
     .await?;
 
-    rows.into_iter().map(ProductRow::into_product).collect()
+    Ok(readable_products(
+        rows.into_iter().map(ProductRow::into_product).collect(),
+    ))
+}
+
+/// The products whose rows could be read. One product that can't be read is skipped with
+/// a warning naming it, not the list.
+// @spec INV-SHELF-012
+fn readable_products(products: Vec<Result<Product>>) -> Vec<Product> {
+    products
+        .into_iter()
+        .filter_map(|product| {
+            product
+                .inspect_err(|e| warn!("Skipping a shelf product that can't be read: {e}"))
+                .ok()
+        })
+        .collect()
+}
+
+/// A product's id and name.
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct ProductName {
+    pub id: i64,
+    pub name: String,
+}
+
+/// Every name on the lawn's shelf, archived included, read without the rest of the row so
+/// a product that can't be read still holds its name.
+// @spec INV-API-013, INV-SHELF-012
+pub async fn product_names(pool: &PgPool, profile_id: i64) -> Result<Vec<ProductName>> {
+    Ok(
+        sqlx::query_as::<_, ProductName>(
+            "SELECT id, name FROM products WHERE lawn_profile_id = $1",
+        )
+        .bind(profile_id)
+        .fetch_all(pool)
+        .await?,
+    )
 }
 
 pub async fn get_product(pool: &PgPool, id: i64) -> Result<Option<Product>> {
@@ -180,7 +217,7 @@ fn profile_json(profile: Option<&ProductProfile>) -> Result<Option<serde_json::V
     profile
         .map(serde_json::to_value)
         .transpose()
-        .map_err(|e| TurfOpsError::InvalidData(format!("Profile serialization: {}", e)))
+        .map_err(|e| TurfOpsError::Internal(format!("Profile serialization: {}", e)))
 }
 
 /// A stored variant name → enum. Unknown values are dropped with a warning so one bad
@@ -225,10 +262,10 @@ struct ProductRow {
 }
 
 impl ProductRow {
-    // @spec INV-SHELF-009
+    // @spec INV-SHELF-009, INV-SHELF-012
     fn into_product(self) -> Result<Product> {
         let required = |field: &str, code: &str| {
-            TurfOpsError::InvalidData(format!(
+            TurfOpsError::Internal(format!(
                 "Product {} has unknown {}: {}",
                 self.id, field, code
             ))
@@ -243,7 +280,7 @@ impl ProductRow {
             .map(serde_json::from_value::<ProductProfile>)
             .transpose()
             .map_err(|e| {
-                TurfOpsError::InvalidData(format!(
+                TurfOpsError::Internal(format!(
                     "Product {} has invalid profile JSON: {}",
                     self.id, e
                 ))

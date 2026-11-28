@@ -49,7 +49,7 @@ pub async fn all_with_history(
 ) -> Result<(Vec<Recommendation>, Vec<Application>), TurfOpsError> {
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("Profile missing ID".into()))?;
     let apps =
         queries::get_applications_for_profile(&state.pool, profile_id, RULE_HISTORY_LIMIT, 0)
             .await?;
