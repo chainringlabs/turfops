@@ -226,7 +226,7 @@ export interface EnvironmentalSummary {
 	/** What each current value rests on, one entry per input (WX-VIEW-API-007). */
 	current_bases?: CurrentBasis[];
 	/** What each 7-day figure with a value rests on, keyed by its field name. */
-	week_bases?: Record<string, WeekBasis>;
+	week_bases?: Record<string, PeriodBasis>;
 }
 
 /** Where an input stands: a current value, a source with no current value, or no source. */
@@ -240,7 +240,7 @@ export interface CurrentBasis {
 	observed_at: string | null;
 }
 
-export interface WeekBasis {
+export interface PeriodBasis {
 	basis: Basis;
 	mixed: boolean;
 }
@@ -348,6 +348,10 @@ export interface DataPoint {
 	label: string;
 	value: string;
 	source: string;
+	/** What a weather value rests on; absent for a value that is not weather. */
+	basis?: Basis;
+	/** The value's period drew on more than one basis. */
+	mixed?: boolean;
 }
 
 export interface HealthResponse {
@@ -403,6 +407,8 @@ export interface GddSummary {
 	daily_history: DailyGdd[];
 	crabgrass_model: CrabgrassModel;
 	last_computed_date: string | null;
+	/** The daily air the year's GDD was summed from; null with no days. */
+	basis?: PeriodBasis | null;
 }
 
 // Historical time-series types
@@ -513,7 +519,8 @@ export type OutlookMethod = "Fitted" | "Estimated";
 export interface EstimateInfo {
 	stations: string[];
 	training_days: number;
-	daily_error_f: number;
+	/** The scored daily error (°F); null when the scoring file has none for the fit. */
+	daily_error_f: number | null;
 }
 
 export interface SoilTempForecast {
@@ -549,6 +556,8 @@ export interface SeasonalPlan {
 	generated_at: string;
 	/** The lawn's local date the statuses were judged on (YYYY-MM-DD). */
 	today: string;
+	/** The 10 cm soil the history years' crossings were found in. */
+	basis?: PeriodBasis | null;
 }
 
 export interface PlannedActivity {

@@ -89,7 +89,12 @@ impl Rule for FallFertilizationRule {
                     && days_since_last >= FALL_FERT_MIN_INTERVAL_DAYS
                     && soil_temp_avg >= WINTERIZER_MIN_SOIL_F
                 {
-                    Some(build_late_fall_rec(soil_temp_avg, app_count, profile))
+                    Some(build_late_fall_rec(
+                        soil_temp_avg,
+                        env.measured_week("soil_temp_7day_avg_f"),
+                        app_count,
+                        profile,
+                    ))
                 } else {
                     None
                 }

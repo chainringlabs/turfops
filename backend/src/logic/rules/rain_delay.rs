@@ -2,8 +2,8 @@ use super::thresholds::*;
 use super::Rule;
 use crate::clock::Moment;
 use crate::models::{
-    Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
-    RecommendationCategory, Severity,
+    Application, EnvironmentalSummary, LawnProfile, Recommendation, RecommendationCategory,
+    Severity,
 };
 
 // @spec RULE-WX-001
@@ -34,6 +34,7 @@ impl Rule for RainDelayRule {
                 || rain_12h.expected_mm >= PRECIP_TRACE_MM
             {
                 return Some(self.build_recommendation(
+                    env,
                     Severity::Critical,
                     RAIN_DELAY_CRITICAL_HOURS,
                     rain_12h.expected_mm,
@@ -50,6 +51,7 @@ impl Rule for RainDelayRule {
                 || rain_24h.expected_mm >= PRECIP_TRACE_MM
             {
                 return Some(self.build_recommendation(
+                    env,
                     Severity::Warning,
                     RAIN_DELAY_WARNING_HOURS,
                     rain_24h.expected_mm,
@@ -66,6 +68,7 @@ impl Rule for RainDelayRule {
                 || rain_48h.expected_mm >= RAIN_DELAY_ADVISORY_MM
             {
                 return Some(self.build_recommendation(
+                    env,
                     Severity::Advisory,
                     RAIN_DELAY_ADVISORY_HOURS,
                     rain_48h.expected_mm,
@@ -81,6 +84,7 @@ impl Rule for RainDelayRule {
 impl RainDelayRule {
     fn build_recommendation(
         &self,
+        env: &EnvironmentalSummary,
         severity: Severity,
         hours: u32,
         expected_mm: f64,
@@ -128,20 +132,20 @@ impl RainDelayRule {
              absorbed by plants or soil before rain. Rain within 24-48 hours of application \
              can wash products away, reducing effectiveness and potentially polluting waterways.",
         )
-        .with_data_point(
+        .with_weather_point(
             "Expected Rain",
             format!("{:.2}\"", expected_inches),
-            DataSource::OpenWeatherMap.as_str(),
+            env.measured_forecast(),
         )
-        .with_data_point(
+        .with_weather_point(
             "Rain Probability",
             format!("{:.0}%", prob_percent),
-            DataSource::OpenWeatherMap.as_str(),
+            env.measured_forecast(),
         )
-        .with_data_point(
+        .with_weather_point(
             "Forecast Window",
             format!("{}h", hours),
-            DataSource::OpenWeatherMap.as_str(),
+            env.measured_forecast(),
         )
         .with_action(action)
     }

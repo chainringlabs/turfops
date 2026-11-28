@@ -8,6 +8,7 @@ import {
 	shiftMonth,
 	statusText,
 } from "../components/plan/activityStatus";
+import BasisLabel from "../components/sources/BasisLabel";
 import { appTypeBadgeStyle } from "../styles/shared";
 import type {
 	Application,
@@ -224,6 +225,13 @@ export default function Calendar() {
 						{STATUS_META[status].symbol} {STATUS_META[status].label}
 					</span>
 				))}
+				{/* @spec WX-VIEW-BASIS-001: what the plan's windows were dated from */}
+				{plan?.basis && (
+					<span style={styles.legendItem}>
+						Plan windows:{" "}
+						<BasisLabel basis={plan.basis.basis} mixed={plan.basis.mixed} />
+					</span>
+				)}
 			</div>
 
 			<div style={styles.calGrid}>

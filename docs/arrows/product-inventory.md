@@ -4,7 +4,7 @@ Product Inventory — leaf segment `INV` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-11-27 (git SHA `aa1cae8`): all 73 active specs implemented, each cited in code and by a test.
+**OK** — audited 2026-11-27 (git SHA `5fb1a99`): all 73 active specs implemented, each cited in code and by a test.
 
 ## References
 
@@ -29,6 +29,7 @@ Product Inventory — leaf segment `INV` under the root HLD.
 - [backend/src/api/products/link_db_tests.rs](../../backend/src/api/products/link_db_tests.rs)
 - [backend/src/api/products/missing_category_db_tests.rs](../../backend/src/api/products/missing_category_db_tests.rs)
 - [backend/src/api/products/refresh_outage_db_tests.rs](../../backend/src/api/products/refresh_outage_db_tests.rs)
+- [backend/src/api/products/unreadable_db_tests.rs](../../backend/src/api/products/unreadable_db_tests.rs)
 - [backend/src/datasources/openrouter/product/schema_tests.rs](../../backend/src/datasources/openrouter/product/schema_tests.rs)
 - [backend/src/db/product_queries/row_tests.rs](../../backend/src/db/product_queries/row_tests.rs)
 - [backend/src/logic/inventory/enrich_tests.rs](../../backend/src/logic/inventory/enrich_tests.rs)

@@ -2,8 +2,8 @@ use super::thresholds::*;
 use super::Rule;
 use crate::clock::Moment;
 use crate::models::{
-    Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
-    RecommendationCategory, Severity,
+    Application, EnvironmentalSummary, LawnProfile, Recommendation, RecommendationCategory,
+    Severity,
 };
 
 /// Heat stress warning rule - warns about upcoming heat stress conditions
@@ -62,13 +62,14 @@ impl Rule for HeatStressRule {
             Severity::Advisory
         };
 
-        Some(self.build_recommendation(severity, max_temp, hot_days))
+        Some(self.build_recommendation(env, severity, max_temp, hot_days))
     }
 }
 
 impl HeatStressRule {
     fn build_recommendation(
         &self,
+        env: &EnvironmentalSummary,
         severity: Severity,
         max_temp: f64,
         hot_days: usize,
@@ -126,15 +127,15 @@ impl HeatStressRule {
             HEAT_STRESS_TEMP_F,
             HEAT_STRESS_WARNING_TEMP_F
         ))
-        .with_data_point(
+        .with_weather_point(
             "Max Forecast Temp",
             format!("{:.0}°F", max_temp),
-            DataSource::OpenWeatherMap.as_str(),
+            env.measured_forecast(),
         )
-        .with_data_point(
+        .with_weather_point(
             "Hot Days",
             format!("{}", hot_days),
-            DataSource::OpenWeatherMap.as_str(),
+            env.measured_forecast(),
         )
         .with_action(action)
     }

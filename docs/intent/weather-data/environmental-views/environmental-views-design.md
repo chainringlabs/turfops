@@ -51,6 +51,21 @@ and on every other.
   estimate) shows "No source for this location" with a link to the Sources page, not `--`.
   `--` means a source exists and has no value now.
 
+Where the label appears beyond this page, and what each one names:
+
+| Surface | Label names | From |
+|---|---|---|
+| Dashboard gauges | Each current value's basis | The summary's `current_bases` |
+| GDD widget | The daily air the year's GDD was summed from, mixed when the year used more than one source | `GET /gdd`'s `basis` |
+| 10 cm outlook widget | The soil the outlook starts from | `GET /soil-temp-forecast`'s `basis` |
+| Disease Risk widget and pages | The headline day's hourly air and humidity | `GET /disease-risk`'s `basis.headline` |
+| Timing widget and page | The 5 cm soil (and daily air on the freeze tiles) | `GET /timing-windows`'s `basis` |
+| Seasonal Plan page, Calendar legend | The 10 cm soil the plan's history years were read from, mixed when they used more than one source | `GET /seasonal-plan`'s `basis` |
+| Recommendation data points | The basis of the weather value the point states | The point's `basis` (FEED-REC-005) |
+
+A forecast value is not a station, sensor or estimate: a data point stating one names its
+provider as its source and carries no basis.
+
 ## API Endpoints
 
 | Method | Path | Behavior | Errors |
@@ -122,9 +137,11 @@ A source that is in the plan but the basis for nothing is listed with empty `inp
   `/historical` loads separately for the selected range; a failed load clears the trend charts
   and shows its own plain-language error in their place, so a range change never leaves the
   previous range's data under the new selector.
-- **Header.** "Last updated" (`last_updated`), the soil trend, and "Soil observed …"
-  (`soil_observed_at`, the source's own time for the soil values; for an estimate, the day it
-  is for). When data sync marks the soil stale (`soil_stale`), a notice says the weather station has not
+- **Header.** "Last updated" (`last_updated`), the soil trend, and when the 10 cm soil in
+  use was observed (`soil_observed_at`), worded for its basis in `current_bases`: "Station
+  soil observed *date, time*", "Sensor soil read *date, time*", or "Soil estimated for
+  *date*" (an estimate is for a day, so no time). With no soil in use the line is the
+  station's newest reading, the one the stale notice dates. When data sync marks the soil stale (`soil_stale`), a notice says the weather station has not
   published new soil readings since that date, that the network publishes late from time to
   time and there is nothing for the owner to do, and that readings and soil-based advice are
   paused until it does. It is a notice, not an error: nothing is broken on the owner's side.

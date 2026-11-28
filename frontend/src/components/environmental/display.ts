@@ -41,19 +41,36 @@ export function forecastPrecip(day: DailyForecast): string {
 	return `Precip: ${amount} (${(day.max_precipitation_prob * 100).toFixed(0)}%)`;
 }
 
-/** "Station soil observed Oct 10, 2:00 PM", or null with no observation. */
+/**
+ * When the 10 cm soil in use was observed, worded for its basis: "Station soil observed
+ * Oct 10, 2:00 PM", "Sensor soil read Oct 10, 2:05 PM", or "Soil estimated for Oct 10" (an
+ * estimate is for a day, whose start is its time). With no soil in use, the newest station
+ * reading behind the stale-soil notice. Null with no observation.
+ */
 // @spec WX-VIEW-PAGE-008
 export function soilObservedLine(summary: EnvironmentalSummary): string | null {
 	if (!summary.soil_observed_at) return null;
 	const at = new Date(summary.soil_observed_at);
 	if (Number.isNaN(at.getTime())) return null;
+	const kind = summary.current_bases?.find(
+		(b) => b.input === "soil_temp_10" && b.standing === "InUse",
+	)?.basis?.kind;
+	if (kind === "Estimate") {
+		const day = at.toLocaleDateString(undefined, {
+			month: "short",
+			day: "numeric",
+		});
+		return `Soil estimated for ${day}`;
+	}
 	const when = at.toLocaleString(undefined, {
 		month: "short",
 		day: "numeric",
 		hour: "numeric",
 		minute: "2-digit",
 	});
-	return `Station soil observed ${when}`;
+	return kind === "Sensor"
+		? `Sensor soil read ${when}`
+		: `Station soil observed ${when}`;
 }
 
 /**

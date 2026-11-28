@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getSeasonalPlan } from "../api/client";
 import { ApiError } from "../api/errors";
@@ -80,6 +81,32 @@ describe("Seasonal Plan page", () => {
 				"Predicted activity windows based on 7 years of soil temperature data",
 			),
 		).toBeInTheDocument();
+	});
+
+	// @spec WX-VIEW-BASIS-001
+	it("names the 10 cm soil the history years were read from", async () => {
+		fetchPlan.mockResolvedValue(
+			plan([activity("spring_nitrogen")], {
+				basis: {
+					basis: {
+						kind: "Station",
+						source: "Avondale 2 N",
+						distance_miles: 0.6,
+						approximate: false,
+					},
+					mixed: true,
+				},
+			}),
+		);
+		render(
+			<MemoryRouter>
+				<SeasonalPlan />
+			</MemoryRouter>,
+		);
+		const label = await screen.findByRole("link", {
+			name: /Measured · Avondale 2 N, 1 mi · mixed/,
+		});
+		expect(label).toHaveAttribute("href", "/sources");
 	});
 
 	// @spec PLAN-UI-006

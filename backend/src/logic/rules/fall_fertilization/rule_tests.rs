@@ -4,7 +4,7 @@
 
 use super::*;
 use crate::logic::rules::test_fixtures::{all_text, app, date, feeding_on, fescue, soil, today};
-use crate::models::{ApplicationType, Severity};
+use crate::models::{ApplicationType, Measured, Severity};
 use chrono::Duration;
 
 fn month() -> u32 {
@@ -133,7 +133,7 @@ fn october_asks_for_the_main_feeding_until_two_are_down() {
 #[test]
 fn november_asks_for_the_winterizer_until_three_are_down() {
     for (count, severity) in [(0, Severity::Warning), (2, Severity::Advisory)] {
-        let rec = build_late_fall_rec(45.0, count, &fescue());
+        let rec = build_late_fall_rec(45.0, Measured::now(None), count, &fescue());
         assert_eq!(
             (rec.id.as_str(), rec.severity),
             ("fall_fert_winterizer", severity)
@@ -160,7 +160,7 @@ fn fall_feedings_state_the_rate_and_the_lawns_total() {
     let sized = [
         build_early_fall_rec(55.0, &fescue(), &env),
         build_mid_fall_rec(55.0, 0, &fescue(), &env),
-        build_late_fall_rec(45.0, 0, &fescue()),
+        build_late_fall_rec(45.0, Measured::now(None), 0, &fescue()),
     ];
     let totals = [
         "about 5 lb of nitrogen for your 5000 sq ft lawn (1 lb N/1000 sq ft)",

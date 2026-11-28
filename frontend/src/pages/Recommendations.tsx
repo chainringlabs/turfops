@@ -4,6 +4,7 @@ import { getRecommendations, patchRecommendation } from "../api/client";
 import { describeError } from "../api/errors";
 import InventoryBadge from "../components/InventoryBadge";
 import { severityChip } from "../components/severity";
+import BasisLabel from "../components/sources/BasisLabel";
 import { sharedStyles } from "../styles/shared";
 import type { Recommendation } from "../types";
 import { categoryLabel, SEVERITY_SYMBOLS } from "../types";
@@ -205,7 +206,14 @@ export default function Recommendations() {
 												<tr key={`${dp.label}-${dp.source}`}>
 													<td style={styles.dpLabel}>{dp.label}</td>
 													<td style={styles.dpValue}>{dp.value}</td>
-													<td style={styles.dpSource}>{dp.source}</td>
+													{/* @spec FEED-REC-005, WX-VIEW-BASIS-001 */}
+													<td style={styles.dpSource}>
+														{dp.basis ? (
+															<BasisLabel basis={dp.basis} mixed={dp.mixed} />
+														) : (
+															dp.source
+														)}
+													</td>
 												</tr>
 											))}
 										</tbody>
@@ -311,8 +319,14 @@ const styles: Record<string, React.CSSProperties> = {
 		textAlign: "center" as const,
 		boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
 	},
-	splitView: { display: "flex", gap: "1.5rem", alignItems: "flex-start" },
-	list: { flex: 1, minWidth: 0 },
+	// Side by side where both fit; on a phone the detail drops below the list.
+	splitView: {
+		display: "flex",
+		flexWrap: "wrap" as const,
+		gap: "1.5rem",
+		alignItems: "flex-start",
+	},
+	list: { flex: "1 1 18rem", minWidth: 0 },
 	listItem: {
 		backgroundColor: "#fff",
 		borderRadius: 8,
@@ -370,7 +384,8 @@ const styles: Record<string, React.CSSProperties> = {
 		boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
 	},
 	detail: {
-		flex: 1,
+		flex: "1 1 18rem",
+		minWidth: 0,
 		backgroundColor: "#fff",
 		borderRadius: 8,
 		padding: "1.2rem",

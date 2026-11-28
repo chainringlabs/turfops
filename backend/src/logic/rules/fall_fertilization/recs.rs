@@ -3,8 +3,8 @@
 use crate::logic::rules::nitrogen_guard::{amount_text, rate_text, RATE_POINT};
 use crate::logic::rules::thresholds::*;
 use crate::models::{
-    DataSource, EnvironmentalSummary, LawnProfile, ProductCategory, ProductNeed, Recommendation,
-    RecommendationCategory, Severity,
+    DataSource, EnvironmentalSummary, LawnProfile, Measured, ProductCategory, ProductNeed,
+    Recommendation, RecommendationCategory, Severity,
 };
 
 pub(super) fn build_early_fall_rec(
@@ -32,10 +32,10 @@ pub(super) fn build_early_fall_rec(
          any 3:1:1 / 4:1:2 ratio.",
         rate_text(EARLY_FALL_N_RATE_LBS_PER_KSQFT)
     ))
-    .with_data_point(
+    .with_weather_point(
         "Soil Temp",
         format!("{:.1}°F", soil_temp),
-        DataSource::SoilData.as_str(),
+        env.measured_week("soil_temp_7day_avg_f"),
     )
     .with_data_point(
         "Phase",
@@ -98,10 +98,10 @@ pub(super) fn build_mid_fall_rec(
          stored as carbohydrates, fueling winter hardiness and explosive spring green-up. \
          This single application has more impact than any other feeding.",
     )
-    .with_data_point(
+    .with_weather_point(
         "Soil Temp",
         format!("{:.1}°F", soil_temp),
-        DataSource::SoilData.as_str(),
+        env.measured_week("soil_temp_7day_avg_f"),
     )
     .with_data_point("Phase", "Mid-Fall (Primary)", DataSource::Calendar.as_str())
     .with_data_point(
@@ -131,6 +131,7 @@ pub(super) fn build_mid_fall_rec(
 
 pub(super) fn build_late_fall_rec(
     soil_temp: f64,
+    soil: Measured<'_>,
     app_count: usize,
     profile: &LawnProfile,
 ) -> Recommendation {
@@ -157,11 +158,7 @@ pub(super) fn build_late_fall_rec(
          is available immediately when spring arrives, giving you the fastest, greenest \
          spring lawn. Apply even if grass appears dormant - roots are still working.",
     )
-    .with_data_point(
-        "Soil Temp",
-        format!("{:.1}°F", soil_temp),
-        DataSource::SoilData.as_str(),
-    )
+    .with_weather_point("Soil Temp", format!("{:.1}°F", soil_temp), soil)
     .with_data_point(
         "Phase",
         "Late Fall (Winterizer)",
@@ -227,7 +224,7 @@ mod tests {
                 MID_FALL_N_RATE_LBS_PER_KSQFT,
             ),
             (
-                build_late_fall_rec(45.0, 0, &profile()),
+                build_late_fall_rec(45.0, Measured::now(None), 0, &profile()),
                 WINTERIZER_N_RATE_LBS_PER_KSQFT,
             ),
         ] {

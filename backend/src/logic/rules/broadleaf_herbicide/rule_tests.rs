@@ -81,7 +81,7 @@ fn spring_needs_gdd_or_march_cool_rising_soil_and_no_spring_spray() {
     assert_eq!(id(&ready, &spray(date(year, 5, 1))), spring());
     assert_eq!(id(&ready, &spray(date(year - 1, 4, 1))), spring());
 
-    let rec = build_spring_herbicide_rec(47.0, None);
+    let rec = build_spring_herbicide_rec(47.0, Measured::now(None), None);
     assert_eq!(rec.severity, Severity::Advisory);
     assert!(rec.data_points.iter().all(|d| !d.label.contains("GDD")));
 }
@@ -89,7 +89,7 @@ fn spring_needs_gdd_or_march_cool_rising_soil_and_no_spring_spray() {
 // @spec RULE-BROAD-003
 #[test]
 fn fall_runs_sep_20_to_oct_31_on_soil_from_50_to_65() {
-    let rec = build_fall_herbicide_rec(58.0);
+    let rec = build_fall_herbicide_rec(58.0, Measured::now(None));
     assert_eq!(
         (rec.id.as_str(), rec.severity),
         ("broadleaf_fall", Severity::Warning)
@@ -120,8 +120,8 @@ fn fall_runs_sep_20_to_oct_31_on_soil_from_50_to_65() {
 #[test]
 fn both_windows_call_for_a_post_emergent_broadleaf_herbicide() {
     for rec in [
-        build_spring_herbicide_rec(50.0, Some(90.0)),
-        build_fall_herbicide_rec(58.0),
+        build_spring_herbicide_rec(50.0, Measured::now(None), Some(90.0)),
+        build_fall_herbicide_rec(58.0, Measured::now(None)),
     ] {
         assert_eq!(rec.needs.len(), 1, "{}", rec.id);
         let need = &rec.needs[0];
@@ -136,8 +136,8 @@ fn both_windows_call_for_a_post_emergent_broadleaf_herbicide() {
 #[test]
 fn both_windows_name_the_actives_and_defer_to_the_label_without_a_rate() {
     for rec in [
-        build_spring_herbicide_rec(52.0, Some(80.0)),
-        build_fall_herbicide_rec(58.0),
+        build_spring_herbicide_rec(52.0, Measured::now(None), Some(80.0)),
+        build_fall_herbicide_rec(58.0, Measured::now(None)),
     ] {
         let action = rec.suggested_action.as_deref().unwrap();
         for active in ["2,4-D", "dicamba", "triclopyr"] {

@@ -1,13 +1,14 @@
 import { Link } from "react-router";
 import type { TimingResponse } from "../../types/timing";
 import { byUrgency } from "../../types/timing";
+import BasisLabel from "../sources/BasisLabel";
 import StateBadge from "./StateBadge";
 
 interface TimingWidgetProps {
 	data: TimingResponse;
 }
 
-// @spec TIME-UI-007
+// @spec TIME-UI-007, WX-VIEW-BASIS-001
 /** Dashboard card: the primary seeding / pre-emergent windows and where each stands. */
 export default function TimingWidget({ data }: TimingWidgetProps) {
 	const windows = data.windows
@@ -26,6 +27,11 @@ export default function TimingWidget({ data }: TimingWidgetProps) {
 				<div style={styles.soil}>
 					{data.soil.depth_cm} cm soil, 5-day mean:{" "}
 					<strong>{data.soil.avg_5day_f.toFixed(1)}°F</strong>
+					{data.basis.soil && (
+						<div>
+							<BasisLabel basis={data.basis.soil} />
+						</div>
+					)}
 				</div>
 			)}
 			{windows.length === 0 && (

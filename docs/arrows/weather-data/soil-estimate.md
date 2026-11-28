@@ -4,7 +4,7 @@ Soil Estimate — leaf segment `WX-EST` under the `weather-data` sub-HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `aa1cae8`): 29 of 30 active specs implemented; 1 marked `[ ]` (1 of them already cited in code).
+**OK** — audited 2026-11-27 (git SHA `5fb1a99`): all 30 active specs implemented; 27 cited by a test, 30 cited in code.
 
 ## References
 
@@ -35,6 +35,7 @@ Soil Estimate — leaf segment `WX-EST` under the `weather-data` sub-HLD.
 
 ### Code
 - [backend/src/api/sources/read.rs](../../../backend/src/api/sources/read.rs)
+- [backend/src/api/timing.rs](../../../backend/src/api/timing.rs)
 - [backend/src/db/soil_estimate_queries.rs](../../../backend/src/db/soil_estimate_queries.rs)
 - [backend/src/logic/soil_estimate/anchor.rs](../../../backend/src/logic/soil_estimate/anchor.rs)
 - [backend/src/logic/soil_estimate/calibration.rs](../../../backend/src/logic/soil_estimate/calibration.rs)
@@ -74,16 +75,15 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | ANCHOR | WX-EST-ANCHOR-001 – WX-EST-ANCHOR-004 | 4 | 0 | 0 | 4 | 4 |
 | FWD | WX-EST-FWD-001 – WX-EST-FWD-002 | 2 | 0 | 0 | 2 | 2 |
 | DATE | WX-EST-DATE-001 – WX-EST-DATE-003 | 3 | 0 | 0 | 3 | 3 |
-| SCORE | WX-EST-SCORE-001 – WX-EST-SCORE-004 | 3 | 0 | 1 | 4 | 3 |
+| SCORE | WX-EST-SCORE-001 – WX-EST-SCORE-004 | 4 | 0 | 0 | 4 | 3 |
 | FAIL | WX-EST-FAIL-001 – WX-EST-FAIL-003 | 3 | 0 | 0 | 3 | 3 |
-| **Total** | | **29** | **0** | **1** | **30** | **27** |
+| **Total** | | **30** | **0** | **0** | **30** | **27** |
 
-**Summary:** 29 of 30 active specs implemented; 0 deferred; 26 implemented specs cited by a test, 3 not.
+**Summary:** 30 of 30 active specs implemented; 0 deferred; 27 implemented specs cited by a test, 3 not.
 
 ## Key Findings
 
-1. **Marked `[ ]` but cited in code:** WX-EST-SCORE-003. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
-2. **Implemented, no test cites it:** WX-EST-MODEL-004, WX-EST-MODEL-005, WX-EST-SCORE-004.
+1. **Implemented, no test cites it:** WX-EST-MODEL-004, WX-EST-MODEL-005, WX-EST-SCORE-004.
 
 ## Work Required
 
@@ -91,7 +91,6 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Confirm WX-EST-SCORE-003 against the code and set their markers.
 - Add a test citing WX-EST-MODEL-004, WX-EST-MODEL-005, WX-EST-SCORE-004.
 
 ### Nice to Have

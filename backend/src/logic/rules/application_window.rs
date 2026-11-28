@@ -2,8 +2,8 @@ use super::thresholds::*;
 use super::Rule;
 use crate::clock::Moment;
 use crate::models::{
-    Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
-    RecommendationCategory, Severity,
+    Application, EnvironmentalSummary, LawnProfile, Recommendation, RecommendationCategory,
+    Severity,
 };
 use chrono::{Datelike, NaiveDate};
 
@@ -57,7 +57,7 @@ impl Rule for ApplicationWindowRule {
             .max_by_key(|(_, q)| q.score())
             .map(|(date, quality)| (*date, quality.clone()))?;
 
-        Some(self.build_recommendation(&best.0, &best.1, good_days.len()))
+        Some(self.build_recommendation(env, &best.0, &best.1, good_days.len()))
     }
 }
 
@@ -188,6 +188,7 @@ impl ApplicationWindowRule {
 
     fn build_recommendation(
         &self,
+        env: &EnvironmentalSummary,
         date: &NaiveDate,
         quality: &WindowQuality,
         total_good_days: usize,
@@ -226,20 +227,20 @@ impl ApplicationWindowRule {
              low wind (<10mph to prevent drift), and moderate humidity (<85%). \
              Early morning applications are often best.",
         )
-        .with_data_point(
+        .with_weather_point(
             "Expected Temp",
             format!("{:.0}°F", quality.temp),
-            DataSource::OpenWeatherMap.as_str(),
+            env.measured_forecast(),
         )
-        .with_data_point(
+        .with_weather_point(
             "Wind Speed",
             format!("{:.1}mph", quality.wind),
-            DataSource::OpenWeatherMap.as_str(),
+            env.measured_forecast(),
         )
-        .with_data_point(
+        .with_weather_point(
             "Humidity",
             format!("{:.0}%", quality.humidity),
-            DataSource::OpenWeatherMap.as_str(),
+            env.measured_forecast(),
         )
         .with_action(format!(
             "Plan applications for {} if weather holds. \

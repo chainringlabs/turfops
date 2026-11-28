@@ -150,13 +150,6 @@ what the spec says. Checked against the code on 2026-11-27.
   because the backend may wait up to 30 s.
 - **SETUP-FAIL-004**: no "try again" on the what-we-found step; a station list loaded for one
   network but not the other is treated as loaded.
-- **WX-VIEW-BASIS-001**: no basis label on the dashboard widgets (GDD, outlook, disease,
-  timing), the Seasonal Plan, the Calendar or recommendation data points; the GDD and plan
-  responses carry no basis to show.
-- **WX-VIEW-PAGE-008**: the soil line always says "Station soil observed", also for a sensor,
-  and for an estimate shows local midnight instead of the day it is for.
-- **WX-EST-SCORE-003**: the outlook's and the Timing note's daily error come from the stored
-  fit's training RMSE, not the scoring file, so they can differ from the Sources page.
 - **RULE-WX-006**: a missing 7-day rain total counts as dry for the first day, and a good day
   with no following summary counts as dry the day after.
 

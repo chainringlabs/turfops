@@ -12,6 +12,17 @@ pub enum ForecastProvider {
     OpenWeatherMap,
 }
 
+impl ForecastProvider {
+    /// The provider's name as a data point's source.
+    pub fn label(self) -> &'static str {
+        match self {
+            ForecastProvider::OpenMeteo => "Open-Meteo",
+            ForecastProvider::NationalWeatherService => "National Weather Service",
+            ForecastProvider::OpenWeatherMap => "OpenWeatherMap",
+        }
+    }
+}
+
 /// A forecast as every provider returns it: points of the provider's slot length, and
 /// the lawn's local days they add up to.
 #[derive(Debug, Clone, Serialize, Deserialize)]

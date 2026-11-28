@@ -9,7 +9,7 @@ use crate::models::timing::{
 };
 use crate::models::weather_basis::Basis;
 use crate::models::{
-    DataSource, GrassType, HerbicideTiming, LawnProfile, ProductCategory, ProductNeed,
+    DataSource, GrassType, HerbicideTiming, LawnProfile, Measured, ProductCategory, ProductNeed,
     ProductTarget, Recommendation, RecommendationCategory, Severity,
 };
 use chrono::NaiveDate;
@@ -134,8 +134,11 @@ fn to_recommendation(
     }
 
     if let Some(avg) = soil.avg_5day_f {
-        let source = soil_basis.map_or_else(|| "Weather record".to_string(), Basis::in_words);
-        rec = rec.with_data_point("5 cm soil (5-day mean)", format!("{avg:.1}°F"), &source);
+        rec = rec.with_weather_point(
+            "5 cm soil (5-day mean)",
+            format!("{avg:.1}°F"),
+            Measured::now(soil_basis),
+        );
     }
     rec = boundary_point(rec, "Opens", &window.opens);
     if let Some(ideal) = &window.ideal_until {

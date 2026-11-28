@@ -84,6 +84,7 @@ pub fn build_gdd_summary(year: i32, daily_records: &[DailyGdd]) -> GddSummary {
         crabgrass_model: crabgrass_model(current_gdd_total),
         daily_history: year_records,
         last_computed_date,
+        basis: None,
     }
 }
 

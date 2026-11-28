@@ -8,7 +8,7 @@
 use crate::logic::rules::thresholds::{
     PRECIP_HEAVY_7DAY_MM, PRECIP_TRACE_MM, SOIL_MOISTURE_ADEQUATE,
 };
-use crate::models::{DataSource, EnvironmentalSummary, Recommendation};
+use crate::models::{EnvironmentalSummary, Recommendation};
 use chrono::{DateTime, Utc};
 
 /// How far ahead forecast rain relieves a watering reminder.
@@ -62,26 +62,26 @@ impl WaterSignals {
 
     // @spec PLANT-WATER-006
     /// The signals a dry-spell reminder was judged on, so the card explains itself.
-    pub fn annotate(&self, mut rec: Recommendation) -> Recommendation {
+    pub fn annotate(&self, mut rec: Recommendation, env: &EnvironmentalSummary) -> Recommendation {
         if let Some(mm) = self.recent_rain_mm {
-            rec = rec.with_data_point(
+            rec = rec.with_weather_point(
                 "Rain last 7 d",
                 format!("{:.2}\"", mm / 25.4),
-                DataSource::SoilData.as_str(),
+                env.measured_week("precipitation_7day_total_mm"),
             );
         }
         if let Some(mm) = self.forecast_rain_mm {
-            rec = rec.with_data_point(
+            rec = rec.with_weather_point(
                 "Rain forecast",
                 format!("{:.2}\" in {} h", mm / 25.4, RAIN_FORECAST_HOURS),
-                DataSource::OpenWeatherMap.as_str(),
+                env.measured_forecast(),
             );
         }
         if let Some(m) = self.soil_moisture {
-            rec = rec.with_data_point(
+            rec = rec.with_weather_point(
                 "Soil Moisture",
                 format!("{:.0}%", m * 100.0),
-                DataSource::SoilData.as_str(),
+                env.measured_soil_moisture(),
             );
         }
         rec
@@ -127,7 +127,7 @@ mod tests {
         moisture: Option<f64>,
     ) -> EnvironmentalSummary {
         let current = moisture.map(|m| {
-            let mut r = EnvironmentalReading::new(DataSource::SoilData);
+            let mut r = EnvironmentalReading::new(crate::models::DataSource::SoilData);
             r.soil_moisture_10 = Some(m);
             r
         });

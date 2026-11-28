@@ -46,7 +46,7 @@ Design: [soil-estimate-design.md](soil-estimate-design.md). Parent: [weather-dat
 
 - [x] **WX-EST-SCORE-001**: The repository shall contain a scoring tool that, from public USCRN daily data and the grid's daily air at each station's point, fits each station's model on its five nearest neighbours and on the station alone, dates each crossing a consuming component dates by that component's own rule, and writes for each crossing and each calibration the median and 80th-percentile absolute error in days, the mean signed error, and the median and 80th-percentile spread between years.
 - [x] **WX-EST-SCORE-002**: The scoring tool shall use no soil measurement from the target station when it scores the five-nearest calibration.
-- [ ] **WX-EST-SCORE-003**: The application shall embed the scoring tool's data file at build time and shall read every estimate accuracy figure it shows, and every `datable` answer, from that file.
+- [x] **WX-EST-SCORE-003**: The application shall embed the scoring tool's data file at build time and shall read every estimate accuracy figure it shows, and every `datable` answer, from that file.
 - [x] **WX-EST-SCORE-004**: The scoring tool shall not run as part of the test suite.
 
 ## Degradation

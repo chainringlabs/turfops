@@ -8,6 +8,7 @@ use crate::db::weather_queries::fetch_state;
 use crate::error::{Result, TurfOpsError};
 use crate::logic::gdd::DailyGddRow;
 use crate::models::climate::ClimateDay;
+use crate::models::environmental::PeriodBasis;
 use crate::models::seasonal_plan::DailySoilTempAvg;
 use crate::models::weather_basis::{Basis, BasisSpan, Figure, Series};
 use crate::models::weather_record::{Input, Source, SourceKind};
@@ -153,9 +154,20 @@ impl WeatherRecord {
 /// The basis of a figure over a period: its newest day's, and whether there were others.
 // @spec WX-REC-BASIS-004
 fn figure(spans: &[BasisSpan]) -> Option<(Basis, bool)> {
+    let found = period_basis(spans)?;
+    Some((found.basis, found.mixed))
+}
+
+/// What a series over a period rests on: the basis of its newest span, mixed when another
+/// span differs.
+// @spec WX-VIEW-BASIS-001
+pub fn period_basis(spans: &[BasisSpan]) -> Option<PeriodBasis> {
     let newest = spans.iter().max_by_key(|span| span.to)?;
     let mixed = spans.iter().any(|span| span.basis != newest.basis);
-    Some((newest.basis.clone(), mixed))
+    Some(PeriodBasis {
+        basis: newest.basis.clone(),
+        mixed,
+    })
 }
 
 impl View<'_> {

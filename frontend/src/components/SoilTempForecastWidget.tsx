@@ -1,11 +1,15 @@
 import type { ThresholdPrediction } from "../types";
 import { PREDICTION_CONFIDENCE_COLORS } from "../types";
+import type { Basis } from "../types/sources";
 import { formatMonthDay } from "../utils/dates";
+import BasisLabel from "./sources/BasisLabel";
 
 interface SoilTempForecastWidgetProps {
 	/** The outlook's crossings, already judged and sorted by the backend. */
 	crossings: ThresholdPrediction[];
 	currentSoilTemp: number | null;
+	/** What the soil the outlook starts from rests on. */
+	basis?: Basis | null;
 }
 
 /** "~12d", or "Later" for an approach the forecast does not reach. */
@@ -21,11 +25,17 @@ function describeCrossing(c: ThresholdPrediction): string {
 		: `until soil drops below ${c.threshold_temp_f}°F`;
 }
 
-// @spec WX-OUTLOOK-UI-002, UI-TYPE-004
+// @spec WX-OUTLOOK-UI-002, UI-TYPE-004, WX-VIEW-BASIS-001
 export default function SoilTempForecastWidget({
 	crossings: upcoming,
 	currentSoilTemp,
+	basis = null,
 }: SoilTempForecastWidgetProps) {
+	const label = basis && (
+		<div style={styles.basis}>
+			<BasisLabel basis={basis} />
+		</div>
+	);
 	if (upcoming.length === 0) {
 		return (
 			<div style={styles.card}>
@@ -35,6 +45,7 @@ export default function SoilTempForecastWidget({
 						? `Current: ${currentSoilTemp.toFixed(1)}°F — No threshold crossings predicted`
 						: "Prediction data unavailable"}
 				</div>
+				{label}
 			</div>
 		);
 	}
@@ -88,11 +99,13 @@ export default function SoilTempForecastWidget({
 					))}
 				</div>
 			)}
+			{label}
 		</div>
 	);
 }
 
 const styles: Record<string, React.CSSProperties> = {
+	basis: { marginTop: 6 },
 	card: {
 		backgroundColor: "#fff",
 		borderRadius: 8,

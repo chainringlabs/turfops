@@ -12,6 +12,9 @@ pub struct SeasonalPlan {
     pub generated_at: chrono::DateTime<chrono::Utc>,
     /// The lawn's local date the statuses were judged on, so pages count from it.
     pub today: NaiveDate,
+    /// The 10 cm soil the history years' crossings were found in; null when the record
+    /// gave none.
+    pub basis: Option<super::environmental::PeriodBasis>,
 }
 
 /// A single planned lawn care activity with predicted date window.

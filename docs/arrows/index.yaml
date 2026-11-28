@@ -32,18 +32,18 @@ arrows:
     children: [weather-sources, weather-record, soil-estimate, soil-temp-outlook, environmental-views]
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: ../intent/weather-data/weather-data-design.md
-    next: "See the children: weather-sources, soil-estimate, environmental-views"
+    next: "See the children: weather-sources"
     drift: null
   weather-sources:
     status: PARTIAL
     parent: weather-data
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: weather-data/weather-sources.md
@@ -54,51 +54,51 @@ arrows:
     parent: weather-data
     sampled: 2026-11-27
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: weather-data/weather-record.md
     next: "Add a test citing WX-REC-RES-009, WX-REC-API-001."
     drift: null
   soil-estimate:
-    status: PARTIAL
+    status: OK
     parent: weather-data
     sampled: 2026-11-27
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: weather-data/soil-estimate.md
-    next: "Confirm WX-EST-SCORE-003 against the code and set their markers."
-    drift: "1 spec(s) marked [ ] are already cited in code"
+    next: "Add a test citing WX-EST-MODEL-004, WX-EST-MODEL-005, WX-EST-SCORE-004."
+    drift: null
   soil-temp-outlook:
     status: OK
     parent: weather-data
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: weather-data/soil-temp-outlook.md
     next: null
     drift: null
   environmental-views:
-    status: PARTIAL
+    status: OK
     parent: weather-data
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: weather-data/environmental-views.md
-    next: "Confirm WX-VIEW-BASIS-001, WX-VIEW-PAGE-008 against the code and set their markers."
-    drift: "2 spec(s) marked [ ] are already cited in code"
+    next: "Add a test citing WX-VIEW-PAGE-013."
+    drift: null
   data-sync:
     status: PARTIAL
     parent: null
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: data-sync.md
@@ -109,7 +109,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: agronomic-rules.md
@@ -120,7 +120,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: timing-windows.md
@@ -132,7 +132,7 @@ arrows:
     children: [risk-models, management, disease-ui]
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: ../intent/disease-risk/disease-risk-design.md
@@ -143,7 +143,7 @@ arrows:
     parent: disease-risk
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: disease-risk/risk-models.md
@@ -154,7 +154,7 @@ arrows:
     parent: disease-risk
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: disease-risk/management.md
@@ -165,7 +165,7 @@ arrows:
     parent: disease-risk
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: disease-risk/disease-ui.md
@@ -176,7 +176,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: seasonal-plan.md
@@ -187,29 +187,29 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: soil-tests.md
     next: "Annotate the code behind SOIL-DATA-001, SOIL-DATA-002, SOIL-DATA-004, SOIL-API-006, SOIL-API-007, SOIL-API-010, SOIL-API-011."
     drift: null
   recommendation-feed:
-    status: PARTIAL
+    status: OK
     parent: null
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: recommendation-feed.md
-    next: "Build or defer FEED-REC-005."
+    next: null
     drift: null
   applications:
     status: PARTIAL
     parent: null
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: applications.md
@@ -220,7 +220,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: product-inventory.md
@@ -231,7 +231,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: landscape-plants.md
@@ -242,7 +242,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: mcp-server.md
@@ -253,7 +253,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: web-ui.md
@@ -264,7 +264,7 @@ arrows:
     parent: null
     sampled: 2026-11-27
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: setup-sources.md
@@ -275,7 +275,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-11-27
-    audited_sha: aa1cae8
+    audited_sha: 5fb1a99
     blocks: []
     blockedBy: []
     detail: deployment.md

@@ -30,7 +30,7 @@ The answered state follows one principle. A click answers *this alert at this se
 | `category` | `RecommendationCategory` | source | Serialized as the variant name; the UI splits camel case (`categoryLabel`). Also drives episode class (below). |
 | `severity` | `Info < Advisory < Warning < Critical` | source (+ nitrogen guard) | Derived `Ord` in declaration order; escalation compares with it. |
 | `title`, `description`, `explanation` | string | source | `explanation` defaults to empty. |
-| `data_points` | `[{label, value, source, basis?}]` | source, then inventory | A point stating a weather value carries that value's `basis` (measured at a named station with its distance, the owner's sensor, or estimated for the location, with `approximate` where it applies), copied from the summary or contract the source read. Inventory appends "On hand" / "Not on shelf" points. |
+| `data_points` | `[{label, value, source, basis?, mixed?}]` | source, then inventory | A point stating a weather value carries that value's `basis` (measured at a named station with its distance, the owner's sensor, or estimated for the location, with `approximate` where it applies), copied from the summary or contract the source read: the current value's basis from `current_bases`, a 7-day figure's from `week_bases` (with `mixed`). Its `source` is the basis in words, or "Weather record" when the summary gave none; a forecast value names the forecast provider and has no basis. Inventory appends "On hand" / "Not on shelf" points. |
 | `suggested_action` | string? | source | |
 | `needs` | `[ProductNeed]` | source (`with_need`) | Empty means nothing to fetch. Always serialized. |
 | `inventory` | `InventoryStatus?` | product inventory | Omitted from the JSON when absent. |

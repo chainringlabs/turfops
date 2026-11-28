@@ -122,6 +122,7 @@ fn the_daily_history_trim_matches_the_gdd_summary() {
             estimated_germination_date: None,
         },
         last_computed_date: Some(today()),
+        basis: None,
     };
     let body = serde_json::to_value(&gdd).unwrap();
     assert!(has(&body, "daily_history"));

@@ -83,8 +83,9 @@ Model quality labels: R² ≥ 0.7 is Good, ≥ 0.5 is Fair, below that Poor. The
 (`SoilTempForecast`, `backend/src/models/soil_temp_prediction.rs`) carries `predictions`,
 `threshold_crossings`, `method` (fitted or estimated), `basis`, `model_info` and
 `generated_at`. `model_info` is R², lag, training days and quality for a fitted outlook, and
-the soil estimate's stations, training days and daily error for an estimated one; coefficients
-are never exposed.
+the soil estimate's stations, training days and daily error for an estimated one (the scoring
+file's figure for the fit's depth and calibration, as the Sources page shows it; null when the
+file has none); coefficients are never exposed.
 
 ## Thresholds and Crossings
 

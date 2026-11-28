@@ -3,7 +3,8 @@ use super::Rule;
 use crate::clock::Moment;
 use crate::models::{
     Application, ApplicationType, DataSource, EnvironmentalSummary, HerbicideTiming, LawnProfile,
-    ProductCategory, ProductNeed, ProductTarget, Recommendation, RecommendationCategory, Severity,
+    Measured, ProductCategory, ProductNeed, ProductTarget, Recommendation, RecommendationCategory,
+    Severity,
 };
 use chrono::{Datelike, NaiveDate};
 
@@ -64,7 +65,11 @@ impl Rule for BroadleafHerbicideRule {
             && (SPRING_HERBICIDE_SOIL_LOW_F..=SPRING_HERBICIDE_SOIL_HIGH_F).contains(&soil_temp_avg)
             && env.soil_temp_trend.is_rising()
         {
-            return Some(build_spring_herbicide_rec(soil_temp_avg, gdd_ytd));
+            return Some(build_spring_herbicide_rec(
+                soil_temp_avg,
+                env.measured_week("soil_temp_7day_avg_f"),
+                gdd_ytd,
+            ));
         }
 
         // Fall window: late Sept - Oct, soil temp 50-65°F falling (GDD not used)
@@ -76,7 +81,10 @@ impl Rule for BroadleafHerbicideRule {
             && !already_applied_fall
             && (FALL_HERBICIDE_SOIL_LOW_F..=FALL_HERBICIDE_SOIL_HIGH_F).contains(&soil_temp_avg)
         {
-            return Some(build_fall_herbicide_rec(soil_temp_avg));
+            return Some(build_fall_herbicide_rec(
+                soil_temp_avg,
+                env.measured_week("soil_temp_7day_avg_f"),
+            ));
         }
 
         None
@@ -102,7 +110,11 @@ pub(crate) fn applied_fall(history: &[Application], year: i32) -> bool {
 }
 
 // @spec RULE-ENG-007
-fn build_spring_herbicide_rec(soil_temp: f64, gdd_ytd: Option<f64>) -> Recommendation {
+fn build_spring_herbicide_rec(
+    soil_temp: f64,
+    soil: Measured<'_>,
+    gdd_ytd: Option<f64>,
+) -> Recommendation {
     let gdd_note = if let Some(gdd) = gdd_ytd {
         format!(
             " GDD ({:.0}) confirms winter annual weeds are actively growing and susceptible.",
@@ -130,11 +142,7 @@ fn build_spring_herbicide_rec(soil_temp: f64, gdd_ytd: Option<f64>) -> Recommend
          temps are 50-80°F and no rain expected for 24 hours.{}",
         gdd_note
     ))
-    .with_data_point(
-        "Soil Temp",
-        format!("{:.1}°F", soil_temp),
-        DataSource::SoilData.as_str(),
-    )
+    .with_weather_point("Soil Temp", format!("{:.1}°F", soil_temp), soil)
     .with_data_point(
         "Target Weeds",
         "Winter annuals",
@@ -170,7 +178,7 @@ fn broadleaf_need() -> ProductNeed {
 }
 
 // @spec RULE-ENG-007
-fn build_fall_herbicide_rec(soil_temp: f64) -> Recommendation {
+fn build_fall_herbicide_rec(soil_temp: f64, soil: Measured<'_>) -> Recommendation {
     Recommendation::new(
         "broadleaf_fall",
         RecommendationCategory::Herbicide,
@@ -189,11 +197,7 @@ fn build_fall_herbicide_rec(soil_temp: f64) -> Recommendation {
          follows the same path, killing the entire plant including roots. Spring applications \
          are less effective because weeds are pushing energy outward to leaves.",
     )
-    .with_data_point(
-        "Soil Temp",
-        format!("{:.1}°F", soil_temp),
-        DataSource::SoilData.as_str(),
-    )
+    .with_weather_point("Soil Temp", format!("{:.1}°F", soil_temp), soil)
     .with_data_point(
         "Target Weeds",
         "Perennial broadleaf (dandelion, clover, plantain)",

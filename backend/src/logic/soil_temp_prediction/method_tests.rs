@@ -69,7 +69,7 @@ fn estimate() -> EstimateModel {
         info: EstimateInfo {
             stations: vec!["Station A".into(), "Station B".into()],
             training_days: 4200,
-            daily_error_f: 1.8,
+            daily_error_f: Some(1.8),
         },
     }
 }
