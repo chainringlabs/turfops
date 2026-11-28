@@ -96,11 +96,11 @@ Design: [setup-sources-design.md](setup-sources-design.md). Prefix `SETUP`. Face
 - [x] **SETUP-CRED-001**: The system shall store a Home Assistant token or an OpenWeatherMap key entered in the app, and no endpoint shall return it, no log line shall contain it, and no error shall include it.
 - [x] **SETUP-CRED-002**: When the server starts and no Home Assistant connection has ever been stored, the system shall store `HA_URL` and `HA_TOKEN` as the connection when both are set; when no OpenWeatherMap key has ever been stored, it shall store `OWM_API_KEY` when set; it shall read those variables at no other time, and a connection or key the owner has forgotten shall not be restored from them.
 - [x] **SETUP-CRED-003**: When the owner forgets a connection, the system shall delete its stored address and secret.
-- [ ] **SETUP-CRED-004**: The Sources page shall state that a credential entered in the app is stored in the application database and is therefore contained in backups of it.
+- [x] **SETUP-CRED-004**: The Sources page shall state that a credential entered in the app is stored in the application database and is therefore contained in backups of it.
 
 ## Failures
 
 - [x] **SETUP-FAIL-001**: If the place search fails, then the location step shall say "Place search is unavailable; enter coordinates instead" and shall still accept typed coordinates.
 - [x] **SETUP-FAIL-002**: If Home Assistant does not answer at the address, or refuses the token, then the test shall say which of the two happened.
-- [ ] **SETUP-FAIL-003**: If a mapped entity is no longer found in Home Assistant, then the Sources page shall show its sensor as "not found in Home Assistant" with ways to unmap and to remap it.
+- [x] **SETUP-FAIL-003**: If a mapped entity is no longer found in Home Assistant, then the Sources page shall show its sensor as "not found in Home Assistant" with ways to unmap and to remap it.
 - [x] **SETUP-FAIL-004**: If either station network's list is not loaded when a preview or a station list is asked for, then the system shall load it before answering; if it cannot be loaded, the request shall fail with the station network's outage sentence and the what-we-found step shall offer to try again.

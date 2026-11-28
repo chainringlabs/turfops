@@ -6,22 +6,25 @@ use crate::models::{
     RecommendationCategory, Severity,
 };
 
-/// Irrigation forecast rule - recommends irrigation based on forecast drought
-///
-/// Conditions:
-/// - No significant rain (<0.1") forecasted for next 5 days
-/// - Current soil moisture below threshold
-///
-/// Severity levels:
-/// - Advisory: No rain 5 days, moisture 0.15-0.20
-/// - Warning: No rain 5 days, moisture 0.10-0.15
-/// - Critical: No rain 5 days, moisture < 0.10
+/// Irrigation forecast rule: water when no real rain is forecast for 5 days and the soil is
+/// dry. With soil moisture, below 0.20 (Advisory), 0.15 (Warning) or 0.10 (Critical).
+/// Without it, judged on rain while the grass grows: under ½ in this week (Advisory) or
+/// under 5 mm (Warning), never Critical.
 pub struct IrrigationForecastRule;
+
+/// What the rule judged dryness on.
+#[derive(Debug, Clone, Copy)]
+enum Judged {
+    /// The live soil moisture, as a fraction.
+    Moisture(f64),
+    /// The last 7 days' rain in mm, where nothing measures soil moisture.
+    Rain(f64),
+}
 
 /// Fewer forecast days than this with a rain amount is too little to call a dry spell.
 const MIN_DAYS_WITH_AMOUNT: usize = 3;
 
-// @spec RULE-WX-002, RULE-WX-003
+// @spec RULE-WX-002, RULE-WX-003, RULE-WX-009, RULE-WX-010
 impl Rule for IrrigationForecastRule {
     fn evaluate(
         &self,
@@ -31,13 +34,24 @@ impl Rule for IrrigationForecastRule {
         at: Moment,
     ) -> Option<Recommendation> {
         let forecast = env.forecast.as_ref()?;
-        let current = env.current.as_ref()?;
-        let soil_moisture = current.primary_soil_moisture()?;
-
-        // Skip if soil moisture is adequate
-        if soil_moisture >= SOIL_MOISTURE_ADEQUATE {
-            return None;
-        }
+        let moisture = env
+            .current
+            .as_ref()
+            .and_then(|current| current.primary_soil_moisture());
+        let judged = match moisture {
+            Some(moisture) if moisture >= SOIL_MOISTURE_ADEQUATE => return None,
+            Some(moisture) => Judged::Moisture(moisture),
+            // Nothing measures soil moisture here: judge on the week's rain, only while
+            // the grass is growing, and only with both weekly figures in hand.
+            None => {
+                let week_air = env.ambient_temp_7day_avg_f?;
+                let week_rain = env.precipitation_7day_total_mm?;
+                if week_air < IRRIGATION_GROWING_AIR_F || week_rain >= IRRIGATION_DRY_WEEK_MM {
+                    return None;
+                }
+                Judged::Rain(week_rain)
+            }
+        };
 
         // Only the forecast *amount* counts: a 50% chance of a trace won't relieve dry soil.
         // The forecast amount over the next 5 days, from the days that carry one.
@@ -56,13 +70,13 @@ impl Rule for IrrigationForecastRule {
             return None;
         }
 
-        // Determine severity based on soil moisture
-        let severity = if soil_moisture < SOIL_MOISTURE_DROUGHT {
-            Severity::Critical
-        } else if soil_moisture < SOIL_MOISTURE_IRRIGATION_WARNING {
-            Severity::Warning
-        } else {
-            Severity::Advisory
+        let severity = match judged {
+            Judged::Moisture(m) if m < SOIL_MOISTURE_DROUGHT => Severity::Critical,
+            Judged::Moisture(m) if m < SOIL_MOISTURE_IRRIGATION_WARNING => Severity::Warning,
+            Judged::Moisture(_) => Severity::Advisory,
+            // Rain alone cannot justify Critical.
+            Judged::Rain(mm) if mm < IRRIGATION_VERY_DRY_WEEK_MM => Severity::Warning,
+            Judged::Rain(_) => Severity::Advisory,
         };
 
         // Days until the next day that is not dry (if any)
@@ -73,7 +87,7 @@ impl Rule for IrrigationForecastRule {
             .take_while(|d| is_dry(d))
             .count();
 
-        Some(self.build_recommendation(env, severity, soil_moisture, dry_days, profile))
+        Some(self.build_recommendation(env, severity, judged, dry_days, profile))
     }
 }
 
@@ -83,7 +97,7 @@ impl IrrigationForecastRule {
         &self,
         env: &EnvironmentalSummary,
         severity: Severity,
-        soil_moisture: f64,
+        judged: Judged,
         dry_days: usize,
         _profile: &LawnProfile,
     ) -> Recommendation {
@@ -93,12 +107,21 @@ impl IrrigationForecastRule {
             _ => "Consider Irrigation",
         };
 
-        let description = format!(
-            "Soil moisture is low ({:.0}%) and no significant rain is forecasted for {} days. \
-             Cool-season grasses need consistent moisture.",
-            soil_moisture * 100.0,
-            dry_days
-        );
+        let description = match judged {
+            Judged::Moisture(moisture) => format!(
+                "Soil moisture is low ({:.0}%) and no significant rain is forecasted for {} days. \
+                 Cool-season grasses need consistent moisture.",
+                moisture * 100.0,
+                dry_days
+            ),
+            Judged::Rain(mm) => format!(
+                "Only {:.2}\" of rain fell in the last 7 days and no significant rain is \
+                 forecasted for {} days. This is judged on rainfall, because nothing measures \
+                 soil moisture at your lawn.",
+                mm / 25.4,
+                dry_days
+            ),
+        };
 
         let action = match severity {
             Severity::Critical => {
@@ -109,31 +132,52 @@ impl IrrigationForecastRule {
                 "Plan to irrigate within the next 1-2 days. Apply 1 inch of water per session. \
                  Deep, infrequent watering encourages deeper root growth — better than shallow daily watering."
             }
+            _ if matches!(judged, Judged::Rain(_)) => {
+                "Check the soil with a trowel: if the top few inches are dry, plan a deep \
+                 watering in the early morning."
+            }
             _ => {
                 "Monitor soil moisture and plan irrigation if conditions don't change. \
                  Consider a deep watering session in early morning."
             }
         };
+        let explanation = match judged {
+            Judged::Moisture(_) => {
+                "Tall Fescue requires 1-1.5 inches of water per week during the growing season. \
+                 When soil moisture drops below 10-15% and no rain is expected, supplemental \
+                 irrigation prevents drought stress, thinning, and weed invasion. Water deeply \
+                 (to 6 inches) to encourage deep root growth."
+            }
+            Judged::Rain(_) => {
+                "A growing cool-season lawn uses about an inch of water a week; under half an \
+                 inch of rain with none coming leaves it short. With no station within reach \
+                 and no probe, nothing measures soil moisture at your lawn, so this is judged on \
+                 rainfall and never goes past a Warning. A soil-moisture probe mapped in Setup \
+                 would replace this judgement with a reading."
+            }
+        };
 
-        Recommendation::new(
+        let rec = Recommendation::new(
             "irrigation_forecast",
             RecommendationCategory::Irrigation,
             severity,
             title,
             description,
         )
-        .with_explanation(
-            "Tall Fescue requires 1-1.5 inches of water per week during the growing season. \
-             When soil moisture drops below 10-15% and no rain is expected, supplemental \
-             irrigation prevents drought stress, thinning, and weed invasion. Water deeply \
-             (to 6 inches) to encourage deep root growth.",
-        )
-        .with_weather_point(
-            "Soil Moisture",
-            format!("{:.0}%", soil_moisture * 100.0),
-            env.measured_soil_moisture(),
-        )
-        .with_weather_point(
+        .with_explanation(explanation);
+        let rec = match judged {
+            Judged::Moisture(moisture) => rec.with_weather_point(
+                "Soil Moisture",
+                format!("{:.0}%", moisture * 100.0),
+                env.measured_soil_moisture(),
+            ),
+            Judged::Rain(mm) => rec.with_weather_point(
+                "Rain, last 7 days",
+                format!("{:.2}\"", mm / 25.4),
+                env.measured_week("precipitation_7day_total_mm"),
+            ),
+        };
+        rec.with_weather_point(
             "Dry Days Forecast",
             format!("{} days", dry_days),
             env.measured_forecast(),

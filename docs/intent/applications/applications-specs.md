@@ -23,7 +23,7 @@ Design: [applications-design.md](applications-design.md). Prefix `APP`. Facets: 
 - [x] **APP-PROF-015**: When the server starts and the lawn profile has no location, the system shall set the location from `LAWN_LATITUDE` and `LAWN_LONGITUDE` when both are set; once the profile holds a location the system shall ignore those variables.
 - [x] **APP-PROF-016**: If a location variable is missing its pair, cannot be parsed, or names a point outside the contiguous United States (latitude 24.5 to 49.5, longitude −125 to −66.9), then the system shall log a warning naming the variable, leave the location unset, and never use 0, 0.
 - [x] **APP-PROF-017**: If `PUT /api/v1/profile` carries a latitude without a longitude or the reverse, or a point outside the contiguous United States, then the system shall return 400 saying which, and change nothing.
-- [ ] **APP-PROF-018**: When `PUT /api/v1/profile` changes the location, the system shall, before responding and in this order, set the timezone, replace the app's clock with one in that timezone, have the weather record rebuild its basis plan, and wake the fetch schedule.
+- [x] **APP-PROF-018**: When `PUT /api/v1/profile` changes the location, the system shall, before responding and in this order, set the timezone, replace the app's clock with one in that timezone, have the weather record rebuild its basis plan, and wake the fetch schedule.
 - [x] **APP-PROF-019**: The system shall send the place name to no outside service.
 
 ## Application log model

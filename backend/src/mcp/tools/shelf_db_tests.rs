@@ -61,7 +61,9 @@ async fn sources_is_the_sources_body_without_connections_pins_ids_or_coordinates
         .as_array()
         .unwrap()
         .iter()
-        .all(|s| s.get("id").is_none() && s["attribution"].is_string()));
+        .all(|s| s.get("id").is_none()
+            && s.get("missing_sensor").is_none()
+            && s["attribution"].is_string()));
     assert!(reply["inputs"]
         .as_array()
         .unwrap()

@@ -81,6 +81,8 @@ export interface SourceView {
 	held_through: string | null;
 	wanted_from: string | null;
 	attribution: string;
+	/** A Home Assistant sensor whose entity Home Assistant no longer has: its id. */
+	missing_sensor?: number | null;
 }
 
 export interface Connections {

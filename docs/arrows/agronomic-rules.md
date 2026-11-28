@@ -4,7 +4,7 @@ Agronomic Rules — leaf segment `RULE` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-28 (git SHA `1b12d9d`): 79 of 82 active specs implemented; 3 marked `[ ]`.
+**OK** — audited 2026-11-28 (git SHA `92f4d75`): all 82 active specs implemented; 81 cited by a test, 82 cited in code.
 
 ## References
 
@@ -38,7 +38,7 @@ Agronomic Rules — leaf segment `RULE` under the root HLD.
 - [backend/src/logic/rules/weather_rule_tests.rs](../../backend/src/logic/rules/weather_rule_tests.rs)
 - [frontend/src/components/GddWidget.test.tsx](../../frontend/src/components/GddWidget.test.tsx)
 - [frontend/src/components/NitrogenBudgetWidget.test.tsx](../../frontend/src/components/NitrogenBudgetWidget.test.tsx)
-- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/nitrogen_budget.rs`, `backend/src/logic/rules/fall_fertilization/recs.rs`, `backend/src/logic/rules/irrigation_forecast.rs`, `backend/src/logic/rules/nitrogen_guard.rs`, `backend/src/logic/rules/spring_nitrogen.rs`, `backend/src/logic/rules/thresholds.rs`, `backend/src/models/nitrogen_budget.rs`
+- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/nitrogen_budget.rs`, `backend/src/logic/rules/fall_fertilization/recs.rs`, `backend/src/logic/rules/fertilizer.rs`, `backend/src/logic/rules/irrigation_forecast.rs`, `backend/src/logic/rules/nitrogen_guard.rs`, `backend/src/logic/rules/spring_nitrogen.rs`, `backend/src/logic/rules/thresholds.rs`, `backend/src/models/nitrogen_budget.rs`
 
 ### Code
 - [backend/src/api/gdd.rs](../../backend/src/api/gdd.rs)
@@ -63,6 +63,7 @@ Agronomic Rules — leaf segment `RULE` under the root HLD.
 - [backend/src/logic/rules/thresholds.rs](../../backend/src/logic/rules/thresholds.rs)
 - [backend/src/models/lawn_profile.rs](../../backend/src/models/lawn_profile.rs)
 - [backend/src/models/nitrogen_budget.rs](../../backend/src/models/nitrogen_budget.rs)
+- [backend/src/models/recommendation.rs](../../backend/src/models/recommendation.rs)
 - [frontend/src/components/GddWidget.tsx](../../frontend/src/components/GddWidget.tsx)
 - [frontend/src/components/NitrogenBudgetWidget.tsx](../../frontend/src/components/NitrogenBudgetWidget.tsx)
 
@@ -89,26 +90,25 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| ENG | RULE-ENG-001 – RULE-ENG-016 | 15 | 0 | 1 | 15 | 15 |
+| ENG | RULE-ENG-001 – RULE-ENG-016 | 16 | 0 | 0 | 16 | 16 |
 | SPRING | RULE-SPRING-001 – RULE-SPRING-010 | 10 | 0 | 0 | 10 | 10 |
 | BROAD | RULE-BROAD-001 – RULE-BROAD-004 | 4 | 0 | 0 | 4 | 4 |
 | GRUB | RULE-GRUB-001 – RULE-GRUB-006 | 6 | 0 | 0 | 6 | 6 |
 | BLOCK | RULE-BLOCK-001 – RULE-BLOCK-002 | 2 | 0 | 0 | 2 | 2 |
 | FALL | RULE-FALL-001 – RULE-FALL-007 | 7 | 0 | 0 | 7 | 7 |
-| WX | RULE-WX-001 – RULE-WX-013 | 11 | 0 | 2 | 11 | 11 |
+| WX | RULE-WX-001 – RULE-WX-013 | 13 | 0 | 0 | 13 | 13 |
 | GUARD | RULE-GUARD-001 – RULE-GUARD-011 | 10 | 1 | 0 | 10 | 10 |
 | BUDGET | RULE-BUDGET-001 – RULE-BUDGET-005 | 5 | 0 | 0 | 5 | 5 |
 | GDD | RULE-GDD-001 – RULE-GDD-007 | 7 | 0 | 0 | 7 | 6 |
 | UI | RULE-UI-001 – RULE-UI-002 | 2 | 0 | 0 | 2 | 2 |
-| **Total** | | **79** | **1** | **3** | **79** | **78** |
+| **Total** | | **82** | **1** | **0** | **82** | **81** |
 
-**Summary:** 79 of 82 active specs implemented; 1 deferred; 78 implemented specs cited by a test, 1 not.
+**Summary:** 82 of 82 active specs implemented; 1 deferred; 81 implemented specs cited by a test, 1 not.
 
 ## Key Findings
 
-1. **Open gaps (not yet built):** RULE-ENG-016, RULE-WX-009, RULE-WX-010.
-2. **Implemented, no test cites it:** RULE-GDD-002.
-3. **Deferred:** RULE-GUARD-005.
+1. **Implemented, no test cites it:** RULE-GDD-002.
+2. **Deferred:** RULE-GUARD-005.
 
 ## Work Required
 
@@ -116,7 +116,6 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Build or defer RULE-ENG-016, RULE-WX-009, RULE-WX-010.
 - Add a test citing RULE-GDD-002.
 
 ### Nice to Have

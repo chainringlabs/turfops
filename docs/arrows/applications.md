@@ -4,7 +4,7 @@ Applications — leaf segment `APP` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-28 (git SHA `1b12d9d`): 81 of 82 active specs implemented; 1 marked `[ ]`.
+**OK** — audited 2026-11-28 (git SHA `92f4d75`): all 82 active specs implemented; 81 cited by a test, 81 cited in code.
 
 ## References
 
@@ -93,7 +93,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| PROF | APP-PROF-001 – APP-PROF-019 | 18 | 0 | 1 | 17 | 17 |
+| PROF | APP-PROF-001 – APP-PROF-019 | 19 | 0 | 0 | 18 | 18 |
 | LOG | APP-LOG-001 – APP-LOG-012 | 12 | 0 | 0 | 12 | 12 |
 | DUP | APP-DUP-001 – APP-DUP-003 | 3 | 0 | 0 | 3 | 3 |
 | API | APP-API-001 – APP-API-012 | 12 | 0 | 0 | 12 | 12 |
@@ -103,15 +103,14 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | LIST | APP-LIST-001 – APP-LIST-005 | 5 | 0 | 0 | 5 | 5 |
 | FORM | APP-FORM-001 – APP-FORM-011 | 11 | 0 | 0 | 11 | 11 |
 | SET | APP-SET-001 – APP-SET-003 | 3 | 0 | 0 | 3 | 3 |
-| **Total** | | **81** | **0** | **1** | **80** | **80** |
+| **Total** | | **82** | **0** | **0** | **81** | **81** |
 
-**Summary:** 81 of 82 active specs implemented; 0 deferred; 80 implemented specs cited by a test, 1 not.
+**Summary:** 82 of 82 active specs implemented; 0 deferred; 81 implemented specs cited by a test, 1 not.
 
 ## Key Findings
 
-1. **Open gaps (not yet built):** APP-PROF-018.
-2. **Implemented, no `@spec` in code:** APP-PROF-019.
-3. **Implemented, no test cites it:** APP-PROF-019.
+1. **Implemented, no `@spec` in code:** APP-PROF-019.
+2. **Implemented, no test cites it:** APP-PROF-019.
 
 ## Work Required
 
@@ -119,7 +118,6 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Build or defer APP-PROF-018.
 - Add a test citing APP-PROF-019.
 - Annotate the code behind APP-PROF-019.
 

@@ -54,15 +54,15 @@ with a note.
 
    | Source | Meaning | Counts as passed? |
    |--------|---------|-------------------|
-   | `Observed` | Seen in station data and held 5 days | yes |
-   | `Tentative` | Seen in station data, run still in progress (< 5 days) | yes — the detail text says "held N of 5 days". On a **closing** boundary it makes the window `Closing`, never `Closed` (see State) |
-   | `Forecast` | Only the soil forecast crosses it. The outlook starts the day after the last station day, so a crossing inside the station's reporting lag is dated *today*, never in the past | no → `OpeningSoon` |
-   | `Typical` | Not seen: the historical median is used | only when the median is still ahead it is an estimate; if the median has passed **and the station has reported past it** with no crossing, the boundary is **overdue** and carries *no date* ("later than usual"). Inside the station's reporting lag the median stays the estimate. The detail text only says "running behind" past the 90th percentile — the median alone is passed in half of all years |
+   | `Observed` | Seen in the soil record and held 5 days | yes |
+   | `Tentative` | Seen in the soil record, run still in progress (< 5 days) | yes — the detail text says "held N of 5 days". On a **closing** boundary it makes the window `Closing`, never `Closed` (see State) |
+   | `Forecast` | Only the soil forecast crosses it. The outlook starts the day after the last soil day, so a crossing inside the soil source's reporting lag is dated *today*, never in the past | no → `OpeningSoon` |
+   | `Typical` | Not seen: the historical median is used | only when the median is still ahead it is an estimate; if the median has passed **and the soil source has reported past it** with no crossing, the boundary is **overdue** and carries *no date* ("later than usual"). Inside the soil source's reporting lag the median stays the estimate. The detail text only says "running behind" past the 90th percentile — the median alone is passed in half of all years |
 
-   When station soil data is more than 5 days old, or a boundary's scan range has
+   When the soil data is more than 5 days old, or a boundary's scan range has
    ended, typical dates are trusted by the calendar instead, and a data note says so.
    With stale data only a *confirmed* crossing still counts: a run that was in progress
-   when the station went quiet, or one seen only in the forecast, falls back to the
+   when the soil source went quiet, or one seen only in the forecast, falls back to the
    calendar as well — nobody knows whether it held.
 5. **State.** `Closed` once the closing boundary passed *and held* — a tentative close
    reads `Closing` ("threshold reached, held N of 5 days"), so one warm day cannot
@@ -76,8 +76,8 @@ Freeze dates are the last day before July / first day from August with a minimum
 temperature ≤ 32°F. A year's freeze date only counts when the record *around* it is
 sound: ≥ 90 % of days present from Sep 15 up to a first fall freeze (a hole there could
 hide an earlier one), or from a last spring freeze through May 31. What happens on the far
-side is irrelevant — the real station lost most of December 2018, which must not discard
-the Oct 22 freeze it plainly recorded. For the **current season**, freeze-anchored
+side is irrelevant: a record missing most of a December must not discard the October
+freeze it plainly holds. For the **current season**, freeze-anchored
 boundaries always use the *typical* (median) first freeze, never the year's actual or
 forecast freeze — by the time a freeze is in the forecast it is far too late to seed. For
 the **typical spread**, each past year is dated from its own freeze, so "30 days before
@@ -100,7 +100,8 @@ All soil thresholds are 5-day means at 5 cm. Constants live in `logic/timing/win
 
 Establishment buffers before the first freeze vary by grass: Kentucky bluegrass 60/45
 days (slow to germinate), tall and fine fescue 45/30, perennial ryegrass 35/21.
-Warm-season and mixed lawns get the two pre-emergent windows only.
+Warm-season lawns get the two pre-emergent windows only; a `Mixed` lawn is a cool-season
+blend and gets all five, with the fescue buffers.
 
 Spring windows roll to next year from August; dormant seeding belongs to the year it
 opened in until July.
@@ -140,12 +141,11 @@ The windows are the single source for pre-emergent and seeding timing everywhere
   → Warning (post-emergent advice). Fall pre-emergent is capped at Info / Advisory — it
   is the alternative to seeding, not something to push. Done, Blocked, Not yet and
   Closed produce nothing. Ids: `timing_<window>_<season_year>`. The fall seeding
-  recommendation sizes the seed needed from the lawn size at 4 lbs/1000 sqft. These
-  replaced the 10 cm `pre_emergent` and `fall_overseeding` rules. Core aeration and the fall-herbicide caveat also hang off the fall seeding
-  window (`logic/timing/companions.rs`), and the never-firing 10 cm `SoilTempForecastRule`
-  is gone (10 rules remain).
+  recommendation sizes the seed needed from the lawn size at 4 lbs/1000 sqft. No rule
+  gives 10 cm pre-emergent or seeding advice. Core aeration and the fall-herbicide caveat
+  also hang off the fall seeding window (`logic/timing/companions.rs`).
 - **Seasonal plan / calendar** (`logic/timing/plan.rs`). Spring Pre-Emergent, Fall
-  Pre-Emergent (new), Fall Seeding & Overseeding and Core Aeration (same window as
+  Pre-Emergent, Fall Seeding & Overseeding and Core Aeration (same window as
   seeding) use the windows' typical opens → closes medians, with earliest/latest as the
   historical range. For the season being lived now, the **status** comes from the
   window's resolved state (NotYet/OpeningSoon → Upcoming, Open/Ideal/Closing → Active,
@@ -156,7 +156,7 @@ The windows are the single source for pre-emergent and seeding timing everywhere
   a warm-season lawn, which has no seeding window — the legacy 10 cm activity remains. A
   window ruled out by the log is left off the plan, and because removal goes by
   `owned_ids` rather than by what came back, its legacy twin cannot reappear; a fall
-  `PreEmergent` no longer marks the *spring* application complete.
+  `PreEmergent` does not mark the *spring* application complete.
 
 A weather record that cannot answer (no location, history still loading) degrades the
 feed to no timing recommendations rather than an error.
@@ -188,14 +188,14 @@ tools (reviewed 2026-09-20). Deliberate differences:
 
 | lawn-answers | TurfOps | Why |
 |--------------|---------|-----|
-| ERA5-Land *modeled* soil, 0–7 cm | *Measured* USCRN soil at 5 cm | Same depth, real sensor. |
+| ERA5-Land *modeled* soil, 0–7 cm | 5 cm soil from a nearby USCRN or SCAN station or the owner's sensor, else TurfOps's own soil estimate, marked as such | Same depth, a real sensor wherever one is near. |
 | Averages all years into one "typical year" curve, then finds one crossing | Finds the crossing in each year, then reports median and spread | Averaging hides year-to-year variability; the spread is the useful part. |
 | "Live" fall seeding window closes on a forecast freeze or the 90 %-probability freeze date (it showed Nov 24 for Media, PA) | Closes 30 days before the typical first freeze or at 55°F soil, whichever is first | Seedlings need weeks of growth before a freeze; their own historical window subtracts 30 days but the live one does not. |
 | Spring pre-emergent 45→50°F, no GDD | 45°F early, 50°F ideal, closed at 55°F sustained or 200 GDD | Crabgrass germinates at ~55°F in the top 2 in; 50°F closes the window too early. |
 | Fall pre-emergent "optimal ~65°F" | Ideal from 70°F down to 65°F, late after that | The barrier must precede germination, which starts as soil cools through 70°F. |
 | Seeding and fall pre-emergent both shown as "open" | Mutually exclusive via the application log | A pre-emergent kills the seeding. |
-| NCEI 1991–2020 freeze normals (Philadelphia) | Freeze dates derived from the station's daily minimums | No new dependency; the rural station is closer to yard conditions than the airport. Fewer years, so percentiles are coarser. |
-| 16-day GFS soil forecast, CPC outlook, NWS alerts | 5-day regression soil forecast; forecast freeze/heat only | No new external APIs. Open-Meteo would extend the horizon if ever adopted. |
+| NCEI 1991–2020 freeze normals (Philadelphia) | Freeze dates from the lawn's daily air minimums (the PRISM grid at the lawn, or the owner's air sensor) | No extra dependency, and the grid point is the lawn itself rather than an airport. Fewer years, so percentiles are coarser. |
+| 16-day GFS soil forecast, CPC outlook, NWS alerts | Soil outlook from the chosen forecast (up to its first 10 full days): a refit regression, or the soil estimate run forward; forecast freeze/heat only | No soil-forecast or alert API is used. |
 
 ## Caveats
 

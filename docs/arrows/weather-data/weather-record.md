@@ -4,7 +4,7 @@ Weather Record — leaf segment `WX-REC` under the `weather-data` sub-HLD.
 
 ## Status
 
-**OK** — audited 2026-11-28 (git SHA `1b12d9d`): all 61 active specs implemented; 59 cited by a test, 61 cited in code.
+**OK** — audited 2026-11-28 (git SHA `92f4d75`): all 61 active specs implemented; 59 cited by a test, 61 cited in code.
 
 ## References
 

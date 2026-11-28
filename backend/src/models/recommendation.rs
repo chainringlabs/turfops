@@ -220,7 +220,7 @@ impl Recommendation {
 
     /// A weather data point naming what its value rests on: the record's basis (in words as
     /// its source, and whole for the shared label), or the forecast provider.
-    // @spec FEED-REC-005, WX-VIEW-BASIS-001
+    // @spec FEED-REC-005, WX-VIEW-BASIS-001, RULE-ENG-016
     pub fn with_weather_point(
         mut self,
         label: &str,

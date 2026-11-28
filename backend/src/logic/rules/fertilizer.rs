@@ -169,7 +169,7 @@ mod tests {
         assert_eq!(rec.severity, Severity::Warning);
     }
 
-    // @spec FEED-REC-005, WX-VIEW-BASIS-001
+    // @spec FEED-REC-005, WX-VIEW-BASIS-001, RULE-ENG-016
     #[test]
     fn each_weather_point_names_the_basis_of_its_value() {
         use crate::models::weather_basis::{Basis, BasisKind};
@@ -202,6 +202,37 @@ mod tests {
             ("Weather record", None),
             "no basis in use for soil moisture: never a station's name"
         );
+    }
+
+    // @spec RULE-ENG-016
+    #[test]
+    fn the_basis_never_changes_the_advice() {
+        use crate::models::weather_basis::{Basis, BasisKind};
+        use crate::models::{BasisStanding, CurrentBasis};
+        let judged = |kind: BasisKind, approximate: bool| {
+            let mut env = env(Some(90.0), 0.45);
+            env.current_bases = ["air_temp", "soil_moisture_10"]
+                .into_iter()
+                .map(|input| CurrentBasis {
+                    input: input.into(),
+                    standing: BasisStanding::InUse,
+                    basis: Some(Basis {
+                        kind,
+                        source: "Somewhere".into(),
+                        distance_miles: None,
+                        approximate,
+                    }),
+                    observed_at: None,
+                })
+                .collect();
+            let rec = FertilizerRule
+                .evaluate(&env, &profile(), &[], crate::clock::Clock::System.moment())
+                .unwrap();
+            (rec.id, rec.severity, rec.description)
+        };
+        let station = judged(BasisKind::Station, false);
+        assert_eq!(judged(BasisKind::Sensor, false), station);
+        assert_eq!(judged(BasisKind::Estimate, true), station);
     }
 
     #[test]

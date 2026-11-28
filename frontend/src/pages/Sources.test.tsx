@@ -2,7 +2,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getSources, testHaConnection } from "../api/client";
+import { getSources, testHaConnection, unmapSensor } from "../api/client";
 import { ApiError } from "../api/errors";
 import type { InputView, SourcesView } from "../types/sources";
 import Sources from "./Sources";
@@ -10,6 +10,7 @@ import Sources from "./Sources";
 vi.mock("../api/client", () => ({
 	getSources: vi.fn(),
 	testHaConnection: vi.fn(),
+	unmapSensor: vi.fn(),
 }));
 const mocked = vi.mocked(getSources);
 
@@ -262,6 +263,64 @@ it("lists the sources failing first with their failure, history and attribution"
 	expect(rows[1]).toHaveTextContent(
 		"NOAA U.S. Climate Reference Network (USCRN)",
 	);
+});
+
+// @spec SETUP-FAIL-003
+describe("a sensor Home Assistant no longer has", () => {
+	const gone = (v: SourcesView): SourcesView => ({
+		...v,
+		sources: v.sources.map((s) =>
+			s.name === "Patio temperature"
+				? {
+						...s,
+						last_error:
+							"sensor.patio was not found in Home Assistant. Remap this sensor or unmap it.",
+						missing_sensor: 7,
+					}
+				: s,
+		),
+	});
+
+	it("is shown as not found, with Unmap and a Remap link to the sensors step", async () => {
+		const user = (await import("@testing-library/user-event")).default.setup();
+		mocked.mockResolvedValueOnce(gone(view()));
+		mocked.mockResolvedValueOnce(view());
+		vi.mocked(unmapSensor).mockResolvedValue([]);
+		show();
+		const table = await screen.findByRole("table", { name: "Sources in use" });
+		const row = within(table).getByRole("row", { name: /Patio temperature/ });
+		expect(row).toHaveTextContent("not found in Home Assistant");
+		expect(
+			within(row).getByRole("link", { name: "Remap Patio temperature" }),
+		).toHaveAttribute("href", "/setup?step=sensors");
+		await user.click(
+			within(row).getByRole("button", { name: "Unmap Patio temperature" }),
+		);
+		expect(unmapSensor).toHaveBeenCalledWith(7);
+		await vi.waitFor(() => expect(mocked).toHaveBeenCalledTimes(2));
+	});
+
+	it("offers neither for any other problem", async () => {
+		mocked.mockResolvedValue(view());
+		show();
+		const table = await screen.findByRole("table", { name: "Sources in use" });
+		expect(within(table).queryByRole("button", { name: /Unmap/ })).toBeNull();
+		expect(within(table).queryByRole("link", { name: /Remap/ })).toBeNull();
+	});
+});
+
+// @spec SETUP-CRED-004
+it("says a key or token entered in the app is in the database and its backups", async () => {
+	mocked.mockResolvedValue(view());
+	show();
+	const connections = await screen.findByRole("region", {
+		name: "Connections",
+	});
+	expect(
+		within(connections).getByText(
+			"A Home Assistant token or OpenWeatherMap key entered in TurfOps is stored in its database, so backups of that database contain it.",
+		),
+	).toBeInTheDocument();
 });
 
 // @spec SETUP-PAGE-005

@@ -17,8 +17,8 @@ Containerized web application for tracking lawn care activities with data-driven
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (1,188 tests; no database needed)
-- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,531 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
+- `cd backend && cargo test` — Run tests (1,191 tests; no database needed)
+- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,535 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
 - `cd backend && cargo run --release --features scoring -- score-estimate --cache <dir> --out src/logic/soil_estimate/scores.json` — Re-score the soil estimate against USCRN (downloads about 1,900 public files into `<dir>` on first run; re-run when the model, the calibration rule or a consumer's crossing rule changes)
 - `cd backend && cargo test live_ -- --ignored --test-threads=1` — One real request to each outside weather source (NOAA, RCC-ACIS, USDA, Open-Meteo, National Weather Service), to confirm the parsers still match what the services send; not part of the suite
 - `cd backend && DATABASE_URL=… cargo test --features db-tests live_schedule -- --ignored` — The fetch schedule's first passes for a new lawn against the real services, into the test database; not part of the suite
@@ -79,7 +79,7 @@ turfops/
 | GET | /api/v1/sources/preview | The basis plan a point would get (`?lat=&lon=&pins=input:station,…`); saves nothing |
 | GET | /api/v1/sources/stations | Stations within 150 miles that may supply an input (`?input=`, optional `lat`/`lon`) |
 | POST | /api/v1/setup/apply | Save a location, the set of pins and the forecast provider together, all or none; rebuilds the basis plan and wakes the fetch schedule |
-| GET | /api/v1/sources | Inputs with their plan, value in use and basis; sources with status, history and attribution; forecast provider and its status (`forecast`); which connections are stored (never a secret); location |
+| GET | /api/v1/sources | Inputs with their plan, value in use and basis; sources with status, history, attribution and `missing_sensor` (a Home Assistant sensor whose entity is gone: the page offers Unmap / Remap); forecast provider and its status (`forecast`); which connections are stored (never a secret); location |
 | PUT/DELETE | /api/v1/sources/pins/:input | Pin a station for an input (400 when it does not report it, is over 150 miles off or is unknown) / remove the pin |
 | PUT | /api/v1/sources/forecast-provider | Choose the forecast provider; carries and stores the key OpenWeatherMap needs |
 | GET/PUT/DELETE | /api/v1/sources/home-assistant | Whether a Home Assistant connection is stored and its address (never the token) / store an `http(s)` address and token / forget them |
@@ -178,7 +178,8 @@ See `backend/.env.example` for full list:
 |--------|-----------|---------|
 | Soil temp 10cm | 60-75°F | Grub control window |
 | Ambient temp | >85°F | Fertilizer stress risk |
-| Soil moisture | <0.10 | Irrigation needed |
+| Soil moisture | <0.20 / <0.15 / <0.10 | Irrigation Advisory / Warning / Critical (with ≤ 2.5 mm forecast over 5 days) |
+| Rain, last 7 days (no soil-moisture source, 7-day mean air ≥ 50°F) | <12.5 / <5 mm | Irrigation judged on rain: Advisory / Warning, never Critical |
 | Soil moisture | >0.40 | Saturated - avoid fertilizer |
 | Humidity | >80% | Reference line on the Environmental humidity chart (disease risk now comes from the per-disease models) |
 | Brown patch E-index | ≥5 / ≥6 | High / Severe |

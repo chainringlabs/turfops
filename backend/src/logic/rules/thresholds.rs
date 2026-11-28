@@ -128,6 +128,16 @@ pub const PRECIP_TRACE_MM: f64 = 2.5;
 /// Heavy 7-day precipitation (mm) — approximately 1 inch.
 pub const PRECIP_HEAVY_7DAY_MM: f64 = 25.0;
 
+/// Without soil moisture, irrigation is judged on rain only while the grass is growing:
+/// a 7-day mean air temperature at or above this.
+pub const IRRIGATION_GROWING_AIR_F: f64 = 50.0;
+
+/// Without soil moisture, a week with less rain than this (½ in) is dry enough to water.
+pub const IRRIGATION_DRY_WEEK_MM: f64 = 12.5;
+
+/// Without soil moisture, a week with less rain than this is a Warning, not an Advisory.
+pub const IRRIGATION_VERY_DRY_WEEK_MM: f64 = 5.0;
+
 /// Pre-filter for the rain-delay checks (mm): any measurable rain. Each severity level
 /// then applies its own amount/probability test.
 pub const PRECIP_FORECAST_MIN_MM: f64 = 0.1;
