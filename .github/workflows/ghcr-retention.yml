@@ -14,7 +14,7 @@ jobs:
       packages: write
     # The shared workflow always deletes untagged manifests; the two inputs
     # below are the part of the policy this repository states for itself.
-    uses: chainringlabs/ci/.github/workflows/ghcr-retention.yml@9f6bdfe7ee10489a9dd82ac1c566ddaac8cd61e6 # v1.4.0
+    uses: chainringlabs/ci/.github/workflows/ghcr-retention.yml@8257523ec32ecf78bb71af30090b87d5220ebe84 # v1.4.1
     with:
       keep-n-tagged: 5
       exclude-tags: latest
