@@ -1,8 +1,9 @@
 //! Bridges disease risk into the recommendations feed so the dashboard and the
 //! Recommendations page agree with the Disease Risk page by construction.
 
+use crate::models::weather_basis::Basis;
 use crate::models::{
-    DataSource, Disease, DiseaseContext, DiseaseRisk, ManagementAction, ProductCategory,
+    DataSource, Disease, DiseaseContext, DiseaseRisk, ManagementAction, Measured, ProductCategory,
     ProductNeed, Recommendation, RecommendationCategory, RiskTier, Severity,
 };
 
@@ -10,11 +11,23 @@ use crate::models::{
 /// One recommendation per disease at High or Severe; lower tiers stay on the Disease
 /// Risk page only. `ctx` is the lawn history the risks were assessed with; it decides
 /// whether red thread's nitrogen remedy is still outstanding.
+#[cfg(test)]
 pub fn to_recommendations(risks: &[DiseaseRisk], ctx: &DiseaseContext) -> Vec<Recommendation> {
+    to_recommendations_on(risks, ctx, None)
+}
+
+/// [`to_recommendations`], with each risk score naming the hourly air and humidity basis of
+/// the headline day it was scored on.
+// @spec DIS-MGMT-REC-001, WX-VIEW-BASIS-001
+pub fn to_recommendations_on(
+    risks: &[DiseaseRisk],
+    ctx: &DiseaseContext,
+    basis: Option<&Basis>,
+) -> Vec<Recommendation> {
     risks
         .iter()
         .filter(|risk| risk.tier >= RiskTier::High)
-        .map(|risk| to_recommendation(risk, ctx))
+        .map(|risk| to_recommendation(risk, ctx, basis))
         .collect()
 }
 
@@ -28,7 +41,11 @@ fn severity_for(risk: &DiseaseRisk) -> Severity {
 }
 
 // @spec DIS-MGMT-REC-002
-fn to_recommendation(risk: &DiseaseRisk, ctx: &DiseaseContext) -> Recommendation {
+fn to_recommendation(
+    risk: &DiseaseRisk,
+    ctx: &DiseaseContext,
+    basis: Option<&Basis>,
+) -> Recommendation {
     let methodology = &risk.methodology;
     let explanation = format!(
         "{} ({}). {}\n\n{}",
@@ -51,11 +68,7 @@ fn to_recommendation(risk: &DiseaseRisk, ctx: &DiseaseContext) -> Recommendation
         &risk.summary,
     )
     .with_explanation(explanation)
-    .with_data_point(
-        "Risk score",
-        &risk.score_label,
-        DataSource::Calculated.as_str(),
-    );
+    .with_weather_point("Risk score", &risk.score_label, Measured::now(basis));
     for factor in &risk.factors {
         rec = rec.with_data_point(
             &factor.label,

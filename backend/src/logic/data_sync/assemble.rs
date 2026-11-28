@@ -7,8 +7,8 @@ use crate::logic::weather_record::summary::RecordSummary;
 use crate::models::weather_basis::Figure;
 use crate::models::weather_record::Input;
 use crate::models::{
-    BasisStanding, CurrentBasis, DataSource, EnvironmentalReading, EnvironmentalSummary, Trend,
-    WeatherForecast, WeekBasis,
+    BasisStanding, CurrentBasis, DataSource, EnvironmentalReading, EnvironmentalSummary,
+    PeriodBasis, Trend, WeatherForecast,
 };
 use chrono::{DateTime, Duration, Utc};
 use std::collections::BTreeMap;
@@ -100,7 +100,7 @@ pub(crate) fn assemble(gathered: Gathered, now: DateTime<Utc>) -> EnvironmentalS
         if let Some(figure) = figure {
             week_bases.insert(
                 name.to_string(),
-                WeekBasis {
+                PeriodBasis {
                     basis: figure.basis.clone(),
                     mixed: figure.mixed,
                 },

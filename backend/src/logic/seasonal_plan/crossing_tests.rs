@@ -360,3 +360,43 @@ fn an_estimated_crossing_counts_only_where_the_estimate_may_date_it() {
     );
     assert!(!rising_50(&found, 2024).unwrap().estimated);
 }
+
+// @spec WX-VIEW-BASIS-001
+#[test]
+fn the_crossings_carry_the_10_cm_soil_they_were_found_in() {
+    let rows = spring_year(2024);
+    let nothing_datable = |_: f64, _: bool| false;
+    let none = crossings_from_record(&record(rows.clone(), &[]), d(2025, 1, 5), &nothing_datable);
+    assert_eq!(none.basis, None, "no spans, no basis");
+
+    let mut filled = record(rows, &[(d(2024, 2, 1), d(2024, 2, 3))]);
+    filled.basis.push(BasisSpan {
+        input: Input::SoilTemp10,
+        from: d(2024, 2, 4),
+        to: d(2024, 12, 31),
+        basis: crate::models::weather_basis::Basis {
+            kind: BasisKind::Station,
+            source: "Avondale 2 N".into(),
+            distance_miles: Some(0.6),
+            approximate: false,
+        },
+    });
+    filled.basis.push(BasisSpan {
+        input: Input::DailyAir,
+        from: d(2024, 1, 1),
+        to: d(2025, 1, 1),
+        basis: crate::models::weather_basis::Basis {
+            kind: BasisKind::Estimate,
+            source: "PRISM daily grid".into(),
+            distance_miles: None,
+            approximate: false,
+        },
+    });
+    let found = crossings_from_record(&filled, d(2025, 1, 5), &nothing_datable);
+    let basis = found.basis.expect("10 cm spans");
+    assert_eq!(
+        basis.basis.source, "Avondale 2 N",
+        "the newest 10 cm span, not air"
+    );
+    assert!(basis.mixed, "the estimate filled three days");
+}

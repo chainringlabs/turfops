@@ -115,7 +115,7 @@ The shelf (`DiseaseContext.shelf`) holds products in category `Fungicide` that a
 | title / description | "<Name> Risk — <Tier>" / model summary |
 | explanation | model name, citation, methodology summary and steps |
 | action | management headline + cultural practices |
-| data points | "Risk score" + every factor (source `Calculated`), and, when the headline day is approximate, a "Weather basis" point saying the hours are an estimate for the location |
+| data points | "Risk score" carrying the headline day's hourly basis (`basis.headline`, its source the basis in words), every factor (source `Calculated`), and, when the headline day is approximate, a "Weather basis" point saying the hours are an estimate for the location |
 | need | Red thread: a nitrogen-fertilizer need (a Fertilizer whose N is above 0 or unrecorded, the same need the feeding rules declare) while nitrogen-hungry, none once fed: `ProductNeed::new("nitrogen fertilizer", Fertilizer).requiring_nitrogen()`. Others: `Fungicide` whose FRAC classes are every preventative option that is not restricted and not last used. |
 | feeding mark | Red thread only, and only while nitrogen-hungry (no feeding logged in 60 days), when the advice is to feed: `with_feeding(red_thread::FEEDING_N_LBS)`, 0.5 lb N/1000 sq ft. "Stay the course" is not marked. No other disease recommendation is a feeding. |
 

@@ -4,7 +4,7 @@ Recommendation Feed — leaf segment `FEED` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `aa1cae8`): 51 of 52 active specs implemented; 1 marked `[ ]`.
+**OK** — audited 2026-11-27 (git SHA `5fb1a99`): all 52 active specs implemented, each cited in code and by a test.
 
 ## References
 
@@ -31,7 +31,7 @@ Recommendation Feed — leaf segment `FEED` under the root HLD.
 - [frontend/src/pages/Dashboard.test.tsx](../../frontend/src/pages/Dashboard.test.tsx)
 - [frontend/src/pages/Recommendations.test.tsx](../../frontend/src/pages/Recommendations.test.tsx)
 - [frontend/tests/repo.test.ts](../../frontend/tests/repo.test.ts)
-- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/recommendation_feed.rs`, `backend/src/logic/rules/spring_nitrogen.rs`, `backend/src/models/recommendation_state.rs`
+- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/recommendation_feed.rs`, `backend/src/logic/rules/fertilizer.rs`, `backend/src/logic/rules/spring_nitrogen.rs`, `backend/src/models/recommendation_state.rs`
 
 ### Code
 - [backend/src/api/dashboard.rs](../../backend/src/api/dashboard.rs)
@@ -69,19 +69,18 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| REC | FEED-REC-001 – FEED-REC-005 | 4 | 0 | 1 | 4 | 4 |
+| REC | FEED-REC-001 – FEED-REC-005 | 5 | 0 | 0 | 5 | 5 |
 | PIPE | FEED-PIPE-001 – FEED-PIPE-018 | 16 | 1 | 0 | 16 | 16 |
 | STATE | FEED-STATE-001 – FEED-STATE-010 | 10 | 0 | 0 | 10 | 10 |
 | API | FEED-API-001 – FEED-API-006 | 6 | 0 | 0 | 6 | 6 |
 | UI | FEED-UI-001 – FEED-UI-015 | 15 | 0 | 0 | 15 | 15 |
-| **Total** | | **51** | **1** | **1** | **51** | **51** |
+| **Total** | | **52** | **1** | **0** | **52** | **52** |
 
-**Summary:** 51 of 52 active specs implemented; 1 deferred; 51 implemented specs cited by a test.
+**Summary:** 52 of 52 active specs implemented; 1 deferred; 52 implemented specs cited by a test.
 
 ## Key Findings
 
-1. **Open gaps (not yet built):** FEED-REC-005.
-2. **Deferred:** FEED-PIPE-010.
+1. **Deferred:** FEED-PIPE-010.
 
 ## Work Required
 
@@ -89,7 +88,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Build or defer FEED-REC-005.
+- None.
 
 ### Nice to Have
 - None.

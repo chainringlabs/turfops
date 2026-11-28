@@ -133,8 +133,11 @@ async fn forecast_days(state: &AppState) -> Result<Option<Vec<DailyForecast>>, T
     Ok(forecast.map(|f| f.full_days().take(FORECAST_DAYS).cloned().collect()))
 }
 
-/// The stored 5 cm soil estimate, and its daily error (°F).
-async fn soil_estimate(state: &AppState) -> Result<Option<(SoilEstimate, f64)>, TurfOpsError> {
+/// The stored 5 cm soil estimate, and its scored daily error (°F) from the scoring file.
+// @spec WX-EST-SCORE-003
+async fn soil_estimate(
+    state: &AppState,
+) -> Result<Option<(SoilEstimate, Option<f64>)>, TurfOpsError> {
     Ok(soil_estimate_queries::all(&state.pool)
         .await?
         .into_iter()
@@ -145,7 +148,8 @@ async fn soil_estimate(state: &AppState) -> Result<Option<(SoilEstimate, f64)>, 
                     model: fit.model,
                     calibration: fit.calibration,
                 },
-                fit.rmse_f,
+                crate::logic::soil_estimate::scores::embedded()
+                    .daily_error(timing::SOIL_DEPTH_CM, fit.calibration),
             )
         }))
 }
@@ -298,7 +302,7 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
         has_forecast: forecast.is_some(),
         days,
         spans: &basis.spans,
-        daily_error_f: estimate.as_ref().map(|(_, error)| *error),
+        daily_error_f: estimate.as_ref().and_then(|(_, error)| *error),
     });
     // @spec TIME-ENG-046
     if let Some(read_at) = climate.last_good_at {

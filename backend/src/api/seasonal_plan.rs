@@ -37,7 +37,7 @@ pub struct SeasonalPlanQuery {
 ///
 /// Returns a seasonal plan for the requested year from the lawn's 10 cm threshold
 /// crossings in the weather record.
-// @spec PLAN-MERGE-001, PLAN-MERGE-002, PLAN-MERGE-003, PLAN-MERGE-004, PLAN-MERGE-005, PLAN-MERGE-007, PLAN-MERGE-008
+// @spec WX-VIEW-BASIS-001, PLAN-MERGE-001, PLAN-MERGE-002, PLAN-MERGE-003, PLAN-MERGE-004, PLAN-MERGE-005, PLAN-MERGE-007, PLAN-MERGE-008
 pub async fn get_seasonal_plan(
     State(state): State<AppState>,
     Query(params): Query<SeasonalPlanQuery>,
@@ -76,6 +76,7 @@ pub async fn get_seasonal_plan(
         profile.grass_type,
         today,
     );
+    plan.basis = found.basis.clone();
     if year == today.year() {
         let states = rule_states(&state, &profile, today).await;
         apply_rule_states(&mut plan.activities, states.as_deref());

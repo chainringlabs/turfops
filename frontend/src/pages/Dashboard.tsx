@@ -308,6 +308,7 @@ export default function Dashboard() {
 								<SoilTempForecastWidget
 									crossings={d.threshold_crossings}
 									currentSoilTemp={current?.soil_temp_10_f ?? null}
+									basis={d.basis}
 								/>
 							)}
 						</Stale>

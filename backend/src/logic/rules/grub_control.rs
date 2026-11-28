@@ -117,15 +117,15 @@ impl GrubControlRule {
                  a 1-sqft section of turf (Missouri Extension g6705).{}",
                 gdd_explanation
             ))
-            .with_data_point(
+            .with_weather_point(
                 "7-Day Avg Soil Temp",
                 format!("{:.1}°F", soil_temp_avg),
-                DataSource::SoilData.as_str(),
+                env.measured_week("soil_temp_7day_avg_f"),
             )
-            .with_data_point(
+            .with_weather_point(
                 "Current Soil Temp (10cm)",
                 format!("{:.1}°F", current_soil_temp),
-                DataSource::SoilData.as_str(),
+                env.measured_now("soil_temp_10"),
             )
             .with_data_point(
                 "Window Closes",
@@ -161,10 +161,10 @@ impl GrubControlRule {
                 "Grub Control - Soil Warm",
                 "Soil temperature is elevated. Grub control may still be effective but optimal window is passing.",
             )
-            .with_data_point(
+            .with_weather_point(
                 "7-Day Avg Soil Temp",
                 format!("{:.1}°F", soil_temp_avg),
-                DataSource::SoilData.as_str(),
+                env.measured_week("soil_temp_7day_avg_f"),
             );
 
             if let Some(gdd) = gdd_ytd {

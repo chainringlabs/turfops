@@ -182,3 +182,27 @@ fn an_approximate_headline_adds_a_weather_basis_point_and_changes_nothing_else()
         assert!(point.value.contains("estimate for your location"));
     }
 }
+
+// @spec WX-VIEW-BASIS-001
+#[test]
+fn the_risk_score_names_the_hourly_basis_it_was_scored_on() {
+    let today = date(7, 20);
+    let ctx = DiseaseContext::default();
+    let risks = assess_all(&hot_humid(today, 90.0), today, &ctx);
+    let sensor = crate::models::weather_basis::Basis {
+        kind: crate::models::weather_basis::BasisKind::Sensor,
+        source: "Patio".into(),
+        distance_miles: None,
+        approximate: false,
+    };
+    let recs = super::to_recommendations_on(&risks, &ctx, Some(&sensor));
+    assert!(!recs.is_empty());
+    for rec in &recs {
+        let score = &rec.data_points[0];
+        assert_eq!(score.label, "Risk score");
+        assert_eq!(
+            (score.source.as_str(), score.basis.as_ref()),
+            ("your sensor Patio", Some(&sensor))
+        );
+    }
+}

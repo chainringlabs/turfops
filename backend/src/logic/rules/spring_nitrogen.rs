@@ -3,8 +3,8 @@ use super::thresholds::*;
 use super::Rule;
 use crate::clock::Moment;
 use crate::models::{
-    Application, DataSource, EnvironmentalSummary, LawnProfile, ProductCategory, ProductNeed,
-    Recommendation, RecommendationCategory, Severity,
+    Application, DataSource, EnvironmentalSummary, LawnProfile, Measured, ProductCategory,
+    ProductNeed, Recommendation, RecommendationCategory, Severity,
 };
 use chrono::{Datelike, NaiveDate};
 
@@ -48,6 +48,7 @@ impl Rule for SpringNitrogenRule {
 
         // Get soil temperature
         let soil_temp_avg = env.soil_temp_7day_avg_f?;
+        let soil = env.measured_week("soil_temp_7day_avg_f");
 
         // GDD data
         let gdd_ytd = env.gdd_base50_ytd;
@@ -57,7 +58,7 @@ impl Rule for SpringNitrogenRule {
         // A4: May 1 hard cutoff (Missouri g6705)
         if month == 5 {
             if !has_spring_fert {
-                return Some(build_may_cutoff_warning(soil_temp_avg));
+                return Some(build_may_cutoff_warning(soil_temp_avg, soil));
             }
             return None;
         }
@@ -67,10 +68,10 @@ impl Rule for SpringNitrogenRule {
             // Too cold - definitely don't fertilize
             if has_spring_fert {
                 // Already fertilized when too cold - warn about the mistake
-                Some(build_too_early_warning(soil_temp_avg))
+                Some(build_too_early_warning(soil_temp_avg, soil))
             } else {
                 // Good - they're waiting. Reinforce patience.
-                Some(build_patience_advisory(soil_temp_avg))
+                Some(build_patience_advisory(soil_temp_avg, soil))
             }
         } else if (SPRING_N_APPROACHING_SOIL_F..SPRING_N_MIN_SOIL_F).contains(&soil_temp_avg) {
             // Getting close - still advise waiting UNLESS GDD confirms active growth
@@ -78,9 +79,14 @@ impl Rule for SpringNitrogenRule {
                 let gdd_ready = gdd_ytd.is_some_and(|gdd| gdd >= SPRING_N_GDD_READY);
                 if gdd_ready {
                     // GDD confirms active growth — promote to "ready"
-                    Some(build_ready_to_fertilize(soil_temp_avg, profile, gdd_ytd))
+                    Some(build_ready_to_fertilize(
+                        soil_temp_avg,
+                        soil,
+                        profile,
+                        gdd_ytd,
+                    ))
                 } else {
-                    Some(build_almost_ready(soil_temp_avg, gdd_ytd))
+                    Some(build_almost_ready(soil_temp_avg, soil, gdd_ytd))
                 }
             } else {
                 None // They already applied, no point warning now
@@ -88,7 +94,12 @@ impl Rule for SpringNitrogenRule {
         } else if (SPRING_N_MIN_SOIL_F..=SPRING_N_READY_HIGH_F).contains(&soil_temp_avg) {
             // Good range - if they haven't fertilized, now is okay
             if !has_spring_fert {
-                Some(build_ready_to_fertilize(soil_temp_avg, profile, gdd_ytd))
+                Some(build_ready_to_fertilize(
+                    soil_temp_avg,
+                    soil,
+                    profile,
+                    gdd_ytd,
+                ))
             } else {
                 None
             }
@@ -116,7 +127,7 @@ pub(crate) fn spring_feedings(history: &[Application], today: NaiveDate) -> Vec<
 }
 
 // @spec RULE-SPRING-009
-fn build_too_early_warning(soil_temp: f64) -> Recommendation {
+fn build_too_early_warning(soil_temp: f64, soil: Measured<'_>) -> Recommendation {
     Recommendation::new(
         "spring_n_too_early",
         RecommendationCategory::Fertilizer,
@@ -134,11 +145,7 @@ fn build_too_early_warning(soil_temp: f64) -> Recommendation {
          a shallow root system. The result: a lawn that looks good briefly in spring \
          but struggles in summer heat. The grass needs to wake up naturally first.",
     )
-    .with_data_point(
-        "Soil Temp",
-        format!("{:.1}°F", soil_temp),
-        DataSource::SoilData.as_str(),
-    )
+    .with_weather_point("Soil Temp", format!("{:.1}°F", soil_temp), soil)
     .with_data_point(
         "Target Temp",
         format!("{:.0}°F minimum", SPRING_N_MIN_SOIL_F),
@@ -154,7 +161,7 @@ fn build_too_early_warning(soil_temp: f64) -> Recommendation {
 }
 
 // @spec RULE-SPRING-009
-fn build_patience_advisory(soil_temp: f64) -> Recommendation {
+fn build_patience_advisory(soil_temp: f64, soil: Measured<'_>) -> Recommendation {
     Recommendation::new(
         "spring_n_wait",
         RecommendationCategory::Fertilizer,
@@ -174,11 +181,7 @@ fn build_patience_advisory(soil_temp: f64) -> Recommendation {
          weak top growth at the expense of root development.",
         SPRING_N_MIN_SOIL_F
     ))
-    .with_data_point(
-        "Current Soil Temp",
-        format!("{:.1}°F", soil_temp),
-        DataSource::SoilData.as_str(),
-    )
+    .with_weather_point("Current Soil Temp", format!("{:.1}°F", soil_temp), soil)
     .with_data_point(
         "Target Soil Temp",
         format!("{:.0}°F", SPRING_N_MIN_SOIL_F),
@@ -193,7 +196,7 @@ fn build_patience_advisory(soil_temp: f64) -> Recommendation {
 }
 
 // @spec RULE-SPRING-009
-fn build_almost_ready(soil_temp: f64, gdd_ytd: Option<f64>) -> Recommendation {
+fn build_almost_ready(soil_temp: f64, soil: Measured<'_>, gdd_ytd: Option<f64>) -> Recommendation {
     let mut rec = Recommendation::new(
         "spring_n_almost",
         RecommendationCategory::Fertilizer,
@@ -213,11 +216,7 @@ fn build_almost_ready(soil_temp: f64, gdd_ytd: Option<f64>) -> Recommendation {
          Timing page.",
         SPRING_N_MIN_SOIL_F
     ))
-    .with_data_point(
-        "Current Soil Temp",
-        format!("{:.1}°F", soil_temp),
-        DataSource::SoilData.as_str(),
-    )
+    .with_weather_point("Current Soil Temp", format!("{:.1}°F", soil_temp), soil)
     .with_data_point(
         "Target",
         format!("{:.0}°F + 2-3 mowings", SPRING_N_MIN_SOIL_F),
@@ -242,7 +241,7 @@ fn build_almost_ready(soil_temp: f64, gdd_ytd: Option<f64>) -> Recommendation {
 }
 
 // @spec FEED-PIPE-005
-fn build_may_cutoff_warning(soil_temp: f64) -> Recommendation {
+fn build_may_cutoff_warning(soil_temp: f64, soil: Measured<'_>) -> Recommendation {
     Recommendation::new(
         "spring_n_may_cutoff",
         RecommendationCategory::Fertilizer,
@@ -261,10 +260,10 @@ fn build_may_cutoff_warning(soil_temp: f64) -> Recommendation {
          recommend skipping spring N entirely and focusing all feeding in fall (September-November). \
          If you must apply, use slow-release only at ≤0.5 lb N/1000sqft.",
     )
-    .with_data_point(
+    .with_weather_point(
         "Soil Temp",
         format!("{:.1}°F", soil_temp),
-        DataSource::SoilData.as_str(),
+        soil,
     )
     .with_data_point(
         "Deadline",
@@ -281,6 +280,7 @@ fn build_may_cutoff_warning(soil_temp: f64) -> Recommendation {
 
 fn build_ready_to_fertilize(
     soil_temp: f64,
+    soil: Measured<'_>,
     profile: &LawnProfile,
     gdd_ytd: Option<f64>,
 ) -> Recommendation {
@@ -319,11 +319,7 @@ fn build_ready_to_fertilize(
         rate_text(SPRING_N_RATE_LBS_PER_KSQFT),
         gdd_note
     ))
-    .with_data_point(
-        "Soil Temp",
-        format!("{:.1}°F", soil_temp),
-        DataSource::SoilData.as_str(),
-    )
+    .with_weather_point("Soil Temp", format!("{:.1}°F", soil_temp), soil)
     .with_data_point(
         RATE_POINT,
         rate_text(SPRING_N_RATE_LBS_PER_KSQFT),
@@ -434,15 +430,19 @@ mod tests {
     // @spec RULE-GUARD-002, RULE-SPRING-008, FEED-PIPE-005
     #[test]
     fn ready_to_feed_is_a_marked_feeding_that_needs_nitrogen() {
-        let rec = build_ready_to_fertilize(55.0, &base_profile(), Some(100.0));
+        let rec = build_ready_to_fertilize(55.0, Measured::now(None), &base_profile(), Some(100.0));
         assert_eq!(
             rec.feeding.map(|f| f.n_lbs_per_ksqft),
             Some(SPRING_N_RATE_LBS_PER_KSQFT)
         );
         assert!(rec.needs.iter().all(|n| n.requires_nitrogen) && !rec.needs.is_empty());
         // Advice against feeding is never a feeding.
-        assert!(build_may_cutoff_warning(52.0).feeding.is_none());
-        assert!(build_too_early_warning(45.0).feeding.is_none());
+        assert!(build_may_cutoff_warning(52.0, Measured::now(None))
+            .feeding
+            .is_none());
+        assert!(build_too_early_warning(45.0, Measured::now(None))
+            .feeding
+            .is_none());
     }
 
     #[test]

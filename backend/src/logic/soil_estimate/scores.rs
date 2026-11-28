@@ -100,6 +100,15 @@ impl ScoreFile {
 }
 
 impl ScoreFile {
+    /// The scored daily error (°F) of the estimate at `depth_cm` under `calibration`.
+    // @spec WX-EST-SCORE-003
+    pub fn daily_error(&self, depth_cm: u32, calibration: Calibration) -> Option<f64> {
+        self.daily_error
+            .iter()
+            .find(|e| e.depth_cm == depth_cm && e.calibration == calibration)
+            .map(|e| e.rmse_f)
+    }
+
     /// Every crossing scored at `depth_cm` under `calibration`, lowest threshold first.
     // @spec SETUP-API-014
     pub fn crossings_at(&self, depth_cm: u32, calibration: Calibration) -> Vec<CrossingAccuracy> {

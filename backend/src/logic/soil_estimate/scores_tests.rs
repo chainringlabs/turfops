@@ -149,3 +149,18 @@ fn the_crossings_at_a_depth_under_a_calibration_say_whether_each_may_be_dated() 
     );
     assert!(scores.crossings_at(10, Calibration::NearestFive).is_empty());
 }
+
+// @spec WX-EST-SCORE-003
+#[test]
+fn the_daily_error_is_read_from_the_file_for_the_depth_and_calibration() {
+    let f = file("");
+    assert_eq!(f.daily_error(5, Calibration::NearestFive), Some(3.5));
+    assert_eq!(f.daily_error(5, Calibration::StationAlone), None);
+    assert_eq!(f.daily_error(10, Calibration::NearestFive), None);
+    // The embedded file scores both depths the estimate is fitted at, both ways.
+    for depth in [5, 10] {
+        for calibration in [Calibration::NearestFive, Calibration::StationAlone] {
+            assert!(embedded().daily_error(depth, calibration).is_some());
+        }
+    }
+}

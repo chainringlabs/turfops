@@ -54,7 +54,7 @@ fn spring_nitrogen_runs_february_through_may_and_needs_the_soil_average() {
 // @spec RULE-SPRING-002
 #[test]
 fn may_without_a_spring_feeding_advises_skipping_spring_nitrogen() {
-    let rec = build_may_cutoff_warning(62.0);
+    let rec = build_may_cutoff_warning(62.0, Measured::now(None));
     assert_eq!(
         (rec.id.as_str(), rec.severity),
         ("spring_n_may_cutoff", Severity::Info)
@@ -78,12 +78,12 @@ fn may_without_a_spring_feeding_advises_skipping_spring_nitrogen() {
 // @spec RULE-SPRING-003, RULE-SPRING-004
 #[test]
 fn cold_soil_warns_a_fed_lawn_and_tells_an_unfed_one_to_wait() {
-    let too_early = build_too_early_warning(46.0);
+    let too_early = build_too_early_warning(46.0, Measured::now(None));
     assert_eq!(
         (too_early.id.as_str(), too_early.severity),
         ("spring_n_too_early", Severity::Warning)
     );
-    let wait = build_patience_advisory(46.0);
+    let wait = build_patience_advisory(46.0, Measured::now(None));
     assert_eq!(
         (wait.id.as_str(), wait.severity),
         ("spring_n_wait", Severity::Info)
@@ -103,13 +103,13 @@ fn cold_soil_warns_a_fed_lawn_and_tells_an_unfed_one_to_wait() {
 // @spec RULE-SPRING-005, RULE-SPRING-006, RULE-ENG-004
 #[test]
 fn near_fifty_five_gdd_decides_between_ready_and_almost() {
-    let almost = build_almost_ready(52.0, None);
+    let almost = build_almost_ready(52.0, Measured::now(None), None);
     assert_eq!(
         (almost.id.as_str(), almost.severity),
         ("spring_n_almost", Severity::Info)
     );
     assert!(almost.data_points.iter().all(|d| !d.label.contains("GDD")));
-    let ready = build_ready_to_fertilize(52.0, &fescue(), Some(50.0));
+    let ready = build_ready_to_fertilize(52.0, Measured::now(None), &fescue(), Some(50.0));
     assert_eq!(
         (ready.id.as_str(), ready.severity),
         ("spring_n_ready", Severity::Advisory)
@@ -135,7 +135,8 @@ fn near_fifty_five_gdd_decides_between_ready_and_almost() {
 // @spec RULE-SPRING-007, RULE-ENG-004
 #[test]
 fn fifty_five_to_sixty_five_is_ready_with_a_gdd_note() {
-    let note = |gdd| build_ready_to_fertilize(58.0, &fescue(), gdd).explanation;
+    let note =
+        |gdd| build_ready_to_fertilize(58.0, Measured::now(None), &fescue(), gdd).explanation;
     assert!(note(Some(150.0)).contains("well established"));
     assert!(note(Some(60.0)).contains("confirms active growth"));
     assert!(!note(Some(60.0)).contains("well established"));
@@ -157,9 +158,9 @@ fn fifty_five_to_sixty_five_is_ready_with_a_gdd_note() {
 #[test]
 fn waiting_advice_points_to_the_timing_page_for_pre_emergent() {
     for rec in [
-        build_patience_advisory(45.0),
-        build_almost_ready(52.0, Some(30.0)),
-        build_too_early_warning(45.0),
+        build_patience_advisory(45.0, Measured::now(None)),
+        build_almost_ready(52.0, Measured::now(None), Some(30.0)),
+        build_too_early_warning(45.0, Measured::now(None)),
     ] {
         let text = all_text(&rec);
         assert!(
@@ -177,7 +178,7 @@ fn waiting_advice_points_to_the_timing_page_for_pre_emergent() {
 // @spec RULE-ENG-008
 #[test]
 fn spring_feeding_states_the_rate_and_the_lawns_total() {
-    let rec = build_ready_to_fertilize(58.0, &fescue(), None);
+    let rec = build_ready_to_fertilize(58.0, Measured::now(None), &fescue(), None);
     let action = rec.suggested_action.clone().unwrap_or_default();
     assert!(
         action.contains("about 2.5 lb of nitrogen for your 5000 sq ft lawn (0.5 lb N/1000 sq ft)"),
@@ -185,7 +186,7 @@ fn spring_feeding_states_the_rate_and_the_lawns_total() {
     );
     let mut unsized_lawn = fescue();
     unsized_lawn.lawn_size_sqft = None;
-    let rec = build_ready_to_fertilize(58.0, &unsized_lawn, None);
+    let rec = build_ready_to_fertilize(58.0, Measured::now(None), &unsized_lawn, None);
     let action = rec.suggested_action.clone().unwrap_or_default();
     assert!(action.contains("Apply 0.5 lb N/1000 sq ft."), "{action}");
     assert!(!all_text(&rec).contains("label rate"));

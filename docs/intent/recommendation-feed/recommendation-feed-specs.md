@@ -8,7 +8,7 @@ Design: [recommendation-feed-design.md](recommendation-feed-design.md). Prefix `
 - [x] **FEED-REC-002**: The system shall order recommendation severities Info < Advisory < Warning < Critical, and every severity comparison in the feed shall use that order.
 - [x] **FEED-REC-003**: When serializing a recommendation, the system shall always include `needs` (an empty list when the advice calls for no product) and shall omit `inventory` when no inventory status is set.
 - [x] **FEED-REC-004**: Wherever the web UI shows a recommendation's severity (Recommendations page cards, the detail pane, dashboard alert cards, the shopping list), it shall show the severity's symbol and label in ink text on a tint of its status color (Info ℹ, Advisory →, Warning ⚠, Critical !), never the color alone and never white text on a fill.
-- [ ] **FEED-REC-005**: A data point that states a weather value shall carry a structured basis (station with name and distance, the owner's sensor with its name, or estimate, with whether it is approximate), copied from the summary or contract its source read, and every surface shall render that basis with the shared basis label.
+- [x] **FEED-REC-005**: A data point that states a weather value shall carry a structured basis (station with name and distance, the owner's sensor with its name, or estimate, with whether it is approximate), copied from the summary or contract its source read, and every surface shall render that basis with the shared basis label.
 
 ## Building the feed
 

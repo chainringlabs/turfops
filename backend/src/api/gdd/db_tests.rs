@@ -29,7 +29,7 @@ async fn gdd(state: &AppState, year: Option<i32>) -> Result<GddSummary, TurfOpsE
         .map(|Json(summary)| summary)
 }
 
-// @spec RULE-GDD-001, RULE-GDD-006
+// @spec RULE-GDD-001, RULE-GDD-006, WX-VIEW-BASIS-001
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn gdd_sums_the_records_daily_gdd50_through_today(pool: PgPool) {
     let lab = Lab::new(pool.clone()).await;
@@ -49,6 +49,10 @@ async fn gdd_sums_the_records_daily_gdd50_through_today(pool: PgPool) {
         .map(|day| day.cumulative_gdd_base50)
         .collect();
     assert_eq!(running, vec![20.0, 40.0, 40.0]);
+    // @spec WX-VIEW-BASIS-001: the total names the daily air it was summed from.
+    let basis = summary.basis.expect("days, so a basis");
+    assert_eq!(basis.basis.source, lab.source(PRISM).await.name);
+    assert!(!basis.mixed);
 
     let err = gdd(&state, Some(300_000)).await.unwrap_err();
     assert_eq!(err.into_response().status(), 400);

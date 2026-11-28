@@ -2,8 +2,8 @@ use super::thresholds::*;
 use super::Rule;
 use crate::clock::Moment;
 use crate::models::{
-    Application, DataSource, EnvironmentalSummary, LawnProfile, ProductCategory, ProductNeed,
-    Recommendation, RecommendationCategory, Severity,
+    Application, EnvironmentalSummary, LawnProfile, ProductCategory, ProductNeed, Recommendation,
+    RecommendationCategory, Severity,
 };
 
 /// Irrigation forecast rule - recommends irrigation based on forecast drought
@@ -73,7 +73,7 @@ impl Rule for IrrigationForecastRule {
             .take_while(|d| is_dry(d))
             .count();
 
-        Some(self.build_recommendation(severity, soil_moisture, dry_days, profile))
+        Some(self.build_recommendation(env, severity, soil_moisture, dry_days, profile))
     }
 }
 
@@ -81,6 +81,7 @@ impl IrrigationForecastRule {
     // @spec RULE-WX-004
     fn build_recommendation(
         &self,
+        env: &EnvironmentalSummary,
         severity: Severity,
         soil_moisture: f64,
         dry_days: usize,
@@ -127,15 +128,15 @@ impl IrrigationForecastRule {
              irrigation prevents drought stress, thinning, and weed invasion. Water deeply \
              (to 6 inches) to encourage deep root growth.",
         )
-        .with_data_point(
+        .with_weather_point(
             "Soil Moisture",
             format!("{:.0}%", soil_moisture * 100.0),
-            DataSource::SoilData.as_str(),
+            env.measured_soil_moisture(),
         )
-        .with_data_point(
+        .with_weather_point(
             "Dry Days Forecast",
             format!("{} days", dry_days),
-            DataSource::OpenWeatherMap.as_str(),
+            env.measured_forecast(),
         )
         .with_action(action)
         // Nice to have on dry, water-repellent spots; never a reason to shop.
@@ -172,7 +173,7 @@ mod tests {
     /// Dry soil (8%) plus a forecast of one day per `(amount in mm, probability)`, from
     /// today.
     fn env(days: &[(Option<f64>, Option<f64>)]) -> EnvironmentalSummary {
-        let mut reading = EnvironmentalReading::new(DataSource::SoilData);
+        let mut reading = EnvironmentalReading::new(crate::models::DataSource::SoilData);
         reading.soil_moisture_10 = Some(0.08);
         let today = crate::clock::Clock::System.today();
         let daily_summary = days

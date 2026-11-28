@@ -83,6 +83,7 @@ pub fn build_seasonal_plan(
         estimated_years,
         generated_at: chrono::Utc::now(),
         today,
+        basis: None,
     }
 }
 

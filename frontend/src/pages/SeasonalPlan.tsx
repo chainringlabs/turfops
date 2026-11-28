@@ -8,6 +8,7 @@ import {
 	statusText,
 	yearChoices,
 } from "../components/plan/activityStatus";
+import BasisLabel from "../components/sources/BasisLabel";
 import type {
 	PlannedActivity,
 	SeasonalPlan as SeasonalPlanType,
@@ -217,6 +218,10 @@ export default function SeasonalPlan() {
 						Predicted activity windows based on {plan.data_years_used} years of
 						soil temperature data
 					</p>
+					{/* @spec WX-VIEW-BASIS-001 */}
+					{plan.basis && (
+						<BasisLabel basis={plan.basis.basis} mixed={plan.basis.mixed} />
+					)}
 				</div>
 				<div style={styles.yearSelector}>
 					{yearOptions.map((y) => (

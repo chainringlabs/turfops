@@ -1,3 +1,4 @@
+use super::weather_basis::Basis;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -97,6 +98,12 @@ pub struct DataPoint {
     pub label: String,
     pub value: String,
     pub source: String,
+    /// What a weather value rests on; absent for a value that is not weather.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub basis: Option<Basis>,
+    /// The value's period drew on more than one basis.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub mixed: bool,
 }
 
 impl DataPoint {
@@ -105,9 +112,36 @@ impl DataPoint {
             label: label.to_string(),
             value: value.to_string(),
             source: source.to_string(),
+            basis: None,
+            mixed: false,
         }
     }
 }
+
+/// Where a weather data point's value came from.
+#[derive(Debug, Clone, Copy)]
+pub enum Measured<'a> {
+    /// A value the weather record holds, on this basis (none when the record gave none).
+    Record {
+        basis: Option<&'a Basis>,
+        mixed: bool,
+    },
+    /// A forecast value, from this provider.
+    Forecast(&'a str),
+}
+
+impl Measured<'_> {
+    /// A current value on `basis`.
+    pub fn now(basis: Option<&Basis>) -> Measured<'_> {
+        Measured::Record {
+            basis,
+            mixed: false,
+        }
+    }
+}
+
+/// A weather data point's source when the record named no basis.
+pub const RECORD_SOURCE: &str = "Weather record";
 
 // @spec FEED-REC-001, FEED-REC-003
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -181,6 +215,31 @@ impl Recommendation {
         source: &str,
     ) -> Self {
         self.data_points.push(DataPoint::new(label, value, source));
+        self
+    }
+
+    /// A weather data point naming what its value rests on: the record's basis (in words as
+    /// its source, and whole for the shared label), or the forecast provider.
+    // @spec FEED-REC-005, WX-VIEW-BASIS-001
+    pub fn with_weather_point(
+        mut self,
+        label: &str,
+        value: impl std::fmt::Display,
+        from: Measured<'_>,
+    ) -> Self {
+        let point = match from {
+            Measured::Record { basis, mixed } => DataPoint {
+                basis: basis.cloned(),
+                mixed: mixed && basis.is_some(),
+                ..DataPoint::new(
+                    label,
+                    value,
+                    &basis.map_or_else(|| RECORD_SOURCE.to_string(), Basis::in_words),
+                )
+            },
+            Measured::Forecast(provider) => DataPoint::new(label, value, provider),
+        };
+        self.data_points.push(point);
         self
     }
 

@@ -4,7 +4,7 @@ Web UI — leaf segment `UI` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-11-27 (git SHA `aa1cae8`): all 65 active specs implemented, each cited in code and by a test.
+**OK** — audited 2026-11-27 (git SHA `5fb1a99`): all 65 active specs implemented, each cited in code and by a test.
 
 ## References
 
@@ -22,6 +22,7 @@ Web UI — leaf segment `UI` under the root HLD.
 
 ### Tests
 - [backend/src/api/plants/db_crud_tests.rs](../../backend/src/api/plants/db_crud_tests.rs)
+- [backend/src/api/products/unreadable_db_tests.rs](../../backend/src/api/products/unreadable_db_tests.rs)
 - [backend/src/config/cors_origin_tests.rs](../../backend/src/config/cors_origin_tests.rs)
 - [backend/src/config/load_tests.rs](../../backend/src/config/load_tests.rs)
 - [backend/src/db/product_queries/row_tests.rs](../../backend/src/db/product_queries/row_tests.rs)

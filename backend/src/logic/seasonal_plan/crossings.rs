@@ -1,6 +1,8 @@
 //! 10 cm soil-temperature threshold crossings: finding each year's crossings from the
 //! weather record's daily means, and summarizing them across years for a plan year.
 
+use crate::logic::weather_record::daily::period_basis;
+use crate::models::environmental::PeriodBasis;
 use crate::models::seasonal_plan::*;
 use crate::models::weather_basis::{BasisKind, Series};
 use crate::models::weather_record::Input;
@@ -156,6 +158,8 @@ pub fn voting_years(settled_years: &[i32], plan_year: i32) -> Vec<i32> {
 pub struct RecordCrossings {
     pub crossings: Vec<ThresholdCrossing>,
     pub settled_years: Vec<i32>,
+    /// The 10 cm soil the crossings were found in.
+    pub basis: Option<PeriodBasis>,
 }
 
 /// A threshold's value and whether it is crossed falling.
@@ -224,8 +228,15 @@ pub fn crossings_from_record(
             settled_years.push(year);
         }
     }
+    let soil: Vec<_> = series
+        .basis
+        .iter()
+        .filter(|span| span.input == Input::SoilTemp10)
+        .cloned()
+        .collect();
     RecordCrossings {
         crossings,
         settled_years,
+        basis: period_basis(&soil),
     }
 }

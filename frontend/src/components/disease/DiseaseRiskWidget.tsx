@@ -1,12 +1,13 @@
 import { Link } from "react-router";
 import type { DiseaseRiskResponse } from "../../types/disease";
+import BasisLabel from "../sources/BasisLabel";
 import TierBadge from "./TierBadge";
 
 interface DiseaseRiskWidgetProps {
 	data: DiseaseRiskResponse;
 }
 
-// @spec DIS-UI-WIDGET-001
+// @spec DIS-UI-WIDGET-001, WX-VIEW-BASIS-001
 /** Dashboard card: every tracked disease with its current tier, linking to detail. */
 export default function DiseaseRiskWidget({ data }: DiseaseRiskWidgetProps) {
 	return (
@@ -17,6 +18,11 @@ export default function DiseaseRiskWidget({ data }: DiseaseRiskWidgetProps) {
 					View all ›
 				</Link>
 			</div>
+			{data.basis.headline && (
+				<div style={styles.basis}>
+					<BasisLabel basis={data.basis.headline} />
+				</div>
+			)}
 			{data.diseases.length === 0 && (
 				<div style={styles.empty}>
 					{data.data_notes[0] ?? "Not enough recent weather data."}
@@ -52,6 +58,7 @@ const styles: Record<string, React.CSSProperties> = {
 	},
 	label: { fontSize: "0.85rem", color: "#4a5568", fontWeight: 500 },
 	viewAll: { fontSize: "0.75rem", color: "#3182ce", textDecoration: "none" },
+	basis: { marginBottom: 6 },
 	empty: { fontSize: "0.8rem", color: "#a0aec0" },
 	row: {
 		display: "flex",

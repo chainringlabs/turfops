@@ -129,7 +129,55 @@ pub struct EnvironmentalSummary {
     pub current_bases: Vec<CurrentBasis>,
     /// What each 7-day figure that has a value rests on, keyed by the figure's field name.
     #[serde(default)]
-    pub week_bases: BTreeMap<String, WeekBasis>,
+    pub week_bases: BTreeMap<String, PeriodBasis>,
+}
+
+impl EnvironmentalSummary {
+    /// The basis of the current value of `input` (its request name, such as
+    /// `soil_temp_10`), when one is in use.
+    pub fn current_basis(&self, input: &str) -> Option<&Basis> {
+        self.current_bases
+            .iter()
+            .find(|b| b.input == input && b.standing == BasisStanding::InUse)
+            .and_then(|b| b.basis.as_ref())
+    }
+
+    /// Where a current value of `input` came from, for a data point.
+    pub fn measured_now(&self, input: &str) -> crate::models::recommendation::Measured<'_> {
+        crate::models::recommendation::Measured::now(self.current_basis(input))
+    }
+
+    /// Where the 7-day figure `field` (its field name, such as `soil_temp_7day_avg_f`) came
+    /// from, for a data point.
+    pub fn measured_week(&self, field: &str) -> crate::models::recommendation::Measured<'_> {
+        let week = self.week_bases.get(field);
+        crate::models::recommendation::Measured::Record {
+            basis: week.map(|w| &w.basis),
+            mixed: week.is_some_and(|w| w.mixed),
+        }
+    }
+
+    /// Where the current soil moisture the rules read (`primary_soil_moisture`) came from.
+    pub fn measured_soil_moisture(&self) -> crate::models::recommendation::Measured<'_> {
+        let current = self.current.as_ref();
+        let input = if current.is_some_and(|c| c.soil_moisture_10.is_some()) {
+            "soil_moisture_10"
+        } else if current.is_some_and(|c| c.soil_moisture_5.is_some()) {
+            "soil_moisture_5"
+        } else {
+            "soil_moisture_20"
+        };
+        self.measured_now(input)
+    }
+
+    /// Where a forecast value came from, for a data point: the provider of the held forecast.
+    pub fn measured_forecast(&self) -> crate::models::recommendation::Measured<'static> {
+        crate::models::recommendation::Measured::Forecast(
+            self.forecast
+                .as_ref()
+                .map_or("Forecast", |f| f.provider.label()),
+        )
+    }
 }
 
 /// Where an input of the summary stands.
@@ -155,9 +203,9 @@ pub struct CurrentBasis {
     pub observed_at: Option<DateTime<Utc>>,
 }
 
-/// A 7-day figure's basis.
+/// The basis of a figure over a period (a 7-day figure, a year-to-date total, years of history).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct WeekBasis {
+pub struct PeriodBasis {
     pub basis: Basis,
     /// The week drew on more than one basis.
     pub mixed: bool,
@@ -200,6 +248,96 @@ pub fn celsius_to_fahrenheit(c: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::weather_basis::BasisKind;
+    use crate::models::{ForecastProvider, Measured};
+
+    fn basis(kind: BasisKind, source: &str) -> Basis {
+        Basis {
+            kind,
+            source: source.into(),
+            distance_miles: None,
+            approximate: false,
+        }
+    }
+
+    fn in_use(input: &str, basis: Basis) -> CurrentBasis {
+        CurrentBasis {
+            input: input.into(),
+            standing: BasisStanding::InUse,
+            basis: Some(basis),
+            observed_at: None,
+        }
+    }
+
+    fn source_of(from: Measured<'_>) -> Option<String> {
+        match from {
+            Measured::Record { basis, .. } => basis.map(|b| b.source.clone()),
+            Measured::Forecast(provider) => Some(provider.to_string()),
+        }
+    }
+
+    // @spec WX-VIEW-BASIS-001
+    #[test]
+    fn a_data_point_reads_the_basis_of_the_value_it_shows() {
+        let mut env = EnvironmentalSummary {
+            current_bases: vec![
+                in_use("soil_temp_10", basis(BasisKind::Station, "Avondale 2 N")),
+                in_use("soil_moisture_5", basis(BasisKind::Sensor, "Bed probe")),
+                CurrentBasis {
+                    input: "air_temp".into(),
+                    standing: BasisStanding::NoCurrentValue,
+                    basis: Some(basis(BasisKind::Sensor, "Patio")),
+                    observed_at: None,
+                },
+            ],
+            ..Default::default()
+        };
+        env.week_bases.insert(
+            "soil_temp_7day_avg_f".into(),
+            PeriodBasis {
+                basis: basis(BasisKind::Estimate, "Soil temperature estimate"),
+                mixed: true,
+            },
+        );
+        assert_eq!(
+            source_of(env.measured_now("soil_temp_10")).as_deref(),
+            Some("Avondale 2 N")
+        );
+        assert_eq!(source_of(env.measured_now("air_temp")), None, "not in use");
+        let Measured::Record { basis: week, mixed } = env.measured_week("soil_temp_7day_avg_f")
+        else {
+            panic!("a record value");
+        };
+        assert_eq!(
+            (week.map(|b| b.source.as_str()), mixed),
+            (Some("Soil temperature estimate"), true)
+        );
+
+        // Soil moisture is read 10 cm first, then 5 cm, as `primary_soil_moisture` does.
+        env.current = Some(EnvironmentalReading {
+            soil_moisture_5: Some(0.3),
+            ..Default::default()
+        });
+        assert_eq!(
+            source_of(env.measured_soil_moisture()).as_deref(),
+            Some("Bed probe")
+        );
+
+        assert_eq!(
+            source_of(env.measured_forecast()).as_deref(),
+            Some("Forecast")
+        );
+        env.forecast = Some(WeatherForecast {
+            fetched_at: Utc::now(),
+            provider: ForecastProvider::NationalWeatherService,
+            hourly: vec![],
+            daily_summary: vec![],
+        });
+        assert_eq!(
+            source_of(env.measured_forecast()).as_deref(),
+            Some("National Weather Service")
+        );
+    }
 
     #[test]
     fn celsius_to_fahrenheit_known_values() {

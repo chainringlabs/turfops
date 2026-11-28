@@ -36,9 +36,11 @@ pub(crate) async fn recommendations(
     profile: &LawnProfile,
 ) -> Vec<Recommendation> {
     match compute(state, profile).await {
-        Ok((response, ctx)) => {
-            disease::recommendations::to_recommendations(&response.diseases, &ctx)
-        }
+        Ok((response, ctx)) => disease::recommendations::to_recommendations_on(
+            &response.diseases,
+            &ctx,
+            response.basis.headline.as_ref(),
+        ),
         Err(e) => {
             tracing::warn!("Disease risk unavailable for recommendations: {}", e);
             Vec::new()

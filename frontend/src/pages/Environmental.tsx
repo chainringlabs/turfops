@@ -34,9 +34,9 @@ import type {
 	CurrentBasis,
 	EnvironmentalSummary,
 	HistoricalData,
+	PeriodBasis,
 	SeriesSpan,
 	SoilTempForecast,
-	WeekBasis,
 } from "../types";
 import { PREDICTION_CONFIDENCE_COLORS } from "../types";
 import type { SourceView } from "../types/sources";
@@ -461,7 +461,7 @@ export default function Environmental() {
 					) : (
 						<div style={styles.modelInfo}>
 							Estimated for your location
-							{soilForecast.estimate_info
+							{soilForecast.estimate_info?.daily_error_f != null
 								? ` (soil estimate, typically within ${soilForecast.estimate_info.daily_error_f.toFixed(1)} °F a day)`
 								: ""}
 						</div>
@@ -617,7 +617,7 @@ function SummaryCard({
 	value: number | null | undefined;
 	unit: string;
 	decimals?: number;
-	basis?: WeekBasis;
+	basis?: PeriodBasis;
 }) {
 	return (
 		<div style={styles.summaryCard}>

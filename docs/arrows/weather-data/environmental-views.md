@@ -4,7 +4,7 @@ Environmental Views — leaf segment `WX-VIEW` under the `weather-data` sub-HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-11-27 (git SHA `aa1cae8`): 24 of 26 active specs implemented; 2 marked `[ ]` (2 of them already cited in code).
+**OK** — audited 2026-11-27 (git SHA `5fb1a99`): all 26 active specs implemented; 25 cited by a test, 24 cited in code.
 
 ## References
 
@@ -19,31 +19,49 @@ Environmental Views — leaf segment `WX-VIEW` under the `weather-data` sub-HLD.
 - [docs/intent/weather-data/environmental-views/environmental-views-specs.md](../../intent/weather-data/environmental-views/environmental-views-specs.md) (26 specs, prefix `WX-VIEW`)
 
 ### Tests
+- [backend/src/api/gdd/db_tests.rs](../../../backend/src/api/gdd/db_tests.rs)
 - [backend/src/api/historical/db_tests.rs](../../../backend/src/api/historical/db_tests.rs)
 - [backend/src/logic/data_sync/assemble_tests.rs](../../../backend/src/logic/data_sync/assemble_tests.rs)
 - [backend/src/logic/data_sync/record_db_tests.rs](../../../backend/src/logic/data_sync/record_db_tests.rs)
+- [backend/src/logic/disease/recommendations/feed_tests.rs](../../../backend/src/logic/disease/recommendations/feed_tests.rs)
+- [backend/src/logic/seasonal_plan/crossing_tests.rs](../../../backend/src/logic/seasonal_plan/crossing_tests.rs)
+- [backend/src/models/recommendation/contract_tests.rs](../../../backend/src/models/recommendation/contract_tests.rs)
 - [frontend/src/components/environmental/display.test.ts](../../../frontend/src/components/environmental/display.test.ts)
 - [frontend/src/components/environmental/trendBasis.test.ts](../../../frontend/src/components/environmental/trendBasis.test.ts)
 - [frontend/src/components/sources/BasisLabel.test.tsx](../../../frontend/src/components/sources/BasisLabel.test.tsx)
 - [frontend/src/components/sources/display.test.ts](../../../frontend/src/components/sources/display.test.ts)
 - [frontend/src/pages/Environmental.test.tsx](../../../frontend/src/pages/Environmental.test.tsx)
 - [frontend/src/pages/Environmental.trends.test.tsx](../../../frontend/src/pages/Environmental.trends.test.tsx)
-- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/historical.rs`
+- [frontend/src/pages/Recommendations.test.tsx](../../../frontend/src/pages/Recommendations.test.tsx)
+- [frontend/src/pages/SeasonalPlan.test.tsx](../../../frontend/src/pages/SeasonalPlan.test.tsx)
+- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/historical.rs`, `backend/src/logic/rules/fertilizer.rs`, `backend/src/models/environmental.rs`
 
 ### Code
 - [backend/src/api/environmental.rs](../../../backend/src/api/environmental.rs)
+- [backend/src/api/gdd.rs](../../../backend/src/api/gdd.rs)
 - [backend/src/api/historical.rs](../../../backend/src/api/historical.rs)
+- [backend/src/api/seasonal_plan.rs](../../../backend/src/api/seasonal_plan.rs)
 - [backend/src/logic/data_sync.rs](../../../backend/src/logic/data_sync.rs)
+- [backend/src/logic/disease/recommendations.rs](../../../backend/src/logic/disease/recommendations.rs)
+- [backend/src/logic/weather_record/daily.rs](../../../backend/src/logic/weather_record/daily.rs)
 - [backend/src/models/environmental.rs](../../../backend/src/models/environmental.rs)
 - [backend/src/models/historical.rs](../../../backend/src/models/historical.rs)
+- [backend/src/models/recommendation.rs](../../../backend/src/models/recommendation.rs)
+- [frontend/src/components/GddWidget.tsx](../../../frontend/src/components/GddWidget.tsx)
+- [frontend/src/components/SoilTempForecastWidget.tsx](../../../frontend/src/components/SoilTempForecastWidget.tsx)
 - [frontend/src/components/TrendChart.tsx](../../../frontend/src/components/TrendChart.tsx)
+- [frontend/src/components/disease/DiseaseRiskWidget.tsx](../../../frontend/src/components/disease/DiseaseRiskWidget.tsx)
 - [frontend/src/components/environmental/GaugeCard.tsx](../../../frontend/src/components/environmental/GaugeCard.tsx)
 - [frontend/src/components/environmental/display.ts](../../../frontend/src/components/environmental/display.ts)
 - [frontend/src/components/environmental/trendBasis.ts](../../../frontend/src/components/environmental/trendBasis.ts)
 - [frontend/src/components/gaugeConfigs.ts](../../../frontend/src/components/gaugeConfigs.ts)
 - [frontend/src/components/sources/BasisLabel.tsx](../../../frontend/src/components/sources/BasisLabel.tsx)
 - [frontend/src/components/sources/display.ts](../../../frontend/src/components/sources/display.ts)
+- [frontend/src/components/timing/TimingWidget.tsx](../../../frontend/src/components/timing/TimingWidget.tsx)
+- [frontend/src/pages/Calendar.tsx](../../../frontend/src/pages/Calendar.tsx)
 - [frontend/src/pages/Environmental.tsx](../../../frontend/src/pages/Environmental.tsx)
+- [frontend/src/pages/Recommendations.tsx](../../../frontend/src/pages/Recommendations.tsx)
+- [frontend/src/pages/SeasonalPlan.tsx](../../../frontend/src/pages/SeasonalPlan.tsx)
 - [frontend/src/utils/units.ts](../../../frontend/src/utils/units.ts)
 
 ## Architecture
@@ -63,18 +81,17 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
 | API | WX-VIEW-API-001 – WX-VIEW-API-007 | 7 | 0 | 0 | 7 | 7 |
-| BASIS | WX-VIEW-BASIS-001 – WX-VIEW-BASIS-004 | 3 | 0 | 1 | 4 | 4 |
+| BASIS | WX-VIEW-BASIS-001 – WX-VIEW-BASIS-004 | 4 | 0 | 0 | 4 | 4 |
 | STATUS | WX-VIEW-STATUS-001 – WX-VIEW-STATUS-002 | 2 | 0 | 0 | 1 | 2 |
-| PAGE | WX-VIEW-PAGE-001 – WX-VIEW-PAGE-013 | 12 | 0 | 1 | 12 | 12 |
-| **Total** | | **24** | **0** | **2** | **24** | **25** |
+| PAGE | WX-VIEW-PAGE-001 – WX-VIEW-PAGE-013 | 13 | 0 | 0 | 12 | 12 |
+| **Total** | | **26** | **0** | **0** | **24** | **25** |
 
-**Summary:** 24 of 26 active specs implemented; 0 deferred; 23 implemented specs cited by a test, 1 not.
+**Summary:** 26 of 26 active specs implemented; 0 deferred; 25 implemented specs cited by a test, 1 not.
 
 ## Key Findings
 
-1. **Marked `[ ]` but cited in code:** WX-VIEW-BASIS-001, WX-VIEW-PAGE-008. Either the code is done and the marker is stale, or the annotation claims more than the code does; check each.
-2. **Implemented, no `@spec` in code:** WX-VIEW-STATUS-002, WX-VIEW-PAGE-013.
-3. **Implemented, no test cites it:** WX-VIEW-PAGE-013.
+1. **Implemented, no `@spec` in code:** WX-VIEW-STATUS-002, WX-VIEW-PAGE-013.
+2. **Implemented, no test cites it:** WX-VIEW-PAGE-013.
 
 ## Work Required
 
@@ -82,7 +99,6 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-- Confirm WX-VIEW-BASIS-001, WX-VIEW-PAGE-008 against the code and set their markers.
 - Add a test citing WX-VIEW-PAGE-013.
 - Annotate the code behind WX-VIEW-STATUS-002, WX-VIEW-PAGE-013.
 

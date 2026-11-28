@@ -162,6 +162,36 @@ describe("Recommendations page", () => {
 		);
 	});
 
+	// @spec FEED-REC-005, WX-VIEW-BASIS-001
+	it("shows a weather data point's basis with the shared label, others by source", async () => {
+		await renderPage([
+			rec("block", {
+				data_points: [
+					{
+						label: "Soil Temp",
+						value: "48.4°F",
+						source: "Avondale 2 N (1 mi)",
+						basis: {
+							kind: "Station",
+							source: "Avondale 2 N",
+							distance_miles: 0.6,
+							approximate: false,
+						},
+						mixed: true,
+					},
+					{ label: "GDD", value: "640", source: "Calculated" },
+				],
+			}),
+		]);
+		await userEvent.click(screen.getByRole("button", { name: /Title block/ }));
+		const soil = screen.getByRole("row", { name: /Soil Temp/ });
+		expect(within(soil).getByRole("link")).toHaveAttribute("href", "/sources");
+		expect(soil).toHaveTextContent("Measured · Avondale 2 N, 1 mi · mixed");
+		const gdd = screen.getByRole("row", { name: /GDD/ });
+		expect(gdd).toHaveTextContent("Calculated");
+		expect(within(gdd).queryByRole("link")).toBeNull();
+	});
+
 	// @spec FEED-UI-005, FEED-UI-006
 	it("lists answered advice behind a toggle and restores it", async () => {
 		const answered = rec("old", { severity: "Info", addressed: true });

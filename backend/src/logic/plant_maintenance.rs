@@ -195,7 +195,7 @@ pub fn generate_plant_maintenance_recommendations(
                 );
             }
             if task.task_type == TaskType::Watering {
-                rec = water.annotate(rec);
+                rec = water.annotate(rec, env);
             }
 
             recs.push(rec);

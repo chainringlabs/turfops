@@ -17,6 +17,9 @@ pub struct GddSummary {
     pub daily_history: Vec<DailyGdd>,
     pub crabgrass_model: CrabgrassModel,
     pub last_computed_date: Option<NaiveDate>,
+    /// The daily air the year's GDD was summed from; null with no days.
+    #[serde(default)]
+    pub basis: Option<super::environmental::PeriodBasis>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

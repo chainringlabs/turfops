@@ -48,6 +48,38 @@ describe("station soil", () => {
 		expect(line).toMatch(/^Station soil observed /);
 		expect(soilObservedLine({} as EnvironmentalSummary)).toBeNull();
 	});
+
+	// @spec WX-VIEW-PAGE-008
+	it("is worded for the soil's basis, and an estimate names its day", () => {
+		const on = (kind: "Station" | "Sensor" | "Estimate", at: string) =>
+			soilObservedLine({
+				soil_observed_at: at,
+				current_bases: [
+					{
+						input: "soil_temp_10",
+						standing: "InUse",
+						basis: {
+							kind,
+							source: "x",
+							distance_miles: null,
+							approximate: false,
+						},
+						observed_at: at,
+					},
+				],
+			} as EnvironmentalSummary);
+		expect(on("Station", "2026-10-10T18:00:00Z")).toMatch(
+			/^Station soil observed /,
+		);
+		expect(on("Sensor", "2026-10-10T18:05:00Z")).toMatch(/^Sensor soil read /);
+		// The estimate's time is the start of its day: the line gives the day, no time.
+		const start = new Date(2026, 9, 10).toISOString();
+		const day = new Date(2026, 9, 10).toLocaleDateString(undefined, {
+			month: "short",
+			day: "numeric",
+		});
+		expect(on("Estimate", start)).toBe(`Soil estimated for ${day}`);
+	});
 });
 
 describe("stale station soil", () => {

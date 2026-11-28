@@ -167,12 +167,8 @@ async fn input_views(
 // @spec WX-EST-SCORE-003, SETUP-API-014
 fn accuracy_of(fit: &StoredFit) -> Option<EstimateAccuracy> {
     let depth = fit.depth_cm as u32;
-    let found = scores::embedded()
-        .daily_error
-        .iter()
-        .find(|e| e.depth_cm == depth && e.calibration == fit.calibration)?;
     Some(EstimateAccuracy {
-        typical_error_f: found.rmse_f,
+        typical_error_f: scores::embedded().daily_error(depth, fit.calibration)?,
         fitted_on: fit.calibration,
         crossings: scores::embedded().crossings_at(depth, fit.calibration),
     })

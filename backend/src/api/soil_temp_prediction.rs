@@ -101,7 +101,7 @@ pub async fn get_soil_temp_forecast(
         info: EstimateInfo {
             stations: fit.stations.iter().map(|s| s.name.clone()).collect(),
             training_days: fit.training_days,
-            daily_error_f: fit.rmse_f,
+            daily_error_f: scores::embedded().daily_error(10, fit.calibration),
         },
     });
     let calibration = fit.as_ref().map(|fit| fit.calibration);

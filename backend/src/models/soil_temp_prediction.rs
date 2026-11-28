@@ -110,8 +110,9 @@ pub struct EstimateInfo {
     /// The stations the estimate was fitted on.
     pub stations: Vec<String>,
     pub training_days: i32,
-    /// Its root-mean-square daily error, °F.
-    pub daily_error_f: f64,
+    /// Its scored root-mean-square daily error, °F, from the scoring file; null when the
+    /// file has no score for the fit's depth and calibration.
+    pub daily_error_f: Option<f64>,
 }
 
 /// Model metadata for display (excludes internal coefficients)

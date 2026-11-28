@@ -8,12 +8,13 @@ import {
 import type { GddSummary } from "../types";
 import { CRABGRASS_STATUS_COLORS, CRABGRASS_STATUS_LABELS } from "../types";
 import ChartTable from "./ChartTable";
+import BasisLabel from "./sources/BasisLabel";
 
 interface GddWidgetProps {
 	data: GddSummary;
 }
 
-// @spec RULE-UI-001
+// @spec RULE-UI-001, WX-VIEW-BASIS-001
 export default function GddWidget({ data }: GddWidgetProps) {
 	const { current_gdd_total, crabgrass_model, daily_history } = data;
 	const status = crabgrass_model.status;
@@ -92,6 +93,11 @@ export default function GddWidget({ data }: GddWidgetProps) {
 			)}
 
 			<div style={styles.footnote}>Crabgrass germinates at ~200 GDD</div>
+			{data.basis && (
+				<div style={styles.basis}>
+					<BasisLabel basis={data.basis.basis} mixed={data.basis.mixed} />
+				</div>
+			)}
 		</div>
 	);
 }
@@ -152,6 +158,7 @@ const styles: Record<string, React.CSSProperties> = {
 		marginTop: 4,
 		marginBottom: 4,
 	},
+	basis: { marginTop: 4 },
 	footnote: {
 		fontSize: "0.65rem",
 		color: "#a0aec0",

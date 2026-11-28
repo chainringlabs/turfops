@@ -2,7 +2,7 @@ use super::thresholds::*;
 use super::Rule;
 use crate::clock::Moment;
 use crate::models::{
-    Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
+    Application, EnvironmentalSummary, LawnProfile, Measured, Recommendation,
     RecommendationCategory, Severity,
 };
 
@@ -32,12 +32,12 @@ impl Rule for FertilizerRule {
 
         let current = env.current.as_ref()?;
 
-        // Ambient comes from Home Assistant only; without it the soil checks still apply.
+        // Without an air temperature the soil checks still apply.
         let ambient_temp = current.ambient_temp_f;
         let soil_moisture = current.primary_soil_moisture();
 
         let mut warnings: Vec<String> = Vec::new();
-        let mut data_points: Vec<(&str, String, &str)> = Vec::new();
+        let mut data_points: Vec<(&str, String, Measured)> = Vec::new();
 
         // Check heat stress
         if let Some(ambient_temp) = ambient_temp.filter(|t| *t > HEAT_STRESS_TEMP_F) {
@@ -48,7 +48,7 @@ impl Rule for FertilizerRule {
             data_points.push((
                 "Ambient Temp",
                 format!("{:.1}°F", ambient_temp),
-                DataSource::HomeAssistant.as_str(),
+                env.measured_now("air_temp"),
             ));
         }
 
@@ -62,7 +62,7 @@ impl Rule for FertilizerRule {
                 data_points.push((
                     "Soil Moisture",
                     format!("{:.2}", moisture),
-                    DataSource::SoilData.as_str(),
+                    env.measured_soil_moisture(),
                 ));
             } else if moisture > SOIL_MOISTURE_SATURATED {
                 warnings.push(format!(
@@ -72,7 +72,7 @@ impl Rule for FertilizerRule {
                 data_points.push((
                     "Soil Moisture",
                     format!("{:.2}", moisture),
-                    DataSource::SoilData.as_str(),
+                    env.measured_soil_moisture(),
                 ));
             }
         }
@@ -103,15 +103,15 @@ impl Rule for FertilizerRule {
             HEAT_STRESS_TEMP_F
         ));
 
-        for (label, value, source) in data_points {
-            rec = rec.with_data_point(label, value, source);
+        for (label, value, from) in data_points {
+            rec = rec.with_weather_point(label, value, from);
         }
 
         if let Some(soil_temp) = current.soil_temp_10_f {
-            rec = rec.with_data_point(
+            rec = rec.with_weather_point(
                 "Soil Temp (10cm)",
                 format!("{:.1}°F", soil_temp),
-                DataSource::SoilData.as_str(),
+                env.measured_now("soil_temp_10"),
             );
         }
 
@@ -146,7 +146,7 @@ mod tests {
     }
 
     fn env(ambient: Option<f64>, moisture: f64) -> EnvironmentalSummary {
-        let mut reading = EnvironmentalReading::new(DataSource::SoilData);
+        let mut reading = EnvironmentalReading::new(crate::models::DataSource::SoilData);
         reading.ambient_temp_f = ambient;
         reading.soil_moisture_10 = Some(moisture);
         EnvironmentalSummary {
@@ -167,6 +167,41 @@ mod tests {
             )
             .expect("saturated soil blocks fertilizer");
         assert_eq!(rec.severity, Severity::Warning);
+    }
+
+    // @spec FEED-REC-005, WX-VIEW-BASIS-001
+    #[test]
+    fn each_weather_point_names_the_basis_of_its_value() {
+        use crate::models::weather_basis::{Basis, BasisKind};
+        use crate::models::{BasisStanding, CurrentBasis};
+        let mut env = env(Some(90.0), 0.45);
+        let sensor = Basis {
+            kind: BasisKind::Sensor,
+            source: "Patio".into(),
+            distance_miles: None,
+            approximate: false,
+        };
+        env.current_bases = vec![CurrentBasis {
+            input: "air_temp".into(),
+            standing: BasisStanding::InUse,
+            basis: Some(sensor.clone()),
+            observed_at: None,
+        }];
+        let rec = FertilizerRule
+            .evaluate(&env, &profile(), &[], crate::clock::Clock::System.moment())
+            .unwrap();
+        let point = |label: &str| rec.data_points.iter().find(|p| p.label == label).unwrap();
+        let air = point("Ambient Temp");
+        assert_eq!(
+            (air.source.as_str(), air.basis.as_ref()),
+            ("your sensor Patio", Some(&sensor))
+        );
+        let moisture = point("Soil Moisture");
+        assert_eq!(
+            (moisture.source.as_str(), moisture.basis.as_ref()),
+            ("Weather record", None),
+            "no basis in use for soil moisture: never a station's name"
+        );
     }
 
     #[test]
